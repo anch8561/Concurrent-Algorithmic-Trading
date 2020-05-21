@@ -1,6 +1,6 @@
 # import alpaca api
 import alpaca_trade_api as tradeapi
-from credentials import creds
+from credentials import *
 
 # import algo classes
 from LongShort import LongShort
@@ -11,8 +11,8 @@ minAllocationCash = 10000
 maxAllocationFraction = 0.1
 
 # initialize trade api
-alpaca = tradeapi.REST(*creds)
-conn = alpaca.StreamConn(*creds)
+alpaca = tradeapi.REST(*paper.creds)
+conn = alpaca.StreamConn(*paper.creds)
 
 # initialize algos
 longShort = LongShort(minAllocationCash, 0.1)
@@ -22,24 +22,22 @@ algos = [longShort, meanReversion]
 
 def distributeFunds():
     account = alpaca.get_account()
-    cash = float(account.cash)
+    cash = float(account.cash) # not sure which values we need
     equity = float(account.equity)
     buyingPower = float(account.buying_power)
 
-    # update cash & buyingPower
+    # calculate weights based on performance
+    # calculate fractions based on weights and min / max allocations
+    # distribute money according to fractions
     for algo in algos:
-        cash -= algo.cash
-        buyingPower -= algo.cash
-    assert(equity >= 25000) # only one of these matters
-    assert(cash >= 0) # not sure on the values here
-    assert(buyingPower >= 0) # is assert the best way to do this?
+        algo.cash = algo.allocationFraction*buyingPower
 
 
 def tick():
 
     # update Algo.stocks
 
-    for algo in algos: algo.tick()
+    for algo in algos: algo.tick() # Parallel thread this
 
 
 distributeFunds()
