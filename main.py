@@ -2,6 +2,8 @@
 import alpaca_trade_api as tradeapi
 from credentials import *
 
+# import data streaming
+
 # import algo classes
 from LongShort import LongShort
 from MeanReversion import MeanReversion
@@ -10,14 +12,14 @@ from MeanReversion import MeanReversion
 minAllocationCash = 10000
 maxAllocationFraction = 0.1
 
-# initialize trade api
+# initialize algos
+longShort = LongShort(minAllocationCash, 0.01)
+meanReversion = MeanReversion(minAllocationCash, 0.01, 7)
+algos = [longShort, meanReversion]
+
+# initialize alpaca api
 alpaca = tradeapi.REST(*paper.creds)
 conn = alpaca.StreamConn(*paper.creds)
-
-# initialize algos
-longShort = LongShort(minAllocationCash, 0.1)
-meanReversion = MeanReversion(minAllocationCash, 0.1, 5)
-algos = [longShort, meanReversion]
 
 
 def distributeFunds():
