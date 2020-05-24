@@ -1,8 +1,6 @@
-# import alpaca api
-import alpaca_trade_api as tradeapi
-from credentials import *
-
-# import data streaming
+from alpacaAPI import alpaca, alpacaPaper
+from distributeFunds import distributeFunds
+from marketHours import *
 
 # import algo classes
 from LongShort import LongShort
@@ -17,23 +15,7 @@ longShort = LongShort(minAllocationCash, 0.01)
 meanReversion = MeanReversion(minAllocationCash, 0.01, 7)
 algos = [longShort, meanReversion]
 
-# initialize alpaca api
-alpaca = tradeapi.REST(*paper.creds)
-conn = alpaca.StreamConn(*paper.creds)
-
-
-def distributeFunds():
-    account = alpaca.get_account()
-    cash = float(account.cash) # not sure which values we need
-    equity = float(account.equity)
-    buyingPower = float(account.buying_power)
-
-    # calculate weights based on performance
-    # calculate fractions based on weights and min / max allocations
-    # distribute money according to fractions
-    for algo in algos:
-        algo.cash = algo.allocationFraction*buyingPower
-
+# TODO: dataStreaming
 
 def tick():
 
