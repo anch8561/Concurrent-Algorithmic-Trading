@@ -2,7 +2,7 @@
 
 from alpacaAPI import alpaca, alpacaPaper
 
-def distributeFunds():
+def distribute_funds(algos):
     account = alpaca.get_account()
     cash = float(account.cash) # not sure which values we need
     equity = float(account.equity)
@@ -12,4 +12,4 @@ def distributeFunds():
     # calculate fractions based on weights and min / max allocations
     # distribute money according to fractions
     for algo in algos:
-        algo.cash = algo.allocationFraction*buyingPower
+        algo.cash = algo.allocFrac * buyingPower

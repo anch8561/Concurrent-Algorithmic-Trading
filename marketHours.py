@@ -4,7 +4,7 @@ from alpacaAPI import alpaca
 from datetime import datetime, timedelta
 from pytz import timezone
 
-def marketWasOpenYesterday():
+def market_was_open_yesterday():
     # currently unused
     nyc = timezone('America/New_York')
     date = datetime.today().astimezone(nyc)
@@ -14,18 +14,18 @@ def marketWasOpenYesterday():
 
     return calendar[0]._raw['date'] == yesterday
     
-def isNewWeekSince(date):
-    # date: string e.g. '2020-05-22'
+def is_new_week_since(date):
+    # date: e.g. '2020-05-22'
     date = datetime.strptime(date, '%Y-%m-%d')
-    today = getDate()
+    today = get_date()
     monday = today - timedelta(today.weekday())
     return date < monday
 
-def getTime():
+def get_time():
     nyc = timezone('America/New_York')
     return datetime.today().astimezone(nyc).strftime('%H-%M-%S')
 
-def getDate(dayOffset=0):
+def get_date(dayOffset=0):
     nyc = timezone('America/New_York')
     today = datetime.today().astimezone(nyc)
     date = today + timedelta(dayOffset)
