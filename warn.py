@@ -4,8 +4,8 @@ def warn(message, fileName=None):
     # TODO: add timestamp
 
     # check arguments
-    if fileName is None: fileNames = 'warnings.log'
-    else: fileNames = fileName, 'warnings.log'
+    if fileName is None: fileNames = ('warnings.log')
+    else: fileNames = (fileName, 'warnings.log')
 
     stack = extract_stack().format()
     stack.pop() # remove warn()
