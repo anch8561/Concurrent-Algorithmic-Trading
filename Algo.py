@@ -1,7 +1,8 @@
 # base class for algos
 
 from alpacaAPI import alpaca, alpacaPaper
-import warnings, statistics
+from warn import warn
+import statistics
 
 class Algo:
     assets = {}
@@ -37,8 +38,6 @@ class Algo:
         self.live = False # whether using real money
         self.allocFrac = 0
 
-        self.update_assets() # NOTE: this should happen once per day before market open
-
     def update_assets(self, algos):
         alpacaAssets = alpaca.list_assets('active', 'us_equity')
 
@@ -65,7 +64,7 @@ class Algo:
             # check for positions
             if asset in self.livePositions:
                 position = self.livePositions[asset]
-                warnings.warn(f'You have {position} shares in {asset}')
+                warn(f'You have {position} shares in {asset}')
                 # TODO: how to handle this?
             # TODO: paper and algos
 
@@ -92,7 +91,7 @@ class Algo:
 
         # check argument
         if self.live == live:
-            warnings.warn(f'{self}.set_live({live}) did not change state')
+            warn(f'{self}.set_live({live}) did not change state')
             return
         
         # TODO: cancel orders

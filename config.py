@@ -1,2 +1,2 @@
-minAllocCash = 10000
+minAllocBP = 10000
 maxAllocFrac = 0.1

@@ -4,7 +4,7 @@
 
 from Algo import Algo
 from marketHours import is_new_week_since, get_time, get_date
-import warnings
+from warn import warn
 
 class ReturnsReversion(Algo):
     def __init__(self, cash, maxPosFrac=0.01, numLookbackDays=7):
@@ -48,10 +48,10 @@ class ReturnsReversion(Algo):
 
         # check arguments
         if symbol not in self.assets:
-            warnings.warn(f'{self.id()} symbol "{symbol}" is not recognized')
+            warn(f'{self.id()} symbol "{symbol}" is not recognized')
             return
         if side not in ('buy', 'sell'):
-            warnings.warn(f'{self.id()} trading side "{side}" is not recognized')
+            warn(f'{self.id()} trading side "{side}" is not recognized')
             return
 
         # get quote and quantity

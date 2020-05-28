@@ -2,6 +2,7 @@
 
 from alpacaAPI import alpaca, alpacaPaper
 from config import *
+from warn import warn
 
 def distribute_funds(algos):
     account = alpaca.get_account()
@@ -58,7 +59,7 @@ def update_margins():
         elif quantity < 0: # short
             if price < 5.00: maintMargin += max(2.50*quantity, price*quantity)
             else: maintMargin += max(5.00*quantity, 0.3*price*quantity)
-        else: warnings.warn(f'zero position in {symbol}')
+        else: warn(f'zero position in {symbol}')
 
     # check orders
     for order in orders:
