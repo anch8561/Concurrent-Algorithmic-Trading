@@ -3,9 +3,8 @@ from traceback import extract_stack
 def warn(message, fileName=None):
     # TODO: add timestamp
 
-    # check arguments
-    if fileName is None: fileNames = ('warnings.log')
-    else: fileNames = (fileName, 'warnings.log')
+    fileNames = ['warnings.log']
+    if fileName is None: fileNames.append('warnings.log')
 
     stack = extract_stack().format()
     stack.pop() # remove warn()
