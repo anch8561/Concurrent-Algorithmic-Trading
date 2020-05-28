@@ -2,38 +2,38 @@
 
 from alpacaAPI import alpaca
 from warn import warn
-from datetime import datetime, timedelta
-from pytz import timezone
+from datetime import datetime, timedelta, timezone
+
+nyc = timezone(timedelta(hours=-4))
 
 def market_was_open_yesterday():
     # currently unused
-    nyc = timezone('America/New_York')
-    date = datetime.today().astimezone(nyc)
-
-    yesterday = (date - timedelta(days=1)).strftime('%Y-%m-%d')
+    today = datetime.today().astimezone(nyc)
+    yesterday = (today - timedelta(1)).strftime('%Y-%m-%d')
     calendar = alpaca.get_calendar(yesterday, yesterday)
-
     return calendar[0]._raw['date'] == yesterday
     
-def is_new_week_since(date):
-    # date: e.g. '2020-05-22'
+def is_new_week_since(dateStr):
+    # dateStr: string e.g. '2020-05-28'
     
     # check argument
-    if date < '1' or date > '9999':
-        warn(f'{date} is outside date bounds')
+    try: date = datetime.strptime(dateStr, '%Y-%m-%d').date()
+    except:
+        warn(f'{date} could not be parsed')
         return
 
-    date = datetime.strptime(date, '%Y-%m-%d')
-    today = get_date()
+    # get past/current Monday's date
+    today = datetime.today().astimezone(nyc).date()
     monday = today - timedelta(today.weekday())
+
+    # was date before monday
     return date < monday
 
-def get_time():
-    nyc = timezone('America/New_York')
-    return datetime.today().astimezone(nyc).strftime('%H-%M-%S')
-
-def get_date(dayOffset=0):
-    nyc = timezone('America/New_York')
+def get_time_str():
     today = datetime.today().astimezone(nyc)
-    date = today + timedelta(dayOffset)
+    return today.strftime('%H-%M-%S')
+
+def get_date_str(offset=0):
+    today = datetime.today().astimezone(nyc)
+    date = today + timedelta(offset)
     return date.strftime('%Y-%m-%d')

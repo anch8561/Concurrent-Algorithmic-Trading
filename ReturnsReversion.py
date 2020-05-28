@@ -3,7 +3,7 @@
 # positions indefinitely.
 
 from Algo import Algo
-from marketHours import is_new_week_since, get_time, get_date
+from marketHours import is_new_week_since, get_time_str, get_date_str
 from warn import warn
 
 class ReturnsReversion(Algo):
@@ -12,20 +12,21 @@ class ReturnsReversion(Algo):
         tags = ['longShort', 'overnight', 'weekly']
         super().__init__(cash, maxPosFrac, tags, 'returnsReversion')
 
-        self.lastRebalanceDate = "0000-00-00"
+        self.lastRebalanceDate = "0001-01-01"
     
     def id(self):
         return f'ReturnsReversion{self.numLookbackDays}:'
 
     def tick(self):
         if is_new_week_since(self.lastRebalanceDate) and \
-            get_time() > "11-00-00": self.rebalance
+            get_time_str() > '11-00-00': self.rebalance()
 
     def rebalance(self):
+        print(self.id(), 'rebalancing')
         # get stock growth during lookback window
         symbols = self.assets.keys()
-        fromDate = get_date(-self.numLookbackDays)
-        toDate = get_date()
+        fromDate = get_date_str(-self.numLookbackDays)
+        toDate = get_date_str()
 
         # TODO: replace with self.get_asset(symbol, 'dayBars', fromDate, toDate)
         assets = {}
@@ -53,6 +54,8 @@ class ReturnsReversion(Algo):
         if side not in ('buy', 'sell'):
             warn(f'{self.id()} trading side "{side}" is not recognized')
             return
+        
+        print(self.id(), f'{side}ing {symbol}')
 
         # get quote and quantity
         price = self.alpaca.polygon.last_quote(symbol)
@@ -109,5 +112,5 @@ class ReturnsReversion(Algo):
             price = price
         ))
 
-
+        print(self.id(), f'placed order for {quantity} of {symbol}')
             
