@@ -9,10 +9,13 @@ import warnings
 class ReturnsReversion(Algo):
     def __init__(self, cash, maxPosFrac=0.01, numLookbackDays=7):
         self.numLookbackDays = numLookbackDays
-        tags = ['long', 'short', 'overnight', 'weekly']
+        tags = ['longShort', 'overnight', 'weekly']
         super().__init__(cash, maxPosFrac, tags, 'returnsReversion')
 
         self.lastRebalanceDate = "0000-00-00"
+    
+    def id(self):
+        return f'ReturnsReversion{self.numLookbackDays}:'
 
     def tick(self):
         if is_new_week_since(self.lastRebalanceDate) and \
@@ -20,7 +23,7 @@ class ReturnsReversion(Algo):
 
     def rebalance(self):
         # get stock growth during lookback window
-        symbols = [asset.symbol for asset in self.assets]
+        symbols = self.assets.keys()
         fromDate = get_date(-self.numLookbackDays)
         toDate = get_date()
 
@@ -43,28 +46,68 @@ class ReturnsReversion(Algo):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
 
-        # TODO: check for existing position or order
+        # check arguments
+        if symbol not in self.assets:
+            warnings.warn(f'{self.id()} symbol "{symbol}" is not recognized')
+            return
+        if side not in ('buy', 'sell'):
+            warnings.warn(f'{self.id()} trading side "{side}" is not recognized')
+            return
 
         # get quote and quantity
-        # TODO: I think this needs to be different for shorts
         price = self.alpaca.polygon.last_quote(symbol)
         quantity = int(self.maxPosFrac * self.equity / price)
         if quantity * price > self.buyingPower:
             quantity = int(self.buyingPower / price)
-        if quantity == 0:
-            warnings.warn(f'{self} {symbol} trade quantity is zero')
-            return
-        
-        # TODO: check margins & risk
+        if quantity == 0: return
+        if side == 'sell': quantity *= -1 # set quantity negative for sell
 
+        # check for existing position
+        if symbol in self.positions:
+            if self.positions[symbol] * quantity > 0: # same side as position
+                if abs(self.positions[symbol]) > abs(quantity): # position is large enough
+                    return
+                elif abs(self.positions[symbol]) > abs(quantity): # add to position
+                    quantity -= self.positions[symbol]
+                else: # quantity == position
+                    return
+            elif self.positions[symbol] * quantity < 0: # opposite side from position
+                quantity = -self.positions[symbol] # exit position
+                # TODO: queue this same trade again
+        
+        # TODO: check risk
+        # TODO: check for leveraged ETFs
+
+        # TODO: check global positions for zero crossing
+        alpacaPositions = self.alpaca.list_positions()
+        positions = {}
+        for position in alpacaPositions:
+            positions[position.symbol] = position.qty
+        if symbol in positions:
+            if (position[symbol] + quantity) * position[symbol] < 0: # if trade will swap position
+                quantity = -position[symbol]
+
+        # NOTE: this could exceed 200 api calls per min
+
+        # TODO: check global orders
+        # for existing or [short sell (buy) & short buy (sell)]
+
+        # place order
         order = self.alpaca.submit_order(
             symbol=symbol,
-            qty=quantity,
+            qty=abs(quantity),
             side=side,
             type='market', # because this is long term
             time_in_force='day'
         )
-        self.orders.append(order.id)
+
+        # save order
+        self.orders.append(dict(
+            id = order.id,
+            symbol = symbol,
+            quantity = quantity,
+            price = price
+        ))
 
 
             

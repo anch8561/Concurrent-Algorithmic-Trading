@@ -1,37 +1,34 @@
 from alpacaAPI import alpaca, alpacaPaper
 from distribute_funds import distribute_funds
-from marketHours import *
+from marketHours import is_new_week_since
+from config import minAllocCash
 
 # import algo classes
 from LongShort import LongShort
 from MeanReversion import MeanReversion
 from ReturnsReversion import ReturnsReversion
 
-# set global parameters
-# NOTE: these should either be in distributeFunds.py or config.py
-minAllocCash = 10000
-maxAllocFrac = 0.1
-
 # initialize algos
 longShort = LongShort(minAllocCash, 0.01)
 meanReversion = MeanReversion(minAllocCash, 0.01, 7)
-returnsReversion7 = returnsReversion(minAllocCash, 0.01, 7)
-returnsReversion30 = returnsReversion(minAllocCash, 0.01, 30)
-returnsReversion90 = returnsReversion(minAllocCash, 0.01, 90)
-algos = [longShort, meanReversion, returnsReversion]
+returnsReversion7 = ReturnsReversion(minAllocCash, 0.01, 7)
+returnsReversion30 = ReturnsReversion(minAllocCash, 0.01, 30)
+returnsReversion90 = ReturnsReversion(minAllocCash, 0.01, 90)
+algos = [longShort, meanReversion, returnsReversion7, returnsReversion30, returnsReversion90]
 
 # TODO: dataStreaming
 
-def tick():
-
-    # update Algo.stocks
-
-    for algo in algos: algo.tick() # Parallel thread this
-
-
-distribute_funds(algos)
+lastRebalanceDate = "0000-00-00"
+# TODO: read date from file or prompt to coninue
 while True:
-    # StreamConn
+    if is_new_week_since(lastRebalanceDate): distribute_funds(algos)
 
-    # if beginning of week: distributeFunds()
-    # if market open: tick()
+    # if before market open:
+    #     Algo.update_assets()
+
+    # if after market close:
+    #     for algo in algos:
+    #         algo.update_metrics()
+
+    for algo in algos: algo.tick()
+

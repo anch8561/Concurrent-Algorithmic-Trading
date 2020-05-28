@@ -1,109 +1,105 @@
 # base class for algos
 
 from alpacaAPI import alpaca, alpacaPaper
-import warnings
+import warnings, statistics
 
 class Algo:
     assets = {}
+    paperOrders = [] # [{id, symbol, quantity, price, algo}]
+    liveOrders = []
+    paperPositions = {} # {symbol: quantity}
+    livePositions = {}
 
-    def __init__(self, cash=10000, maxPosFrac=0.01, tags=[], category=None):
+    def __init__(self, buyingPower=10000, maxPosFrac=0.01, tags=[], category=None):
         # state variables
         self.alpaca = alpacaPaper # always call alpaca through this (changes with profitability)
-        self.cash = cash
-        self.equity = cash # + longs + shorts
-        self.maintMargin = 0 # calculated at prev market close
-        self.buyingPower = (self.equity - self.maintMargin) * 4
-        self.overnightPower = self.buyingPower / 2
-        self.maxPosFrac = maxPosFrac # maximum fraction of equity to hold in a position (at time of order)
+        self.buyingPower = buyingPower
         self.positions = {} # {symbol: quantity}
-        self.orders = [] # [order_id]
-        
-        self.tags = tags # e.g. 'long', 'short', 'overnight', 'intraday', 'daily', 'weekly'
-        self.category = category # e.g. 'longShort', 'meanReversion', 'momentum', 'scalping', etc
+        self.orders = [] # [{id, symbol, quantity, price}]
+        #  order quantity is positive for buy and negative for sell
+        #  order price is an estimate
+
+        # properties
+        self.maxPosFrac = maxPosFrac # maximum fraction of equity to hold in a position (at time of order)
+        self.tags = tags # e.g. 'long', 'short', 'longShort', 'intraday', 'daily', 'weekly', 'overnight'
+        self.category = category # e.g. 'meanReversion', 'momentum', 'scalping', etc
 
         # risk metrics
 
 
         # performance metrics
-        self.profitable = False # whether using real money
-        self.alpha = 0
-        self.beta = 0
+        self.history = [] # [{time, prevTime, equity, prevEquity, cashFlow, growthFrac}]
+        # change in equity minus cash allocations over previous equity
+        # extra fields are kept for error proofing
+        self.mean = 0 # average daily growth
+        self.stdev = 0 # sample standard deviation of daily growth
+
+        self.live = False # whether using real money
         self.allocFrac = 0
 
-        self.before_market_open()
-    
-    def get_asset(symbol, field):
-        # needs a blocker so it can't run in parallel
-        # if field DNE:
-        #     create field
-        # if outdated:
-        #     get data
-        # return data
-        pass
+        self.update_assets() # NOTE: this should happen once per day before market open
 
+    def update_assets(self, algos):
+        alpacaAssets = alpaca.list_assets('active', 'us_equity')
 
-    def before_market_open(self):
         # update asset data
-        alpaca_assets = alpaca.list_assets('active', 'us_equity')
-        for asset in alpaca_assets:
-            self.assets[asset.symbol] = {
-                'marginable': asset.marginable,
-                'easyToBorrow': asset.easy_to_borrow
-            }
-        # NOTE: this doesn't preserve price data
-        # TODO: check for inactive assets
+        for asset in alpacaAssets:
+            if asset.marginable:
+                if asset not in self.assets:
+                    print(f'"{asset}" is now active and marginable')
+                self.assets[asset.symbol]['easyToBorrow'] = asset.easy_to_borrow
+                # TODO: sector, industry, leverage, volume, historical data and metrics
+        
+        # remove inactive assets
+        symbols = [asset.symbol for asset in alpacaAssets]
+        inactive = []
+        for asset in self.assets:
+            if asset not in symbols:
+                inactive.append(asset)
+        for asset in inactive:
+            print(f'"{asset}" is no longer active')
 
-    def set_profitable(self, profitable):
-        if self.profitable == profitable:
-            warnings.warn(f'{self}.set_profitable({profitable}) did not change state')
+            # remove from assets
+            self.assets.pop(asset)
+
+            # check for positions
+            if asset in self.livePositions:
+                position = self.livePositions[asset]
+                warnings.warn(f'You have {position} shares in {asset}')
+                # TODO: how to handle this?
+            # TODO: paper and algos
+
+            # check for orders
+            for ii, order in enumerate(self.liveOrders):
+                if order['symbol'] == asset: self.liveOrders.pop(ii)
+            for ii, order in enumerate(self.paperOrders):
+                if order['symbol'] == asset: self.paperOrders.pop(ii)
+            for algo in algos:
+                for ii, order in enumerate(algo.orders):
+                    if order['symbol'] == asset:
+                        algo.alpaca.cancel_order(order['id'])
+                        algo.orders.pop(ii)
+        
+        # TODO: remove unmarginable assets
+
+    def update_metrics(self):
+        # TODO: check each datapoint is one market day apart
+        growth = [day['growthFrac'] for day in self.history]
+        self.mean = statistics.mean(growth)
+        self.stdev = statistics.stdev(growth)
+
+    def set_live(self, live):
+
+        # check argument
+        if self.live == live:
+            warnings.warn(f'{self}.set_live({live}) did not change state')
             return
         
-        # cancel orders
-        # close positions
-        # udpate account?
+        # TODO: cancel orders
+        # TODO: close positions
+        # TODO: udpate account?
 
         # update flag and api
-        self.profitable = profitable
-        if profitable: self.alpaca = alpaca
+        self.live = live
+        if live: self.alpaca = alpaca
         else: self.alpaca = alpacaPaper
-
-    def get_initial_margin(self):
-        pass # it's 50% of purchase price
-        # does this have to be maintained until end of day?
-
-    def get_maintenance_margin(self):
-        margin = 0
-        for symbol in self.positions:
-            price = self.alpaca.polygon.last_quote(symbol)
-            quantity = self.positions[symbol]
-
-            # calculated at end of day
-            # leveraged ETFs have higher margins (2x: 60%, 3x: 90%)
-            if quantity > 0: # long
-                if price < 2.50: margin += 1.0 * price * quantity
-                else: margin += 0.3 * price * quantity
-            elif quantity < 0: # short
-                if price < 5.00: margin += max(2.50*quantity, price*quantity)
-                else: margin += max(5.00*quantity, 0.3*price*quantity)
-            else: warnings.warn(f'{self} has zero position in {symbol}')
-        return margin
-        
-    def get_overnight_fee(self, debt):
-        # accrues daily (including weekends) and posts at end of month
-        return debt * 0.0375 / 360
-
-    def get_short_fee(self, debt):
-        # accrues daily (including weekends) and posts at end of month
-
-        # ETB (easy to borrow)
-        # fee charged for positions held at end of day
-        # fee varies from 30 to 300 bps/yr depending on demand
-
-        # HTB (hard to borrow)
-        # fee charged for positions held at any point during day
-        # fee is higher than maxFee
-
-        # NOTE: is there any way to get actual fee values from alpaca api?
-        minFee = debt * 30/1e-4 / 360
-        maxFee = debt * 300/1e4 / 360
-        return minFee, maxFee
