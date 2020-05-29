@@ -3,7 +3,7 @@
 # positions indefinitely.
 
 from Algo import Algo
-from marketHours import is_new_week_since, get_time, get_date
+from marketHours import is_new_week_since, get_time_str, get_date_str
 from warn import warn
 
 class ReturnsReversion(Algo):
@@ -12,26 +12,36 @@ class ReturnsReversion(Algo):
         tags = ['longShort', 'overnight', 'weekly']
         super().__init__(cash, maxPosFrac, tags, 'returnsReversion')
 
-        self.lastRebalanceDate = "0000-00-00"
+        self.lastRebalanceDate = "0001-01-01"
     
     def id(self):
         return f'ReturnsReversion{self.numLookbackDays}:'
 
     def tick(self):
         if is_new_week_since(self.lastRebalanceDate) and \
-            get_time() > "11-00-00": self.rebalance
+            get_time_str() > '11-00-00': self.rebalance()
 
     def rebalance(self):
-        # get stock growth during lookback window
-        symbols = self.assets.keys()
-        fromDate = get_date(-self.numLookbackDays)
-        toDate = get_date()
+        print(self.id(), 'rebalancing')
 
-        # TODO: replace with self.get_asset(symbol, 'dayBars', fromDate, toDate)
+        # get symbols and dates
+        symbols = list(Algo.assets.keys())[:100] # FIX: first 100 are for testing
+        fromDate = get_date_str(-self.numLookbackDays)
+        toDate = get_date_str()
+
+        # get asset returns during lookback window
+        # NOTE: this takes a long time
+        # it's okay since it only runs once per week
+        # it would be good if the data could be shared between all algos that need it
+        # once data has been aggregated in Algos.assets, that can be used instead
         assets = {}
         for symbol in symbols:
-            bars = self.alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate)
-            assets[symbol] = (bars[-1].close - bars[0].open)/bars[0].open
+            try:
+                bars = self.alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate)
+                assets[symbol] = (bars[-1].close - bars[0].open)/bars[0].open
+            except: pass
+
+        # sort assets by historic returns
         assets = sorted(assets.items(), key=lambda x: x[1]) # now a list of tuples
 
         # long
@@ -47,7 +57,7 @@ class ReturnsReversion(Algo):
         # side: 'buy' or 'sell'
 
         # check arguments
-        if symbol not in self.assets:
+        if symbol not in Algo.assets:
             warn(f'{self.id()} symbol "{symbol}" is not recognized')
             return
         if side not in ('buy', 'sell'):
@@ -55,10 +65,11 @@ class ReturnsReversion(Algo):
             return
 
         # get quote and quantity
-        price = self.alpaca.polygon.last_quote(symbol)
+        # TODO: get price from Algo.assets
+        price = self.alpaca.polygon.last_quote(symbol).bidprice
         quantity = int(self.maxPosFrac * self.equity / price)
-        if quantity * price > self.buyingPower:
-            quantity = int(self.buyingPower / price)
+        if quantity * price > self.cash:
+            quantity = int(self.cash / price)
         if quantity == 0: return
         if side == 'sell': quantity *= -1 # set quantity negative for sell
 
@@ -77,17 +88,17 @@ class ReturnsReversion(Algo):
         
         # TODO: check risk
         # TODO: check for leveraged ETFs
+        # TODO: check volume
 
         # TODO: check global positions for zero crossing
-        alpacaPositions = self.alpaca.list_positions()
         positions = {}
-        for position in alpacaPositions:
+        if self.live: allPositions = Algo.livePositions
+        else: allPositions = Algo.paperPositions
+        for position in allPositions:
             positions[position.symbol] = position.qty
         if symbol in positions:
             if (position[symbol] + quantity) * position[symbol] < 0: # if trade will swap position
                 quantity = -position[symbol]
-
-        # NOTE: this could exceed 200 api calls per min
 
         # TODO: check global orders
         # for existing or [short sell (buy) & short buy (sell)]
@@ -102,12 +113,14 @@ class ReturnsReversion(Algo):
         )
 
         # save order
-        self.orders.append(dict(
+        order = dict(
             id = order.id,
             symbol = symbol,
             quantity = quantity,
             price = price
-        ))
+        )
+        self.orders.append(order)
+        self.allOrders.append(order) # NOTE: this may cause issues with parrallel execution
 
-
+        print(self.id(), f'{side}ing {abs(quantity)} {symbol}')
             

@@ -1,6 +1,7 @@
 from alpacaAPI import alpaca, alpacaPaper
 from distribute_funds import distribute_funds
 from marketHours import is_new_week_since
+from update_assets import update_assets
 from config import minAllocBP
 
 # import algo classes
@@ -18,8 +19,9 @@ algos = [returnsReversion7, returnsReversion30, returnsReversion90]
 
 # TODO: dataStreaming
 
-lastRebalanceDate = "0000-00-00"
+lastRebalanceDate = "0001-01-01"
 # TODO: read date from file or prompt to coninue
+update_assets(algos)
 while True:
     # if is_new_week_since(lastRebalanceDate): distribute_funds(algos)
 
