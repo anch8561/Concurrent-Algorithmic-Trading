@@ -6,8 +6,8 @@ import statistics
 
 class Algo:
     assets = {}
-    paperOrders = [] # [{id, symbol, quantity, price, algo}]
-    liveOrders = []
+    paperOrders = {} # {order_id: [symbol, quantity, price, algo]}
+    liveOrders = {}
     paperPositions = {} # {symbol: quantity}
     livePositions = {}
 
@@ -21,7 +21,7 @@ class Algo:
         self.cash = cash # buying power NOT literal cash
         self.equity = cash # udpated daily
         self.positions = {} # {symbol: quantity}
-        self.orders = [] # [{id, symbol, quantity, price}]
+        self.orders = {} # {id: {symbol, quantity, price]}
         #  order quantity is positive for buy and negative for sell
         #  order price is an estimate
 
