@@ -55,58 +55,15 @@ class ReturnsReversion(Algo):
     def trade(self, symbol, side):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
-
-        # check arguments
-        if symbol not in Algo.assets:
-            warn(f'{self.id()} symbol "{symbol}" is not recognized')
-            return
-        if side not in ('buy', 'sell'):
-            warn(f'{self.id()} trading side "{side}" is not recognized')
-            return
-
-        # get quote and quantity
-        # TODO: get price from Algo.assets
-        price = self.alpaca.polygon.last_quote(symbol).bidprice
-        quantity = int(self.maxPosFrac * self.equity / price)
-        if quantity * price > self.cash:
-            quantity = int(self.cash / price)
-        if quantity == 0: return
-        if side == 'sell': quantity *= -1 # set quantity negative for sell
-
-        # check for existing position
-        if symbol in self.positions:
-            if self.positions[symbol] * quantity > 0: # same side as position
-                if abs(self.positions[symbol]) > abs(quantity): # position is large enough
-                    return
-                elif abs(self.positions[symbol]) > abs(quantity): # add to position
-                    quantity -= self.positions[symbol]
-                else: # quantity == position
-                    return
-            elif self.positions[symbol] * quantity < 0: # opposite side from position
-                quantity = -self.positions[symbol] # exit position
-                # TODO: queue this same trade again
-        
-        # TODO: check risk
-        # TODO: check for leveraged ETFs
-        # TODO: check volume
-
-        # TODO: check global positions for zero crossing
-        positions = {}
-        if self.live: allPositions = Algo.livePositions
-        else: allPositions = Algo.paperPositions
-        for position in allPositions:
-            positions[position.symbol] = position.qty
-        if symbol in positions:
-            if (position[symbol] + quantity) * position[symbol] < 0: # if trade will swap position
-                quantity = -position[symbol]
-
-        # TODO: check global orders
-        # for existing or [short sell (buy) & short buy (sell)]
+            
+        # get quantity
+        quantity = self.get_trade_quantity(symbol, side)
+        if quantity == None: return
 
         # place order
         order = self.alpaca.submit_order(
             symbol=symbol,
-            qty=abs(quantity),
+            qty=quantity,
             side=side,
             type='market', # because this is long term
             time_in_force='day'
@@ -123,4 +80,3 @@ class ReturnsReversion(Algo):
         self.allOrders.append(order) # NOTE: this may cause issues with parrallel execution
 
         print(self.id(), f'{side}ing {abs(quantity)} {symbol}')
-            

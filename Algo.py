@@ -5,9 +5,16 @@ from warn import warn
 import statistics
 
 class Algo:
-    assets = {}
-    paperOrders = {} # {order_id: [symbol, quantity, price, algo]}
+    assets = {} # {symbol: {easyToBorrow, ask, bid, minBars, secBars}}
+    # 'easyToBorrow': bool; whether shortable on alpaca; updated daily
+    # 'ask': float; latest ask price; updated each second
+    # 'bid': float; latest bid price; updated each second
+    # 'minBars': list; historical minute bars as received from polygon; updated each minute
+    # 'secBars': list; historical second bars as received from polygon; updated each second
+
+    paperOrders = {} # {id: {symbol, quantity, price, algo}}
     liveOrders = {}
+    
     paperPositions = {} # {symbol: quantity}
     livePositions = {}
 
@@ -21,7 +28,7 @@ class Algo:
         self.cash = cash # buying power NOT literal cash
         self.equity = cash # udpated daily
         self.positions = {} # {symbol: quantity}
-        self.orders = {} # {id: {symbol, quantity, price]}
+        self.orders = {} # {id: {symbol, quantity, price}}
         #  order quantity is positive for buy and negative for sell
         #  order price is an estimate
 
@@ -70,3 +77,53 @@ class Algo:
             self.alpaca = alpacaPaper
             self.allOrders = Algo.paperOrders
             self.allPositions = Algo.paperPositions
+
+    def get_trade_quantity(self, symbol, side):
+        # symbol: e.g. 'AAPL'
+        # side: 'buy' or 'sell'
+        # returns:
+        #   quantity: positive # of shares to buy/sell
+
+        # check symbol
+        if symbol not in Algo.assets:
+            warn(f'{self.id()} symbol "{symbol}" is not recognized')
+            return
+        
+        # check side and get quote
+        if side == 'buy': price = Algo.assets[symbol].ask
+        elif side == 'sell': price = Algo.assets[symbol].bid
+        else:
+            warn(f'{self.id()} trading side "{side}" is not recognized')
+            return
+        
+        # set quantity
+        quantity = int(self.maxPosFrac * self.equity / price)
+        if quantity * price > self.cash: quantity = int(self.cash / price)
+        if quantity == 0: return
+        if side == 'sell': quantity *= -1 # set quantity negative for sell
+
+        # check for existing position
+        if symbol in self.positions:
+            if self.positions[symbol] * quantity > 0: # same side as position
+                if abs(self.positions[symbol]) > abs(quantity): # position is large enough
+                    return
+                elif abs(self.positions[symbol]) > abs(quantity): # add to position
+                    quantity -= self.positions[symbol]
+                else: # quantity == position
+                    return
+            elif self.positions[symbol] * quantity < 0: # opposite side from position
+                quantity = -self.positions[symbol] # exit position
+                # TODO: queue this same trade again
+        
+        # TODO: check risk
+        # TODO: check for leveraged ETFs
+        # TODO: check volume
+
+        # check allPositions for zero crossing
+        if symbol in self.allPositions:
+            if (self.allPositions[symbol] + quantity) * self.allPositions[symbol] < 0: # if trade will swap position
+                quantity = -self.allPositions[symbol]
+                # TODO: queue this same trade again
+
+        # TODO: check allOrders
+        # for existing or [short sell (buy) & short buy (sell)]
