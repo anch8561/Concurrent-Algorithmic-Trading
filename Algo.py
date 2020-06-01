@@ -2,14 +2,14 @@
 
 from alpacaAPI import alpaca, alpacaPaper
 from warn import warn
-import statistics
+import statistics, json
 
 class Algo:
     assets = {} # {symbol: {easyToBorrow, secBars, minBars, dayBars}}
     # 'easyToBorrow': bool; whether shortable on alpaca
-    # 'secBars': list; past 10k second bars as received from polygon
-    # 'minBars': list; past 1k minute bars as received from polygon
-    # 'dayBars': list; past 100 daily bars as received from polygon
+    # 'secBars': pd.dataframe; past 10k second bars
+    # 'minBars': pd.dataframe; past 1k minute bars
+    # 'dayBars': pd.dataframe; past 100 daily bars
 
     paperOrders = {} # {id: {symbol, quantity, price, algo}}
     liveOrders = {}
@@ -48,6 +48,17 @@ class Algo:
 
         self.live = False # whether using real money
         self.allocFrac = 0
+
+        # attributes to save / load
+        self.dataFields = [
+            'live',
+            'history',
+            'cash',
+            'equity',
+            'positions',
+            'orders',
+            'maxPosFrac'
+        ]
 
     def update_metrics(self):
         # TODO: check each datapoint is one market day apart
@@ -151,7 +162,7 @@ class Algo:
                     # TODO: log first order info
                     # TODO: cancel first order
                 else: # same side
-                    print(f'{symbol}: Existing order for {order['quantity']}')
+                    print(f'{symbol}: Existing order for {order["quantity"]}')
                     return
 
         # check allPositions for zero crossing
@@ -186,5 +197,29 @@ class Algo:
         for orders in (self.orders, self.allOrders):
             index = None
             for ii, order in enumerate(self.orders):
-                if order['id'] == id: index = ii
+                if order['id'] == id:
+                    index = ii
             if index is not None: self.orders.pop(index)
+
+    def save_data(self):
+        # get data
+        data = {}
+        for field in self.dataFields:
+            data[field] = self.__getattribute__(field)
+        
+        # write data
+        fileName = self.id() + '.data'
+        file = open(fileName, 'w')
+        json.dump(data, file)
+        file.close()
+    
+    def load_data(self):
+        # read data
+        fileName = self.id() + '.data'
+        file = open(fileName, 'r')
+        data = json.load(file)
+        file.close()
+
+        # set data
+        for field in self.dataFields:
+            self.__setattr__(field, data[field])
