@@ -13,9 +13,14 @@ class ReturnsReversion(Algo):
         super().__init__(cash, maxPosFrac, tags, 'returnsReversion')
 
         self.lastRebalanceDate = "0001-01-01"
+
+        # attributes to save / load
+        self.dataFields += [
+            'lastRebalanceDate'
+        ]
     
     def id(self):
-        return f'ReturnsReversion{self.numLookbackDays}:'
+        return f'ReturnsReversion_{self.maxPosFrac}_{self.numLookbackDays}'
 
     def tick(self):
         if is_new_week_since(self.lastRebalanceDate) and \
