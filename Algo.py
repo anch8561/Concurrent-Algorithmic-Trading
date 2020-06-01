@@ -64,7 +64,6 @@ class Algo:
         
         # TODO: cancel orders
         # TODO: close positions
-        # TODO: udpate account?
 
         # update flag and api
         self.live = live
@@ -136,7 +135,7 @@ class Algo:
                     quantity -= self.positions[symbol]
                     print(f'{symbol}: Adding {quantity} to exising position of {self.positions[symbol]}')
                 else: # position is large enough
-                    print(f'{symbol}: Exising position of {self.positions[symbol]} large enough')
+                    print(f'{symbol}: Existing position of {self.positions[symbol]} large enough')
                     return
             elif self.positions[symbol] * quantity < 0: # opposite side from position
                 quantity = -self.positions[symbol] # exit position
@@ -151,8 +150,8 @@ class Algo:
                     warn(f'{self.id()} opposing orders')
                     # TODO: log first order info
                     # TODO: cancel first order
-                    return
                 else: # same side
+                    print(f'{symbol}: Existing order for {order['quantity']}')
                     return
 
         # check allPositions for zero crossing
@@ -162,15 +161,30 @@ class Algo:
                 print(f'{symbol}: Exiting global position of {self.allPositions[symbol]}')
                 # TODO: queue same trade again
 
-        # TODO: check allOrders for opposing shorts
+        # check allOrders for opposing shorts
         for order in self.allOrders:
             if order['symbol'] == symbol:
                 if order['quantity'] < 0 and self.allPositions[symbol] == 0: # pending short
                     order = self.alpaca.get_order(order['id'])
-                    warn(f'{self.id()} opposing orders')
+                    warn(f'{self.id()} opposing global order')
                     # TODO: log first order info
-                    # TODO: cancel first order
+                    return
 
 
         # TODO: check risk
         # TODO: check for leveraged ETFs
+
+        return quantity
+    
+    def cancel_order(self, id):
+        # id: str
+
+        # cancel order
+        self.alpaca.cancel_order(id)
+
+        # remove from orders and allOrders
+        for orders in (self.orders, self.allOrders):
+            index = None
+            for ii, order in enumerate(self.orders):
+                if order['id'] == id: index = ii
+            if index is not None: self.orders.pop(index)
