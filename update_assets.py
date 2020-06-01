@@ -11,6 +11,8 @@ def update_assets(algos):
         if Algo.assets == {}: isFirstRun = True
         else: isFirstRun = False
 
+        # TODO: cross reference with polygon tickers
+
         # update asset data
         alpacaAssets = alpaca.list_assets('active', 'us_equity')
         for asset in alpacaAssets:

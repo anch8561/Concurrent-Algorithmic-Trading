@@ -7,8 +7,6 @@ from warn import warn
 def distribute_funds(algos):
     account = alpaca.get_account()
     equity = float(account.equity)
-    dayBP = float(account.buying_power)
-    nightBP = float(account.regt_buying_power)
 
     # calculate weights based on performance
     # calculate fractions based on weights and min / max allocations
@@ -17,6 +15,10 @@ def distribute_funds(algos):
     for algo in algos: algo.update_metrics()
 
     # TODO: calculate allocFrac
+
+    for alpaca in (alpaca, alpacaPaper):
+        for algoType in ('overnight', 'intraday'):
+            pass
     # consider overnight, live / paper, fees
 
 def get_overnight_fee(self, debt):

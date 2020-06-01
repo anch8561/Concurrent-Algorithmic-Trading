@@ -5,16 +5,15 @@ from warn import warn
 import statistics
 
 class Algo:
-    assets = {} # {symbol: {easyToBorrow, ask, bid, minBars, secBars}}
-    # 'easyToBorrow': bool; whether shortable on alpaca; updated daily
-    # 'ask': float; latest ask price; updated each second
-    # 'bid': float; latest bid price; updated each second
-    # 'minBars': list; historical minute bars as received from polygon; updated each minute
-    # 'secBars': list; historical second bars as received from polygon; updated each second
+    assets = {} # {symbol: {easyToBorrow, secBars, minBars, dayBars}}
+    # 'easyToBorrow': bool; whether shortable on alpaca
+    # 'secBars': list; past 10k second bars as received from polygon
+    # 'minBars': list; past 1k minute bars as received from polygon
+    # 'dayBars': list; past 100 daily bars as received from polygon
 
     paperOrders = {} # {id: {symbol, quantity, price, algo}}
     liveOrders = {}
-    
+
     paperPositions = {} # {symbol: quantity}
     livePositions = {}
 
@@ -78,52 +77,100 @@ class Algo:
             self.allOrders = Algo.paperOrders
             self.allPositions = Algo.paperPositions
 
-    def get_trade_quantity(self, symbol, side):
+    def id(self):
+        warn(f'{self} missing id()')
+
+    def get_trade_quantity(self, symbol, side, price, orderType, volumeMult=1, barType='minBars'):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
-        # returns:
-        #   quantity: positive # of shares to buy/sell
+        # price: float
+        # orderType: 'market' or 'limit' (market orders have 4% added to price for the cash check)
+        # returns: 
+        #   quantity: int; positive # of shares to buy/sell
 
-        # check symbol
+        # check arguments
         if symbol not in Algo.assets:
-            warn(f'{self.id()} symbol "{symbol}" is not recognized')
+            warn(f'{self.id()} symbol "{symbol}" not recognized')
             return
-        
-        # check side and get quote
-        if side == 'buy': price = Algo.assets[symbol].ask
-        elif side == 'sell': price = Algo.assets[symbol].bid
-        else:
-            warn(f'{self.id()} trading side "{side}" is not recognized')
+        if side not in ('buy', 'sell'):
+            warn(f'{self.id()} trading side "{side}" not recognized')
             return
-        
+        if barType not in ('secBars', 'minBars', 'dayBars'):
+            warn(f'{self.id()} barType "{barType}" not recognized')
+            return
+
+        # check share price
+        if side == 'long' and price < 3:
+            print(f'{symbol}: Share price < 3.00')
+            return
+        if side == 'short' and price < 17:
+            print(f'{symbol}: Share price < 17.00')
+            return
+
         # set quantity
         quantity = int(self.maxPosFrac * self.equity / price)
-        if quantity * price > self.cash: quantity = int(self.cash / price)
+        print(f'{symbol}: Quantity: {quantity}')
+
+        # check cash
+        if orderType == "market": price *= 1.04
+        if quantity * price > self.cash:
+            quantity = int(self.cash / price)
+            print(f'{symbol}: Cash limit quantity: {quantity}')
+        
+        # check volume
+        volume = Algo.assets[symbol][barType][0].volume
+        if quantity > volume * volumeMult:
+            quantity = volume * volumeMult
+            print(f'{symbol}: Volume limit quantity: {quantity}')
+
+        # check zero
         if quantity == 0: return
-        if side == 'sell': quantity *= -1 # set quantity negative for sell
+        
+        # set sell quantity negative
+        if side == 'sell': quantity *= -1
 
         # check for existing position
         if symbol in self.positions:
             if self.positions[symbol] * quantity > 0: # same side as position
-                if abs(self.positions[symbol]) > abs(quantity): # position is large enough
-                    return
-                elif abs(self.positions[symbol]) > abs(quantity): # add to position
+                if abs(self.positions[symbol]) > abs(quantity): # add to position
                     quantity -= self.positions[symbol]
-                else: # quantity == position
+                    print(f'{symbol}: Adding {quantity} to exising position of {self.positions[symbol]}')
+                else: # position is large enough
+                    print(f'{symbol}: Exising position of {self.positions[symbol]} large enough')
                     return
             elif self.positions[symbol] * quantity < 0: # opposite side from position
                 quantity = -self.positions[symbol] # exit position
-                # TODO: queue this same trade again
-        
-        # TODO: check risk
-        # TODO: check for leveraged ETFs
-        # TODO: check volume
+                print(f'{symbol}: Exiting position of {self.positions[symbol]}')
+                # TODO: queue same trade again
+
+        # check for existing orders
+        for order in self.orders:
+            if order['symbol'] == symbol:
+                if order['quantity'] * quantity < 0: # opposite side
+                    order = self.alpaca.get_order(order['id'])
+                    warn(f'{self.id()} opposing orders')
+                    # TODO: log first order info
+                    # TODO: cancel first order
+                    return
+                else: # same side
+                    return
 
         # check allPositions for zero crossing
         if symbol in self.allPositions:
             if (self.allPositions[symbol] + quantity) * self.allPositions[symbol] < 0: # if trade will swap position
                 quantity = -self.allPositions[symbol]
-                # TODO: queue this same trade again
+                print(f'{symbol}: Exiting global position of {self.allPositions[symbol]}')
+                # TODO: queue same trade again
 
-        # TODO: check allOrders
-        # for existing or [short sell (buy) & short buy (sell)]
+        # TODO: check allOrders for opposing shorts
+        for order in self.allOrders:
+            if order['symbol'] == symbol:
+                if order['quantity'] < 0 and self.allPositions[symbol] == 0: # pending short
+                    order = self.alpaca.get_order(order['id'])
+                    warn(f'{self.id()} opposing orders')
+                    # TODO: log first order info
+                    # TODO: cancel first order
+
+
+        # TODO: check risk
+        # TODO: check for leveraged ETFs

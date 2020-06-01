@@ -14,7 +14,7 @@ def market_was_open_yesterday():
     return calendar[0]._raw['date'] == yesterday
     
 def is_new_week_since(dateStr):
-    # dateStr: str e.g. '2020-05-28' (yr-mo-day)
+    # dateStr: e.g. '2020-05-28' (yr-mo-day)
     # returns: bool
     
     # check argument
@@ -31,34 +31,32 @@ def is_new_week_since(dateStr):
     return date < monday
 
 def get_time_str():
-    # returns: str e.g. '19-01-26' (hr-min-sec)
+    # returns: e.g. '19-01-26' (hr-min-sec)
     now = datetime.now(nyc)
     return now.strftime('%H-%M-%S')
 
 def get_date_str(offset=0):
-    # returns: str e.g. '2020-05-31' (yr-mo-day)
+    # returns: e.g. '2020-05-28' (yr-mo-day)
     today = datetime.now(nyc)
     date = today + timedelta(offset)
     return date.strftime('%Y-%m-%d')
 
 def get_market_open():
-    # currently unused
-    # returns: datetime
+    # returns: e.g. '09-30-00' (hr-min-sec)
     todayStr = get_date_str()
     calendar = alpaca.get_calendar(todayStr, todayStr)[0]
     return datetime.now().replace(
         hour=calendar.open.hour,
         minute=calendar.open.minute,
         second=0
-    ).astimezone(nyc)
+    ).astimezone(nyc).strftime('%H-%M-%S')
 
 def get_market_close():
-    # currently unused
-    # returns: datetime
+    # returns: e.g. '16-00-00' (hr-min-sec)
     todayStr = get_date_str()
     calendar = alpaca.get_calendar(todayStr, todayStr)[0]
     return datetime.now().replace(
         hour=calendar.close.hour,
         minute=calendar.close.minute,
         second=0
-    ).astimezone(nyc)
+    ).astimezone(nyc).strftime('%H-%M-%S')
