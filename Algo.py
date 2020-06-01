@@ -151,7 +151,7 @@ class Algo:
                     # TODO: log first order info
                     # TODO: cancel first order
                 else: # same side
-                    print(f'{symbol}: Existing order for {order['quantity']}')
+                    print(f'{symbol}: Existing order for {order["quantity"]}')
                     return
 
         # check allPositions for zero crossing

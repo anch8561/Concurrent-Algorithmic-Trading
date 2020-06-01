@@ -17,19 +17,32 @@ symbols = list(Algo.assets.keys())[:10]
 
 conn = tradeapi.stream2.StreamConn(paper.apiKey, paper.secretKey, endpoint)
 
+trade_msg = []
+order_msg = []
+past_trades = []
+
+searching_for_trade = False
+order_sent = False
+order_submitted = False
+active_trade = False
+done_for_the_day = False
+
+#check if market is open
+alpaca.cancel_all_orders()
+clock = alpaca.get_clock()
+
+
 if clock.is_open:
 	pass
 else:
 	time_to_open = clock.next_open - clock.timestamp
 	sleep(time_to_open.total_seconds())
 
-if len(api.list_positions()) == 0:
+if len(alpaca.list_positions()) == 0:
 	searching_for_trade = True
 else:
 	active_trade = True
 
-#init WebSocket
-conn = tradeapi.stream2.StreamConn(api_key, api_secret, base_url)
 
 @conn.on(r'^account_updates$')
 async def on_account_updates(conn, channel, account):
@@ -46,10 +59,10 @@ async def on_trade_updates(conn, channel, trade):
 		print(past_trades[-1])
 
 def ws_start():
-	conn.run(['account_updates', 'trade_updates'])
+	conn.run(['account_updates', 'trade_updates']) #executes the async functions above
 
 #start WebSocket in a thread
-ws_thread = threading.Thread(target=ws_start, daemon=True)
+ws_thread = threading.Thread(target=ws_start, daemon=True) #calls ws_start
 ws_thread.start()
 sleep(10)
 
