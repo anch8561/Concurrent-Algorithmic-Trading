@@ -64,10 +64,10 @@ def save_bars(barType, data):
 print("Tracking {} symbols.".format(len(symbols)))
 #on_second = conn.on(r'A$')(on_second)
 channels = ['trade_updates']
-for symbol in symbols:
-	symbol_channels = ['A.{}'.format(symbol) , 'AM.{}'.format(symbol)]
-	channels += symbol_channels
-print("Tracking {} symbols.".format(len(symbols)))
+# for symbol in symbols:
+# 	symbol_channels = ['A.{}'.format(symbol) , 'AM.{}'.format(symbol)]
+# 	channels += symbol_channels
+# print("Tracking {} symbols.".format(len(symbols)))
 
 
 def run_ws(conn, channels):

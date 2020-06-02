@@ -21,3 +21,10 @@ class liveTest:
     apiKey = ''
     secretKey = ''
     creds = (apiKey, secretKey, endpoint)
+
+class paperPoly:
+    endpoint = 'wss://alpaca.socket.polygon.io'
+    apiKey = ''
+    secretKey = ''
+    creds = (apiKey, secretKey, endpoint)
+    
