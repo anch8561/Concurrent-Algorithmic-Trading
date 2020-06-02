@@ -3,7 +3,6 @@ import pandas as pd
 from Algo import Algo
 from alpacaAPI import alpaca, alpacaPaper, conn, connPaper
 from update_assets import update_assets
-from marketHours import is_new_week_since, get_time_str, get_date_str
 from warn import warn
 from time import sleep
 
@@ -100,6 +99,7 @@ st.run()
 
 
 
+ws_start()
 
 # account updates
 # @conn.on(r'^account_updates$')

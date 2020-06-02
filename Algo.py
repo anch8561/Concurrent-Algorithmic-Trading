@@ -19,9 +19,8 @@ class Algo:
 
     # streaming lists
     writing = False
-    minBars = []
     secBars = []
-    dayBars = []
+    minBars = []
     orderUpdates = []
 
     def __init__(self, cash=10000, maxPosFrac=0.01, tags=[], category=None):

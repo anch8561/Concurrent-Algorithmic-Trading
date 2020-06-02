@@ -6,12 +6,51 @@ from datetime import datetime, timedelta, timezone
 
 nyc = timezone(timedelta(hours=-4))
 
-def market_was_open_yesterday():
-    # currently unused
+def get_time():
+    # returns: e.g. '19-01-26' (hr-min-sec)
+    now = datetime.now(nyc)
+    return now.strftime('%H-%M-%S')
+
+def get_date(offset=0):
+    # offset: int, offset in days relative to today (-1 is yesterday)
+    # returns: e.g. '2020-05-28' (yr-mo-day)
     today = datetime.now(nyc)
-    yesterday = (today - timedelta(1)).strftime('%Y-%m-%d')
-    calendar = alpaca.get_calendar(yesterday, yesterday)
-    return calendar[0]._raw['date'] == yesterday
+    date = today + timedelta(offset)
+    return date.strftime('%Y-%m-%d')
+
+def get_market_open():
+    # returns: e.g. '09-30-00' (hr-min-sec)
+    todayStr = get_date()
+    calendar = alpaca.get_calendar(todayStr, todayStr)[0]
+    return datetime.now().replace(
+        hour=calendar.open.hour,
+        minute=calendar.open.minute,
+        second=0
+    ).astimezone(nyc).strftime('%H-%M-%S')
+
+def get_market_close():
+    # returns: e.g. '16-00-00' (hr-min-sec)
+    todayStr = get_date()
+    calendar = alpaca.get_calendar(todayStr, todayStr)[0]
+    return datetime.now().replace(
+        hour=calendar.close.hour,
+        minute=calendar.close.minute,
+        second=0
+    ).astimezone(nyc).strftime('%H-%M-%S')
+
+def is_market_day(offset=0):
+    # offset: int, offset in days relative to today (-1 is yesterday)
+    # returns: bool
+    dateStr = get_date(offset)
+    calendarDateStr = alpaca.get_calendar(dateStr, dateStr)[0]._raw['date']
+    return calendarDateStr == dateStr
+
+def get_last_market_day():
+    # currently unused
+    # returns: e.g. '2020-05-28' (yr-mo-day)
+    for offset in range(-1, -7, -1):
+        if is_market_day(offset):
+            return get_date(offset)
     
 def is_new_week_since(dateStr):
     # dateStr: e.g. '2020-05-28' (yr-mo-day)
@@ -29,34 +68,3 @@ def is_new_week_since(dateStr):
 
     # was date before monday
     return date < monday
-
-def get_time_str():
-    # returns: e.g. '19-01-26' (hr-min-sec)
-    now = datetime.now(nyc)
-    return now.strftime('%H-%M-%S')
-
-def get_date_str(offset=0):
-    # returns: e.g. '2020-05-28' (yr-mo-day)
-    today = datetime.now(nyc)
-    date = today + timedelta(offset)
-    return date.strftime('%Y-%m-%d')
-
-def get_market_open():
-    # returns: e.g. '09-30-00' (hr-min-sec)
-    todayStr = get_date_str()
-    calendar = alpaca.get_calendar(todayStr, todayStr)[0]
-    return datetime.now().replace(
-        hour=calendar.open.hour,
-        minute=calendar.open.minute,
-        second=0
-    ).astimezone(nyc).strftime('%H-%M-%S')
-
-def get_market_close():
-    # returns: e.g. '16-00-00' (hr-min-sec)
-    todayStr = get_date_str()
-    calendar = alpaca.get_calendar(todayStr, todayStr)[0]
-    return datetime.now().replace(
-        hour=calendar.close.hour,
-        minute=calendar.close.minute,
-        second=0
-    ).astimezone(nyc).strftime('%H-%M-%S')

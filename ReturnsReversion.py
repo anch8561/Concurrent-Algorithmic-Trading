@@ -3,7 +3,7 @@
 # positions indefinitely.
 
 from Algo import Algo
-from marketHours import is_new_week_since, get_time_str, get_date_str
+from marketHours import is_new_week_since, get_time, get_date
 from warn import warn
 
 class ReturnsReversion(Algo):
@@ -25,7 +25,7 @@ class ReturnsReversion(Algo):
 
     def tick(self):
         if is_new_week_since(self.lastRebalanceDate) and \
-            get_time_str() > '11-00-00': self.rebalance()
+            get_time() > '11-00-00': self.rebalance()
             # FIX: market open
 
     def rebalance(self):
@@ -33,8 +33,8 @@ class ReturnsReversion(Algo):
 
         # get symbols and dates
         symbols = list(Algo.assets.keys())[:100] # FIX: first 100 are for testing
-        fromDate = get_date_str(-self.numLookbackDays)
-        toDate = get_date_str()
+        fromDate = get_date(-self.numLookbackDays)
+        toDate = get_date()
 
         # get asset returns during lookback window
         # NOTE: this takes a long time
