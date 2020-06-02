@@ -1,4 +1,4 @@
-import asyncio, websocket, json, threading, requests, logging 
+import asyncio, websocket, json, threading, requests, logging, nest_asyncio 
 import pandas as pd
 from Algo import Algo
 from alpacaAPI import alpaca, alpacaPaper, conn, connPaper
@@ -6,54 +6,90 @@ from update_assets import update_assets
 from warn import warn
 from time import sleep
 
+#nest_asyncio.apply()
 update_assets(Algo)
 
-logging.basicConfig()
-logging.getLogger().setLevel(logging.DEBUG)
-requests_log = logging.getLogger("requests.packages.urllib3")
-requests_log.setLevel(logging.DEBUG)
-requests_log.propagate = True
+# logging.basicConfig()
+# logging.getLogger().setLevel(logging.DEBUG)
+# requests_log = logging.getLogger("requests.packages.urllib3")
+# requests_log.setLevel(logging.DEBUG)
+# requests_log.propagate = True
 
 symbols = list(Algo.assets.keys())[:10]
 
-class Stream:
-	def __init__(self):
-		self.alpaca = alpaca
+logging.basicConfig(filename='errlog.log',level=logging.WARNING,  format='%(asctime)s:%(levelname)s:%(message)s')
+data_msg = []
+order_msg = []
+past_trades = []
 
-	def run(self):
-		
-		async def on_second(conn, channel, data):
-			Algo.secBars.append(data)
-			symbol = data.symbol
-			print(symbol)
 
-		async def on_minute(conn, channel, data):
-			Algo.minBars.append(data)
-			symbol = data.symbol
-			print(symbol)
+symbols = list(Algo.assets.keys())[:10]
+# 	print(Algo.minBars)
+# 	print("Tracking {} symbols.".format(len(symbols)))
 
-		def save_bars(barType, data):
-			# barType: 'secBars', 'minBars', or 'dayBars'
-			# data: raw stream data
+@conn.on(r'^account_updates$')
+async def on_account_updates(conn, channel, account):
+	order_msg.append(account)
 
-			# set flag for threadlocking
-			Algo.writing = True
 
-			# copy bars to Algo.assets
-			bars = Algo.__getattribute__(barType)
-			for bar in bars:
-				assets = Algo.assets[bar.symbol][barType] #pointer? 
-				assets = assets.append(bar.df)
-			
-			# set flag for threadlocking
-			Algo.writing = False
-		
-		on_minute = conn.on(r'AM$')(on_minute)
-		#on_second = conn.on(r'A$')(on_second)
-		conn.run(['AM.MSFT'])
+@conn.on(r'^A$')
+async def on_second(conn, channel, data):
+	Algo.secBars.append(data)
+	#symbol = data.symbol
+	#print(symbol)
 
-st = Stream()
-st.run()
+@conn.on(r'^AM$')
+async def on_minute(conn, channel, data):
+	data_msg.append(data)
+	#Algo.minBars.append(data)
+	#symbol = data.symbol
+	#print(symbol)
+
+def save_bars(barType, data):
+	# barType: 'secBars', 'minBars', or 'dayBars'
+	# data: raw stream data
+
+	# set flag for threadlocking
+	Algo.writing = True
+
+	# copy bars to Algo.assets
+	bars = Algo.__getattribute__(barType)
+	for bar in bars:
+		assets = Algo.assets[bar.symbol][barType] #pointer? 
+		assets = assets.append(bar.df)
+	
+	# set flag for threadlocking
+	Algo.writing = False
+
+print("Tracking {} symbols.".format(len(symbols)))
+#on_second = conn.on(r'A$')(on_second)
+channels = ['trade_updates']
+for symbol in symbols:
+	symbol_channels = ['A.{}'.format(symbol) , 'AM.{}'.format(symbol)]
+	channels += symbol_channels
+print("Tracking {} symbols.".format(len(symbols)))
+
+
+def run_ws(conn, channels):
+	try:
+		conn.run(channels)
+	except Exception as e:
+		print(e)
+		conn.close()
+		run_ws(conn, channels)
+
+	
+
+	
+while True:
+	run_ws(conn, channels)	
+
+
+
+
+
+
+
 
 # async def on_second(conn, channel, data):
 # 	Algo.secBars.append(data)
@@ -99,7 +135,7 @@ st.run()
 
 
 
-ws_start()
+#ws_start()
 
 # account updates
 # @conn.on(r'^account_updates$')
