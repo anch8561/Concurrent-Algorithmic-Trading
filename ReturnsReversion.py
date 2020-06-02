@@ -3,7 +3,7 @@
 # positions indefinitely.
 
 from Algo import Algo
-from marketHours import is_new_week_since, get_time, get_date
+from marketHours import is_new_week_since, get_time, get_date, get_market_open
 from warn import warn
 
 class ReturnsReversion(Algo):
@@ -25,8 +25,7 @@ class ReturnsReversion(Algo):
 
     def tick(self):
         if is_new_week_since(self.lastRebalanceDate) and \
-            get_time() > '11-00-00': self.rebalance()
-            # FIX: market open
+            get_time(-1.5) > get_market_open(): self.rebalance()
 
     def rebalance(self):
         print(self.id(), 'rebalancing')
