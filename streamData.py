@@ -1,6 +1,7 @@
 import websocket, json, threading
 from time import *
-from Algo import Algo 
+from pandas import pd
+from Algo import Algo
 import alpaca_trade_api as tradeapi
 from alpacaAPI import alpaca, alpacaPaper 
 from update_assets import update_assets
@@ -10,39 +11,42 @@ from warn import warn
 
 
 alpaca = tradeapi.REST(*paper.creds)
-endpoint = "wss://alpaca.socket.polygon.io/stocks"
+endpoint = "wss://alpaca.socket.polygon.io/stocks" 
 
 update_assets(Algo)
-symbols = list(Algo.assets.keys())[:10]
+#symbols = list(Algo.assets.keys())[:10]
 
-conn = tradeapi.stream2.StreamConn(paper.apiKey, paper.secretKey, endpoint)
+conn = tradeapi.StreamConn(paper.apiKey, paper.secretKey, endpoint)
 
-trade_msg = []
-order_msg = []
-past_trades = []
-
-searching_for_trade = False
-order_sent = False
-order_submitted = False
-active_trade = False
-done_for_the_day = False
 
 #check if market is open
 alpaca.cancel_all_orders()
 clock = alpaca.get_clock()
 
+def get_tickers():
+    print('Getting current ticker data...')
+    tickers = alpaca.polygon.all_tickers()
+    print('Success.')
+    assets = Algo.assets
+    symbols = list(Algo.assets.keys())
+    return [ticker for ticker in tickers if (
+        ticker.ticker in symbols and
+        ticker.lastTrade['p'] >= min_share_price and
+        ticker.lastTrade['p'] <= max_share_price and
+        ticker.prevDay['v'] * ticker.lastTrade['p'] > min_last_dv and
+        ticker.todaysChangePerc >= 3.5
+    )]
 
-if clock.is_open:
-	pass
-else:
-	time_to_open = clock.next_open - clock.timestamp
-	sleep(time_to_open.total_seconds())
+# Replace aggregated 1s bars with incoming 1m bars
+@conn.on(r'A$')
+async def handle_second_bar(conn, channel, data):
+	Algo.assets[symbol][secBars] = pd.dataframe(data)
+	for Algo in Algos:
+		tick()
 
-if len(alpaca.list_positions()) == 0:
-	searching_for_trade = True
-else:
-	active_trade = True
-
+@conn.on(r'AM$')
+async def handle_minute_bar(conn, channel, data):
+    Algo.assets[symbol][minBars] = pd.dataframe(data)
 
 @conn.on(r'^account_updates$')
 async def on_account_updates(conn, channel, account):
@@ -51,20 +55,23 @@ async def on_account_updates(conn, channel, account):
 @conn.on(r'^trade_updates$')
 async def on_trade_updates(conn, channel, trade):
 	trade_msg.append(trade)
-	if 'fill' in trade.event:
-		past_trades.append([trade.order['updated_at'], trade.order['symbol'], trade.order['side'], 
-			trade.order['filled_qty'], trade.order['filled_avg_price']])
-		with open('past_trades.csv', 'w') as f:
-			json.dump(past_trades, f, indent=4) 
-		print(past_trades[-1])
+
 
 def ws_start():
 	conn.run(['account_updates', 'trade_updates']) #executes the async functions above
 
-#start WebSocket in a thread
-ws_thread = threading.Thread(target=ws_start, daemon=True) #calls ws_start
-ws_thread.start()
-sleep(10)
+def run_ws(conn, channels):
+    try:
+		#start WebSocket in a thread
+        ws_thread = threading.Thread(target=ws_start, daemon=True) #calls ws_start
+        ws_thread.start()
+        sleep(10)
+    except Exception as e:
+        print(e)
+        conn.close()
+        run_ws(conn, channels)
+ 
+
 
 
 
