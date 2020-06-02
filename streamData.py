@@ -1,64 +1,53 @@
 import websocket, json, threading
-from time import *
 from pandas import pd
 from Algo import Algo
-import alpaca_trade_api as tradeapi
-from alpacaAPI import alpaca, alpacaPaper 
+from alpacaAPI import alpaca, alpacaPaper, conn, connPaper
 from update_assets import update_assets
-from credentials import paper
 from marketHours import is_new_week_since, get_time_str, get_date_str
 from warn import warn
-
-
-alpaca = tradeapi.REST(*paper.creds)
-endpoint = "wss://alpaca.socket.polygon.io/stocks" 
+from time import sleep
 
 update_assets(Algo)
-#symbols = list(Algo.assets.keys())[:10]
 
-conn = tradeapi.StreamConn(paper.apiKey, paper.secretKey, endpoint)
+# minute bars
+@conn.on(r'^AM$')
+async def on_minute_bar(conn, channel, data):
+	while True:
+		if not Algo.writing:
+			Algo.secBars.append(data)
+			return
+		sleep(0.01)
 
+def save_bars(barType, data):
+	# barType: 'secBars', 'minBars', or 'dayBars'
+	# data: raw stream data
 
-#check if market is open
-alpaca.cancel_all_orders()
-clock = alpaca.get_clock()
+	# set flag for threadlocking
+	Algo.writing = True
 
-def get_tickers():
-    print('Getting current ticker data...')
-    tickers = alpaca.polygon.all_tickers()
-    print('Success.')
-    assets = Algo.assets
-    symbols = list(Algo.assets.keys())
-    return [ticker for ticker in tickers if (
-        ticker.ticker in symbols and
-        ticker.lastTrade['p'] >= min_share_price and
-        ticker.lastTrade['p'] <= max_share_price and
-        ticker.prevDay['v'] * ticker.lastTrade['p'] > min_last_dv and
-        ticker.todaysChangePerc >= 3.5
-    )]
+	# copy bars to Algo.assets
+	bars = Algo.__getattribute__(barType)
+	for bar in bars:
+		assets = Algo.assets[bar.symbol][barType]
+		assets = assets.append(bar.df)
+	
+	# set flag for threadlocking
+	Algo.writing = False
+    
 
-# Replace aggregated 1s bars with incoming 1m bars
-@conn.on(r'A$')
-async def handle_second_bar(conn, channel, data):
-	Algo.assets[symbol][secBars] = pd.dataframe(data)
-	for Algo in Algos:
-		tick()
-
-@conn.on(r'AM$')
-async def handle_minute_bar(conn, channel, data):
-    Algo.assets[symbol][minBars] = pd.dataframe(data)
-
-@conn.on(r'^account_updates$')
-async def on_account_updates(conn, channel, account):
-	order_msg.append(account)
-
+# trade updates
 @conn.on(r'^trade_updates$')
 async def on_trade_updates(conn, channel, trade):
-	trade_msg.append(trade)
+	Algo.orderUpdates.append(trade)
+	# TODO: similar structure to save_bars
 
+# account updates
+@conn.on(r'^account_updates$')
+async def on_account_updates(conn, channel, account):
+	pass
 
 def ws_start():
-	conn.run(['account_updates', 'trade_updates']) #executes the async functions above
+	conn.run(['AM.*', 'trade_updates', 'account_updates']) #executes the async functions above
 
 def run_ws(conn, channels):
     try:

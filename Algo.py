@@ -17,6 +17,13 @@ class Algo:
     paperPositions = {} # {symbol: quantity}
     livePositions = {}
 
+    # streaming lists
+    writing = False
+    minBars = []
+    secBars = []
+    dayBars = []
+    orderUpdates = []
+
     def __init__(self, cash=10000, maxPosFrac=0.01, tags=[], category=None):
         # paper / live
         self.alpaca = alpacaPaper # always call alpaca through self.alpaca
@@ -63,6 +70,7 @@ class Algo:
     def update_metrics(self):
         # TODO: check each datapoint is one market day apart
         growth = [day['growthFrac'] for day in self.history]
+        if len(growth) >= 5: growth = growth[5:]
         self.mean = statistics.mean(growth)
         self.stdev = statistics.stdev(growth)
 
@@ -196,10 +204,10 @@ class Algo:
         # remove from orders and allOrders
         for orders in (self.orders, self.allOrders):
             index = None
-            for ii, order in enumerate(self.orders):
+            for ii, order in enumerate(orders):
                 if order['id'] == id:
                     index = ii
-            if index is not None: self.orders.pop(index)
+            if index is not None: orders.pop(index)
 
     def save_data(self):
         # get data

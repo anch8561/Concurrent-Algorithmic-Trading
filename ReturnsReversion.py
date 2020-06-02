@@ -12,9 +12,10 @@ class ReturnsReversion(Algo):
         tags = ['longShort', 'overnight', 'weekly']
         super().__init__(cash, maxPosFrac, tags, 'returnsReversion')
 
+        # additional attributes
         self.lastRebalanceDate = "0001-01-01"
 
-        # attributes to save / load
+        # additional attributes to save / load
         self.dataFields += [
             'lastRebalanceDate'
         ]
@@ -25,6 +26,7 @@ class ReturnsReversion(Algo):
     def tick(self):
         if is_new_week_since(self.lastRebalanceDate) and \
             get_time_str() > '11-00-00': self.rebalance()
+            # FIX: market open
 
     def rebalance(self):
         print(self.id(), 'rebalancing')

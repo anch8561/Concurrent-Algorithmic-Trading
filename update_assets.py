@@ -6,6 +6,7 @@ from warn import warn
 
 
 def update_assets(algos):
+    # algos: list of algos
 
         # check for first run
         if Algo.assets == {}: isFirstRun = True

@@ -32,5 +32,7 @@ while True:
     #     for algo in algos:
     #         algo.update_metrics()
 
+    # write data to Algo.assets, etc
+    
     for algo in algos: algo.tick()
 
