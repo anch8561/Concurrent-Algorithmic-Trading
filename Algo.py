@@ -17,7 +17,7 @@ class Algo:
     paperPositions = {} # {symbol: quantity}
     livePositions = {}
 
-    # streaming lists
+    # streaming buffers
     writing = False
     secBars = []
     minBars = []
@@ -230,3 +230,4 @@ class Algo:
         # set data
         for field in self.dataFields:
             self.__setattr__(field, data[field])
+            

@@ -16,11 +16,16 @@ def update_assets(algos):
 
         # update asset data
         alpacaAssets = alpaca.list_assets('active', 'us_equity')
+        polygonTickers = alpaca.polygon.all_tickers()
+        tickerSymbols = [ticker.ticker for ticker in polygonTickers]
         for asset in alpacaAssets:
-            if asset.marginable:
-                if asset.symbol not in Algo.assets:
-                    Algo.assets[asset.symbol] = {}
-                    if not isFirstRun: print(f'"{asset.symbol}" is now active and marginable')
+            if (
+                asset.marginable and
+                asset.symbol in tickerSymbols and
+                asset.symbol not in Algo.assets
+            ):
+                Algo.assets[asset.symbol] = {}
+                if not isFirstRun: print(f'"{asset.symbol}" is now active and marginable')
                 Algo.assets[asset.symbol]['easyToBorrow'] = asset.easy_to_borrow
                 # TODO: sector, industry, leverage, volume, historical data and metrics
         

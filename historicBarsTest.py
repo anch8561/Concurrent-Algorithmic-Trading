@@ -23,7 +23,7 @@ date3ISO = '2020-05-27T09:30:00-04:00' # add market open and close
 date4ISO = '2020-05-27T16:00:00-04:00'
 
 
-print('\npolygon.historic_agg_v2 (simple date)')
+print('\npolygon.historic_agg_v2')
 print('=======================')
 minutes = alpaca.polygon.historic_agg_v2(
     symbol = 'AAPL',

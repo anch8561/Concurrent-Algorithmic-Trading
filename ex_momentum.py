@@ -9,7 +9,7 @@ from pytz import timezone
 from alpacaAPI import alpacaPaper, connPaper
 api = alpacaPaper
 
-from marketHours import get_date
+from marketHours import get_date, get_n_market_days_ago
 
 session = requests.session()
 
@@ -23,17 +23,22 @@ default_stop = .95
 # How much of our portfolio to allocate to any one position
 risk = 0.001
 
-# NOTE: need get_prev_market_day in marketHours
+# NOTE: this will come from Algo.assets, but the function might still be useful to populate Algo.assets 
 def get_1000m_history_data(symbols):
     print('Getting historical data...')
     minute_history = {}
     c = 0
-
+    fromDate = get_n_market_days_ago(2) # far enough back to guarantee 1000 mins
+    toDate = get_date()
     for symbol in symbols:
-        fromDate = 
-        toDate = get_date()
+        
         minute_history[symbol] = api.polygon.historic_agg_v2(
-            symbol, 1, "minute", 
+            symbol = symbol,
+            multiplier = 1,
+            timespan = 'minute',
+            _from = fromDate,
+            to = toDate
+        )
         c += 1
         print('{}/{}'.format(c, len(symbols)))
     print('Success.')

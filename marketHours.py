@@ -45,12 +45,17 @@ def is_market_day(offset=0):
     calendarDateStr = alpaca.get_calendar(dateStr, dateStr)[0]._raw['date']
     return calendarDateStr == dateStr
 
-def get_last_market_day():
-    # currently unused
+def get_n_market_days_ago(numDays=1):
     # returns: e.g. '2020-05-28' (YYYY-MM-DD)
-    for offset in range(-1, -7, -1):
+    # NOTE: might expand this to return list of days if needed
+    offset = -1
+    count = 0
+    while True:
         if is_market_day(offset):
-            return get_date(offset)
+            count += 1
+            if count == numDays:
+                return get_date(offset)
+        offset -= 1
     
 def is_new_week_since(dateStr):
     # dateStr: e.g. '2020-05-28' (YYYY-MM-DD)
