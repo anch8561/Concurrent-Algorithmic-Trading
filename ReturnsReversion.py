@@ -3,14 +3,20 @@
 # positions indefinitely.
 
 from Algo import Algo
-from marketHours import is_new_week_since, get_time, get_date, get_market_open
+from marketHours import get_time, get_date, get_open_time, get_close_time, get_n_market_days_ago, is_new_week_since
 from warn import warn
 
 class ReturnsReversion(Algo):
-    def __init__(self, cash, maxPosFrac=0.01, numLookbackDays=7):
+    def __init__(self, cash, maxPosFrac=0.01, numLookbackDays=5):
+        # TODO: check arguments
         self.numLookbackDays = numLookbackDays
-        tags = ['longShort', 'overnight', 'weekly']
-        super().__init__(cash, maxPosFrac, tags, 'returnsReversion')
+        super().__init__(
+            cash = cash,
+            BPCalc = 'overnight',
+            equityStyle = 'longShort',
+            tickFreq = 'hour',
+            maxPosFrac = maxPosFrac
+        )
 
         # additional attributes
         self.lastRebalanceDate = "0001-01-01"
@@ -24,15 +30,19 @@ class ReturnsReversion(Algo):
         return f'ReturnsReversion_{self.maxPosFrac}_{self.numLookbackDays}'
 
     def tick(self):
-        if is_new_week_since(self.lastRebalanceDate) and \
-            get_time(-1.5) > get_market_open(): self.rebalance()
+        if (
+            is_new_week_since(self.lastRebalanceDate) and
+            get_time(-1) > get_open_time() and
+            get_time(1) < get_close_time()
+        ):
+            self.rebalance()
 
     def rebalance(self):
         print(self.id(), 'rebalancing')
 
         # get symbols and dates
         symbols = list(Algo.assets.keys())[:100] # FIX: first 100 are for testing
-        fromDate = get_date(-self.numLookbackDays)
+        fromDate = get_n_market_days_ago(self.numLookbackDays)
         toDate = get_date()
 
         # get asset returns during lookback window
@@ -41,7 +51,8 @@ class ReturnsReversion(Algo):
         # it would be good if the data could be shared between all algos that need it
         # once data has been aggregated in Algos.assets, that can be used instead
         assets = {}
-        for symbol in symbols:
+        for ii, symbol in enumerate(symbols):
+            print(ii+1, '/', len(symbols))
             try:
                 bars = self.alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate)
                 assets[symbol] = (bars[-1].close - bars[0].open)/bars[0].open
@@ -66,23 +77,26 @@ class ReturnsReversion(Algo):
         quantity = self.get_trade_quantity(symbol, side)
         if quantity == None: return
 
-        # place order
-        order = self.alpaca.submit_order(
-            symbol=symbol,
-            qty=quantity,
-            side=side,
-            type='market', # because this is long term
-            time_in_force='day'
-        )
+        try:
+            # place order
+            order = self.alpaca.submit_order(
+                symbol=symbol,
+                qty=quantity,
+                side=side,
+                type='market', # because this is long term
+                time_in_force='day'
+            )
 
-        # save order
-        order = dict(
-            id = order.id,
-            symbol = symbol,
-            quantity = quantity,
-            price = price
-        )
-        self.orders.append(order)
-        self.allOrders.append(order) # NOTE: this may cause issues with parrallel execution
+            # save order
+            order = dict(
+                id = order.id,
+                symbol = symbol,
+                quantity = quantity,
+                price = price
+            )
+            self.orders.append(order)
+            self.allOrders.append(order) # NOTE: this may cause issues with parrallel execution
 
-        print(self.id(), f'{side}ing {abs(quantity)} {symbol}')
+            print(self.id(), f'{side}ing {abs(quantity)} {symbol}')
+        except:
+            warn(f'{self.id()} order failed: {side}ing {abs(quantity)} {symbol}')

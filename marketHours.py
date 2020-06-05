@@ -7,18 +7,18 @@ from datetime import datetime, timedelta, timezone
 nyc = timezone(timedelta(hours=-4))
 
 def get_time(offset=0):
-    # offset: int, offset in hours relative to today (-1 is yesterday)
+    # offset: int, hours relative to now (-1 is an hour ago)
     # returns: e.g. '19:01:26' (HH:MM:SS)
     time = datetime.now(nyc) + timedelta(hours=offset)
     return time.strftime('%H:%M:%S')
 
 def get_date(offset=0):
-    # offset: int, offset in days relative to today (-1 is yesterday)
+    # offset: int, days relative to today (-1 is yesterday)
     # returns: e.g. '2020-05-28' (YYYY-MM-DD)
     date = datetime.now(nyc) + timedelta(offset)
     return date.strftime('%Y-%m-%d')
 
-def get_market_open():
+def get_open_time():
     # returns: e.g. '19:01:26' (HH:MM:SS)
     todayStr = get_date()
     calendar = alpaca.get_calendar(todayStr, todayStr)[0]
@@ -28,7 +28,7 @@ def get_market_open():
         second=0
     ).astimezone(nyc).strftime('%H:%M:%S')
 
-def get_market_close():
+def get_close_time():
     # returns: e.g. '19:01:26' (HH:MM:SS)
     todayStr = get_date()
     calendar = alpaca.get_calendar(todayStr, todayStr)[0]
@@ -39,21 +39,28 @@ def get_market_close():
     ).astimezone(nyc).strftime('%H:%M:%S')
 
 def is_market_day(offset=0):
-    # offset: int, offset in days relative to today (-1 is yesterday)
+    # offset: int, days relative to today (-1 is yesterday)
     # returns: bool
     dateStr = get_date(offset)
     calendarDateStr = alpaca.get_calendar(dateStr, dateStr)[0]._raw['date']
     return calendarDateStr == dateStr
 
-def get_n_market_days_ago(numDays=1):
+def get_n_market_days_ago(n=1):
+    # n: pos int, 
     # returns: e.g. '2020-05-28' (YYYY-MM-DD)
-    # NOTE: might expand this to return list of days if needed
+
+    # check arguments
+    if n <= 0:
+        warn(f'{n} <= 0')
+        return
+
+    # check each previous day until n market days are found
     offset = -1
     count = 0
     while True:
         if is_market_day(offset):
             count += 1
-            if count == numDays:
+            if count == n:
                 return get_date(offset)
         offset -= 1
     

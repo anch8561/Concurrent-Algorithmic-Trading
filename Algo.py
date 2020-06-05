@@ -6,7 +6,7 @@ import statistics, json
 
 class Algo:
     assets = {} # {symbol: {easyToBorrow, secBars, minBars, dayBars}}
-    # 'easyToBorrow': bool; whether shortable on alpaca
+    # 'shortable': bool; whether easy_to_borrow on alpaca
     # 'secBars': pd.dataframe; past 10k second bars
     # 'minBars': pd.dataframe; past 1k minute bars
     # 'dayBars': pd.dataframe; past 100 daily bars
@@ -23,7 +23,9 @@ class Algo:
     minBars = []
     orderUpdates = []
 
-    def __init__(self, cash=10000, maxPosFrac=0.01, tags=[], category=None):
+    def __init__(self, cash, BPCalc, equityStyle, tickFreq='sec', maxPosFrac=0.01):
+        # TODO: check arguments
+
         # paper / live
         self.alpaca = alpacaPaper # always call alpaca through self.alpaca
         self.allOrders = Algo.paperOrders # have to be careful not to break these references
@@ -34,13 +36,14 @@ class Algo:
         self.equity = cash # udpated daily
         self.positions = {} # {symbol: quantity}
         self.orders = {} # {id: {symbol, quantity, price}}
-        #  order quantity is positive for buy and negative for sell
-        #  order price is an estimate
+        # quantity is positive for buy/long and negative for sell/short
+        # order price is an estimate
 
         # properties
-        self.maxPosFrac = maxPosFrac # maximum fraction of buyingPower to hold in a position (at time of order)
-        self.tags = tags # e.g. 'long', 'short', 'longShort', 'intraday', 'daily', 'weekly', 'overnight'
-        self.category = category # e.g. 'meanReversion', 'momentum', 'scalping', etc
+        self.BPCalc = BPCalc # 'intraday' or 'overnight'
+        self.equityStyle = equityStyle # 'long', 'short', 'longShort'
+        self.tickFreq = tickFreq # 'sec' or 'min'
+        self.maxPosFrac = maxPosFrac # maximum fraction of equity to hold in a position (at time of order)
 
         # risk metrics
 
@@ -63,6 +66,9 @@ class Algo:
             'equity',
             'positions',
             'orders',
+            'BPCalc',
+            'equityStyle',
+            'tickFreq',
             'maxPosFrac'
         ]
 
@@ -97,11 +103,12 @@ class Algo:
     def id(self):
         warn(f'{self} missing id()')
 
-    def get_trade_quantity(self, symbol, side, price, orderType, volumeMult=1, barType='minBars'):
+    def get_trade_quantity(self, symbol, side, limitPrice=None, volumeMult=1, barType='minBars'):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
-        # price: float
-        # orderType: 'market' or 'limit' (market orders have 4% added to price for the cash check)
+        # limitPrice: float or None for market order
+        # volumeMult: float; volume limit multiplier
+        # barType: 'secBars', 'minBars', or 'dayBars'; quantity < volume of last bar of this type
         # returns: 
         #   quantity: int; positive # of shares to buy/sell
 
@@ -112,11 +119,18 @@ class Algo:
         if side not in ('buy', 'sell'):
             warn(f'{self.id()} trading side "{side}" not recognized')
             return
+        # TODO: check other args
         if barType not in ('secBars', 'minBars', 'dayBars'):
             warn(f'{self.id()} barType "{barType}" not recognized')
             return
 
-        # check share price
+        # get price
+        if limitPrice == None:
+            price = Algo.assets[symbol]['secBars'][0].close
+        else:
+            price = limitPrice
+
+        # check price
         if side == 'long' and price < 3:
             print(f'{symbol}: Share price < 3.00')
             return
@@ -129,7 +143,7 @@ class Algo:
         print(f'{symbol}: Quantity: {quantity}')
 
         # check cash
-        if orderType == "market": price *= 1.04
+        if limitPrice == None: price *= 1.04
         if quantity * price > self.cash:
             quantity = int(self.cash / price)
             print(f'{symbol}: Cash limit quantity: {quantity}')
