@@ -23,10 +23,10 @@ symbols = list(Algo.assets.keys())[:10]
 # 	print(Algo.minBars)
 # 	print("Tracking {} symbols.".format(len(symbols)))
 
-# @conn.on(r'^account_updates$')
-# async def on_account_updates(conn, channel, account):
-# 	logger.info(f'account_updates {account}')
-# 	symbol = data.order['symbol']
+@conn.on(r'^account_updates$')
+async def on_account_updates(conn, channel, account):
+	logger.info(f'account_updates {account}')
+	#symbol = data.order['symbol']
 	
 # @conn.on(r'^A$')
 # async def on_second(conn, channel, data):
@@ -66,7 +66,7 @@ def save_bars(barType, data):
 
 
 print("Tracking {} symbols.".format(len(symbols)))
-channels = ['AM.*']
+channels = ['trade_updates','AM.*']
 
 # Add symbols to minute data (AM) and second data (A) 
 for symbol in symbols:
@@ -77,19 +77,18 @@ for symbol in symbols:
 # Defining the loop for the threads
 async def periodic():
 	while True:
-		if not alpaca.get_clock().is_open:
+		if not alpacaPaper.get_clock().is_open:
 			logger.info('exit as market is not open')
 			sys.exit(0)
-		alpaca.get_account()
+		print(alpacaPaper.get_account())
 		print(channels)
-		await on_minute
 		await asyncio.sleep(30)
 
 
 loop = conn.loop
 loop.run_until_complete(asyncio.gather(
 	conn.subscribe(channels),
-	periodic(),
+	periodic()
 ))
 loop.close()
 
