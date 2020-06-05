@@ -14,5 +14,5 @@ else:
 
 alpaca = tradeapi.REST(*liveCreds)
 alpacaPaper = tradeapi.REST(*paperCreds)
-conn = tradeapi.StreamConn(paper.apiKey, paper.secretKey, paperPoly.endpoint)
-connPaper = tradeapi.StreamConn(paper.apiKey, paper.secretKey, paperPoly.endpoint)
+conn = tradeapi.StreamConn(*paperCreds)
+connPaper = tradeapi.StreamConn(paper.apiKey, paper.secretKey, base_url=paperPoly.endpoint)
