@@ -12,8 +12,6 @@ def update_assets(algos):
         if Algo.assets == {}: isFirstRun = True
         else: isFirstRun = False
 
-        # TODO: cross reference with polygon tickers
-
         # update asset data
         alpacaAssets = alpaca.list_assets('active', 'us_equity')
         polygonTickers = alpaca.polygon.all_tickers()
@@ -23,6 +21,7 @@ def update_assets(algos):
                 asset.marginable and
                 asset.symbol in tickerSymbols and
                 asset.symbol not in Algo.assets
+                # TODO: check share price
             ):
                 Algo.assets[asset.symbol] = {}
                 if not isFirstRun: print(f'"{asset.symbol}" is now active and marginable')

@@ -31,7 +31,6 @@ def get_1000m_history_data(symbols):
     fromDate = get_n_market_days_ago(2) # far enough back to guarantee 1000 mins
     toDate = get_date()
     for symbol in symbols:
-        
         minute_history[symbol] = api.polygon.historic_agg_v2(
             symbol = symbol,
             multiplier = 1,

@@ -10,6 +10,7 @@ class Algo:
     # 'secBars': pd.dataframe; past 10k second bars
     # 'minBars': pd.dataframe; past 1k minute bars
     # 'dayBars': pd.dataframe; past 100 daily bars
+    # 
 
     paperOrders = {} # {id: {symbol, quantity, price, algo}}
     liveOrders = {}
@@ -97,11 +98,12 @@ class Algo:
     def id(self):
         warn(f'{self} missing id()')
 
-    def get_trade_quantity(self, symbol, side, price, orderType, volumeMult=1, barType='minBars'):
+    def get_trade_quantity(self, symbol, side, limitPrice=None, volumeMult=1, barType='minBars'):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
-        # price: float
-        # orderType: 'market' or 'limit' (market orders have 4% added to price for the cash check)
+        # limitPrice: float or None for market order
+        # volumeMult: float; volume limit multiplier
+        # barType: 'secBars', 'minBars', or 'dayBars'; quantity < volume of last bar of this type
         # returns: 
         #   quantity: int; positive # of shares to buy/sell
 
@@ -112,11 +114,18 @@ class Algo:
         if side not in ('buy', 'sell'):
             warn(f'{self.id()} trading side "{side}" not recognized')
             return
+        # TODO: check other args
         if barType not in ('secBars', 'minBars', 'dayBars'):
             warn(f'{self.id()} barType "{barType}" not recognized')
             return
 
-        # check share price
+        # get price
+        if limitPrice == None:
+            price = Algo.assets[symbol]['secBars'][0].close
+        else:
+            price = limitPrice
+
+        # check price
         if side == 'long' and price < 3:
             print(f'{symbol}: Share price < 3.00')
             return
@@ -129,7 +138,7 @@ class Algo:
         print(f'{symbol}: Quantity: {quantity}')
 
         # check cash
-        if orderType == "market": price *= 1.04
+        if limitPrice == None: price *= 1.04
         if quantity * price > self.cash:
             quantity = int(self.cash / price)
             print(f'{symbol}: Cash limit quantity: {quantity}')

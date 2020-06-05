@@ -66,23 +66,26 @@ class ReturnsReversion(Algo):
         quantity = self.get_trade_quantity(symbol, side)
         if quantity == None: return
 
-        # place order
-        order = self.alpaca.submit_order(
-            symbol=symbol,
-            qty=quantity,
-            side=side,
-            type='market', # because this is long term
-            time_in_force='day'
-        )
+        try:
+            # place order
+            order = self.alpaca.submit_order(
+                symbol=symbol,
+                qty=quantity,
+                side=side,
+                type='market', # because this is long term
+                time_in_force='day'
+            )
 
-        # save order
-        order = dict(
-            id = order.id,
-            symbol = symbol,
-            quantity = quantity,
-            price = price
-        )
-        self.orders.append(order)
-        self.allOrders.append(order) # NOTE: this may cause issues with parrallel execution
+            # save order
+            order = dict(
+                id = order.id,
+                symbol = symbol,
+                quantity = quantity,
+                price = price
+            )
+            self.orders.append(order)
+            self.allOrders.append(order) # NOTE: this may cause issues with parrallel execution
 
-        print(self.id(), f'{side}ing {abs(quantity)} {symbol}')
+            print(self.id(), f'{side}ing {abs(quantity)} {symbol}')
+        except:
+            warn(f'{self.id()} order failed: {side}ing {abs(quantity)} {symbol}')

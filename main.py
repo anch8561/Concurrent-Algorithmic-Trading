@@ -32,7 +32,11 @@ while True:
     #     for algo in algos:
     #         algo.update_metrics()
 
-    # write data to Algo.assets, etc
+    # write data from bar and order update buffers to Algo.assets, orders, positions
     
-    for algo in algos: algo.tick()
+    for algo in algos: algo.tick() # in parallel
+
+    # write data from algos.orders to Algo.orders, positions
+
+    # wait remainder of 1 sec
 
