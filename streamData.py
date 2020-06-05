@@ -7,13 +7,7 @@ from warn import warn
 from time import sleep
 
 #nest_asyncio.apply()
-#fupdate_assets(Algo)
-
-# logging.basicConfig()
-# logging.getLogger().setLevel(logging.DEBUG)
-# requests_log = logging.getLogger("requests.packages.urllib3")
-# requests_log.setLevel(logging.DEBUG)
-# requests_log.propagate = True
+update_assets(Algo)
 
 symbols = list(Algo.assets.keys())[:10]
 logger = logging.getLogger()
@@ -29,75 +23,68 @@ symbols = list(Algo.assets.keys())[:10]
 # 	print(Algo.minBars)
 # 	print("Tracking {} symbols.".format(len(symbols)))
 
-@conn.on(r'^account_updates$')
-async def on_account_updates(conn, channel, account):
-	print("In account")
-	logger.info(f'account_updates {data}')
-	symbol = data.order['symbol']
+# @conn.on(r'^account_updates$')
+# async def on_account_updates(conn, channel, account):
+# 	logger.info(f'account_updates {account}')
+# 	symbol = data.order['symbol']
 	
-@conn.on(r'^A$')
-async def on_second(conn, channel, data):
-	Algo.secBars.append(data)
-	#symbol = data.symbol
-	#print(symbol)
+# @conn.on(r'^A$')
+# async def on_second(conn, channel, data):
+# 	Algo.secBars.append(data)
+# 	#symbol = data.symbol
+# 	#print(symbol)
 
 @conn.on(r'^AM$')
 async def on_minute(conn, channel, data):
-	print("In minute")
-	#Algo.minBars.append(data)
-	#symbol = data.symbol
-	#print(symbol)
+	if data.symbol in symbols:
+		save_bars('minBars', data)
 
 
 def save_bars(barType, data):
-	# barType: 'secBars', 'minBars', or 'dayBars'
+	# barType: 'secBars' or 'minBars'
 	# data: raw stream data
 
-	# set flag for threadlocking
+	# start writing
 	Algo.writing = True
-
+	print(Algo.writing)
 	# copy bars to Algo.assets
+	Algo.minBars.append(pd.DataFrame({
+            'open': data.open,
+            'high': data.high,
+            'low': data.low,
+            'close': data.close,
+            'volume': data.volume,
+        }, index=[data.start]))
+	
 	bars = Algo.__getattribute__(barType)
 	for bar in bars:
-		assets = Algo.assets[bar.symbol][barType] #pointer? 
+		assets = Algo.assets[bar.symbol][barType] 
 		assets = assets.append(bar.df)
-	
-	# set flag for threadlocking
+	logger.getChild(symbol).info(f'received bar start = {bar.start}, close = {bar.close}, len(bars) = {len(symbols)}')
+	# Done writing
 	Algo.writing = False
 
 
 print("Tracking {} symbols.".format(len(symbols)))
-#on_second = conn.on(r'A$')(on_second)
-channels = ['trade_updates']
-# for symbol in symbols:
-# 	symbol_channels = ['A.{}'.format(symbol) , 'AM.{}'.format(symbol)]
-# 	channels += symbol_channels
-# print("Tracking {} symbols.".format(len(symbols)))
+channels = ['AM.*']
 
+# Add symbols to minute data (AM) and second data (A) 
+for symbol in symbols:
+	symbol_channels = ['AM.{}'.format(symbol)]
+	#symbol_channels = ['A.{}'.format(symbol) , 'AM.{}'.format(symbol)]
+	channels += symbol_channels
 
+# Defining the loop for the threads
 async def periodic():
 	while True:
 		if not alpaca.get_clock().is_open:
 			logger.info('exit as market is not open')
 			sys.exit(0)
+		alpaca.get_account()
+		print(channels)
+		await on_minute
 		await asyncio.sleep(30)
-		positions = alpaca.list_positions()
-		for symbol in symbols:
-			pos = [p for p in positions if p.symbol == symbol]
-			#algo.checkup(pos[0] if len(pos) > 0 else None)
-			Algo.writing = True
-			symbol_channels = ['A.{}'.format(symbol) , 'AM.{}'.format(symbol)]
-			print(symbol)
-			#channels += symbol_channels
-	# 	for symbol, algo in fleet.items():
-	# 		pos = [p for p in positions if p.symbol == symbol]
-	# 		algo.checkup(pos[0] if len(pos) > 0 else None)
-	# channels = ['trade_updates'] + [
-	# 	'AM.' + symbol for symbol in symbols
-	# ]
 
-# def run_ws(conn, channels):
-# 	conn.run(channels)
 
 loop = conn.loop
 loop.run_until_complete(asyncio.gather(
@@ -106,51 +93,6 @@ loop.run_until_complete(asyncio.gather(
 ))
 loop.close()
 
-
-
-
-
-# async def on_second(conn, channel, data):
-# 	Algo.secBars.append(data)
-# 	print(Algo.minBars)
-	# if not Algo.writing:
-	# 	Algo.secBars.append(data)
-
-	# sleep(0.01)
-
-# def save_bars(barType, data):
-# 	# barType: 'secBars', 'minBars', or 'dayBars'
-# 	# data: raw stream data
-
-# 	# set flag for threadlocking
-# 	Algo.writing = True
-
-# 	# copy bars to Algo.assets
-# 	bars = Algo.__getattribute__(barType)
-# 	for bar in bars:
-# 		assets = Algo.assets[bar.symbol][barType] #pointer? 
-# 		assets = assets.append(bar.df)
-	
-# 	# set flag for threadlocking
-# 	Algo.writing = False
-
-# def ws_start():
-# 	symbols = list(Algo.assets.keys())[:10]
-# 	print(Algo.minBars)
-# 	print("Tracking {} symbols.".format(len(symbols)))
-# 	on_second = conn.on(r'A$')(on_second)
-# 	conn.run(['AM.MSFT'])
-
-# #start WebSocket in a thread
-# ws_thread = threading.Thread(target=ws_start, daemon=True)
-# ws_thread.start()
-
-	
-# # trade updates
-# @conn.on(r'^trade_updates$')
-# async def on_trade_updates(conn, channel, trade):
-# 	Algo.orderUpdates.append(trade)
-# 	# TODO: similar structure to save_bars
 
 
 

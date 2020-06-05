@@ -16,10 +16,6 @@ else:
 # initialize alpaca api
 alpaca = tradeapi.REST(*liveCreds)
 alpacaPaper = tradeapi.REST(*paperCreds)
-<<<<<<< HEAD
-conn = tradeapi.StreamConn(*paperCreds)
-connPaper = tradeapi.StreamConn(paper.apiKey, paper.secretKey, base_url=paperPoly.endpoint)
-=======
 
 # get polygon access for old paper accounts
 if testing:
@@ -28,6 +24,6 @@ if testing:
     alpacaPaper.polygon = polyAccess.polygon
 
 # initialize StreamConn
-conn = tradeapi.StreamConn(paper.apiKey, paper.secretKey, paperPoly.endpoint)
-connPaper = tradeapi.StreamConn(paper.apiKey, paper.secretKey, paperPoly.endpoint)
->>>>>>> refs/remotes/origin/master
+conn = tradeapi.StreamConn(*paperCreds)
+connPaper = tradeapi.StreamConn(*paperCreds)
+
