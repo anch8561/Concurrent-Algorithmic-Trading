@@ -8,9 +8,15 @@ from warn import warn
 
 class ReturnsReversion(Algo):
     def __init__(self, cash, maxPosFrac=0.01, numLookbackDays=5):
+        # TODO: check arguments
         self.numLookbackDays = numLookbackDays
-        tags = ['longShort', 'overnight', 'weekly']
-        super().__init__(cash, maxPosFrac, tags, 'returnsReversion')
+        super().__init__(
+            cash = cash,
+            BPCalc = 'overnight',
+            style = 'longShort',
+            tickFreq = 'hour',
+            maxPosFrac = maxPosFrac
+        )
 
         # additional attributes
         self.lastRebalanceDate = "0001-01-01"

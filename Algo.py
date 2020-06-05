@@ -24,7 +24,9 @@ class Algo:
     minBars = []
     orderUpdates = []
 
-    def __init__(self, cash=10000, maxPosFrac=0.01, tags=[], category=None):
+    def __init__(self, cash, BPCalc, style, tickFreq='sec', maxPosFrac=0.01):
+        # TODO: check arguments
+
         # paper / live
         self.alpaca = alpacaPaper # always call alpaca through self.alpaca
         self.allOrders = Algo.paperOrders # have to be careful not to break these references
@@ -35,13 +37,14 @@ class Algo:
         self.equity = cash # udpated daily
         self.positions = {} # {symbol: quantity}
         self.orders = {} # {id: {symbol, quantity, price}}
-        #  order quantity is positive for buy and negative for sell
-        #  order price is an estimate
+        # quantity is positive for buy/long and negative for sell/short
+        # order price is an estimate
 
         # properties
-        self.maxPosFrac = maxPosFrac # maximum fraction of buyingPower to hold in a position (at time of order)
-        self.tags = tags # e.g. 'long', 'short', 'longShort', 'intraday', 'daily', 'weekly', 'overnight'
-        self.category = category # e.g. 'meanReversion', 'momentum', 'scalping', etc
+        self.BPCalc = BPCalc # 'intraday' or 'overnight'
+        self.style = style # 'long', 'short', 'longShort'
+        self.tickFreq = tickFreq # 'sec', 'min', 'hour', or 'day'
+        self.maxPosFrac = maxPosFrac # maximum fraction of equity to hold in a position (at time of order)
 
         # risk metrics
 
@@ -64,6 +67,9 @@ class Algo:
             'equity',
             'positions',
             'orders',
+            'BPCalc',
+            'style',
+            'tickFreq',
             'maxPosFrac'
         ]
 
