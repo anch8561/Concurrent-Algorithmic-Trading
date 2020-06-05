@@ -25,36 +25,36 @@ def update_assets(algos):
             ):
                 Algo.assets[asset.symbol] = {}
                 if not isFirstRun: print(f'"{asset.symbol}" is now active and marginable')
-                Algo.assets[asset.symbol]['easyToBorrow'] = asset.easy_to_borrow
+                Algo.assets[asset.symbol]['shortable'] = asset.easy_to_borrow
                 # TODO: sector, industry, leverage, volume, historical data and metrics
         
         # remove inactive assets
         symbols = [asset.symbol for asset in alpacaAssets]
         inactive = []
-        for asset in Algo.assets:
-            if asset not in symbols:
-                inactive.append(asset)
-        for asset in inactive:
-            print(f'"{asset}" is no longer active')
+        for symbol in Algo.assets.keys():
+            if symbol not in symbols:
+                inactive.append(symbol)
+        for symbol in inactive:
+            print(f'"{symbol}" is no longer active')
 
             # remove from assets
-            Algo.assets.pop(asset)
+            Algo.assets.pop(symbol)
 
             # check for positions
-            if asset in Algo.livePositions:
-                position = Algo.livePositions[asset]
-                warn(f'You have {position} shares in {asset}')
+            if symbol in Algo.livePositions:
+                position = Algo.livePositions[symbol]
+                warn(f'You have {position} shares in {symbol}')
                 # TODO: how to handle this?
             # TODO: paper and algos
 
             # check for orders
             for ii, order in enumerate(Algo.liveOrders):
-                if order['symbol'] == asset: Algo.liveOrders.pop(ii)
+                if order['symbol'] == symbol: Algo.liveOrders.pop(ii)
             for ii, order in enumerate(Algo.paperOrders):
-                if order['symbol'] == asset: Algo.paperOrders.pop(ii)
+                if order['symbol'] == symbol: Algo.paperOrders.pop(ii)
             for algo in algos:
                 for ii, order in enumerate(algo.orders):
-                    if order['symbol'] == asset:
+                    if order['symbol'] == symbol:
                         algo.alpaca.cancel_order(order['id'])
                         algo.orders.pop(ii)
         

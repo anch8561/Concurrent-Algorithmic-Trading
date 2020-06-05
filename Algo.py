@@ -6,11 +6,10 @@ import statistics, json
 
 class Algo:
     assets = {} # {symbol: {easyToBorrow, secBars, minBars, dayBars}}
-    # 'easyToBorrow': bool; whether shortable on alpaca
+    # 'shortable': bool; whether easy_to_borrow on alpaca
     # 'secBars': pd.dataframe; past 10k second bars
     # 'minBars': pd.dataframe; past 1k minute bars
     # 'dayBars': pd.dataframe; past 100 daily bars
-    # 
 
     paperOrders = {} # {id: {symbol, quantity, price, algo}}
     liveOrders = {}
@@ -24,7 +23,7 @@ class Algo:
     minBars = []
     orderUpdates = []
 
-    def __init__(self, cash, BPCalc, style, tickFreq='sec', maxPosFrac=0.01):
+    def __init__(self, cash, BPCalc, equityStyle, tickFreq='sec', maxPosFrac=0.01):
         # TODO: check arguments
 
         # paper / live
@@ -42,8 +41,8 @@ class Algo:
 
         # properties
         self.BPCalc = BPCalc # 'intraday' or 'overnight'
-        self.style = style # 'long', 'short', 'longShort'
-        self.tickFreq = tickFreq # 'sec', 'min', 'hour', or 'day'
+        self.equityStyle = equityStyle # 'long', 'short', 'longShort'
+        self.tickFreq = tickFreq # 'sec' or 'min'
         self.maxPosFrac = maxPosFrac # maximum fraction of equity to hold in a position (at time of order)
 
         # risk metrics
@@ -68,7 +67,7 @@ class Algo:
             'positions',
             'orders',
             'BPCalc',
-            'style',
+            'equityStyle',
             'tickFreq',
             'maxPosFrac'
         ]

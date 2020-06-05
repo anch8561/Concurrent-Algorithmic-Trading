@@ -13,7 +13,7 @@ class ReturnsReversion(Algo):
         super().__init__(
             cash = cash,
             BPCalc = 'overnight',
-            style = 'longShort',
+            equityStyle = 'longShort',
             tickFreq = 'hour',
             maxPosFrac = maxPosFrac
         )
