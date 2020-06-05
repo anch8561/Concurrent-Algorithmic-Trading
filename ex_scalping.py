@@ -208,7 +208,7 @@ def main(args):
     for symbol in symbols:
         algo = ScalpAlgo(alpaca, symbol, lot=args.lot)
         fleet[symbol] = algo
-
+    alpaca.get_account()
     @conn.on(r'^AM')
     async def on_bars(conn, channel, data):
         if data.symbol in fleet:
@@ -223,11 +223,11 @@ def main(args):
 
     async def periodic():
         while True:
-            if not alpaca.get_clock().is_open:
+            if not alpacaPaper.get_clock().is_open:
                 logger.info('exit as market is not open')
                 sys.exit(0)
             await asyncio.sleep(30) 
-            positions = alpaca.list_positions()
+            positions = alpacaPaper.list_positions()
             for symbol, algo in fleet.items():
                 pos = [p for p in positions if p.symbol == symbol]
                 algo.checkup(pos[0] if len(pos) > 0 else None)
