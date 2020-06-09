@@ -1,7 +1,7 @@
 from alpacaAPI import alpaca, alpacaPaper
 from distribute_funds import distribute_funds
-from marketHours import is_new_week_since
-from update_assets import update_assets
+from marketHours import get_time, get_date, get_open_time, is_new_week_since
+from get_tradable_assets import get_tradable_assets
 from config import minAllocBP
 
 # import algo classes
@@ -21,12 +21,17 @@ algos = [returnsReversion7, returnsReversion30, returnsReversion90]
 
 lastRebalanceDate = "0001-01-01"
 # TODO: read date from file or prompt to coninue
-update_assets(algos)
+get_tradable_assets(algos)
 while True:
     # if is_new_week_since(lastRebalanceDate): distribute_funds(algos)
 
-    # if before market open:
-    #     Algo.update_assets()
+    # get tradable assets
+    if (
+        get_time(1) < get_open_time() and # no more than 1 hr before market open
+        Algo.lastSymbolUpdate != get_date() # haven't udpated today
+    ): 
+        get_tradable_assets()
+
 
     # if after market close:
     #     for algo in algos:

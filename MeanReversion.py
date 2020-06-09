@@ -1,61 +1,86 @@
-
+# This algo trades based on the difference between price and moving average.
+# When the difference is greater than 1 STD, an order is placed with exits at
+# the mean and 2 STDs
 
 from Algo import Algo
-from marketHours import *
+from marketHours import get_time, get_date, get_open_time, get_close_time, get_n_market_days_ago, is_new_week_since
+from warn import warn
+from ta import 
 
-class MeanReversion(Algo):
-    def __init__(self, cash, maxPosFrac=0.01, numLookbackDays=7, upperLimitFrac):
+class ReturnsReversion(Algo):
+    def __init__(self, cash, maxPosFrac=0.01, numLookbackDays=5):
+        # TODO: check arguments
         self.numLookbackDays = numLookbackDays
-        tags = []
-        super().__init__(cash, maxPosFrac, tags)
+        super().__init__(
+            cash = cash,
+            BPCalc = 'overnight',
+            equityStyle = 'longShort',
+            tickFreq = 'hour',
+            maxPosFrac = maxPosFrac
+        )
 
-        self.lastRebalanceDate = "0000-00-00"
+        # additional attributes
+        self.lastRebalanceDate = "0001-01-01"
+
+        # additional attributes to save / load
+        self.dataFields += [
+            'lastRebalanceDate'
+        ]
+    
+    def id(self):
+        return f'MeanReversion_{self.maxPosFrac}_{self.numLookbackDays}'
 
     def tick(self):
-        if isNewWeekSince(self.lastRebalanceDate) and \
-            getTime() > "11-00-00": self.rebalance
+        if (
+            is_new_week_since(self.lastRebalanceDate) and
+            get_time(-1) > get_open_time() and
+            get_time(1) < get_close_time()
+        ):
+            self.rebalance()
 
     def rebalance(self):
-        # get stock growth during lookback window
-        symbols = [asset.symbol for asset in self.assets]
-        fromDate = getDate(-self.numLookbackDays)
-        toDate = getDate()
-        returns = []
-        for symbol in symbols:
-            bars = self.alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate)
-            returns.append( ((bars[-1].close - bars[0].open)/bars[0].open, symbol) )
-        returns = sorted(returns)
+        print(self.id(), 'rebalancing')
+
+        # get mean & std
+
+        # sort by distance from mean
 
         # long
-        for ii in range(10):
-            # TODO: check for existing position or order
-
-            # get quote
-            symbol = returns[ii][1]
-            price = self.alpaca.polygon.last_quote(symbol)
-
-            # get quantity
-            quantity = int(self.maxPosFrac * self.equity / price)
-            if quantity == 0: continue
-            if quantity * price > self.buyingPower:
-                quantity = int(self.buyingPower / price)
-
-            # TODO: check margins & risk
-
-            # TODO: add and optimize parameters for limit decisions
-
-            upperLimit = price * -1 * (returns[ii][0] / 2 + 1)
-            stopPrice = price * (returns[ii][0] / 2 + 1)
-            lowerLimit = price * (returns[ii][0] + 1)
+        numOrders = int(1/self.maxPosFrac/2)
+        for ii in range(numOrders): self.trade(assets[ii][0], 'buy')
+        
+        # short
+        assets = [asset for asset in assets if self.assets[asset[0]]['easyToBorrow']]
+        for ii in range(-1, -numOrders, -1): self.trade(assets[ii][0], 'sell')
+    
+    def trade(self, symbol, side):
+        # symbol: e.g. 'AAPL'
+        # side: 'buy' or 'sell'
             
+        # get quantity
+        quantity = self.get_trade_quantity(symbol, side)
+        if quantity == None: return
+
+        try:
+            # place order
             order = self.alpaca.submit_order(
                 symbol=symbol,
                 qty=quantity,
-                side='buy',
-                type='market',
-                time_in_force='day',
-                order_class='bracket',
-                take_profit={'limit_price':str(upperLimit)},
-                stop_loss={'stop_price':str(stopPrice), 'limit_price':str(lowerLimit)}
-                )
-            
+                side=side,
+                type='market', # because this is long term
+                time_in_force='day'
+            )
+
+            # save order
+            order = dict(
+                id = order.id,
+                symbol = symbol,
+                quantity = quantity,
+                price = price
+            )
+            self.orders.append(order)
+            self.allOrders.append(order) # NOTE: this may cause issues with parrallel execution
+
+            print(self.id(), f'{side}ing {abs(quantity)} {symbol}')
+        except:
+            warn(f'{self.id()} order failed: {side}ing {abs(quantity)} {symbol}')

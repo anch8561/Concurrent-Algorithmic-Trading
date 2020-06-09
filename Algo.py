@@ -10,6 +10,7 @@ class Algo:
     # 'secBars': pd.dataframe; past 10k second bars
     # 'minBars': pd.dataframe; past 1k minute bars
     # 'dayBars': pd.dataframe; past 100 daily bars
+    lastSymbolUpdate = '0001-01-01' # last date assets.keys() was updated
 
     paperOrders = {} # {id: {symbol, quantity, price, algo}}
     liveOrders = {}
@@ -40,8 +41,8 @@ class Algo:
         # order price is an estimate
 
         # properties
-        self.BPCalc = BPCalc # 'intraday' or 'overnight'
-        self.equityStyle = equityStyle # 'long', 'short', 'longShort'
+        self.BPCalc = BPCalc # 'intraday', 'overnight', or 'overnightOnly'
+        self.equityStyle = equityStyle # 'long', 'short', or 'longShort'
         self.tickFreq = tickFreq # 'sec' or 'min'
         self.maxPosFrac = maxPosFrac # maximum fraction of equity to hold in a position (at time of order)
 
