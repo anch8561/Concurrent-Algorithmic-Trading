@@ -32,7 +32,7 @@ class MartingaleTrader(object):
         self.symbol = 'SPY'
 
         # How many seconds we will wait in between updating the streak values
-        self.tick_size = 5
+        self.tick_size = 30
         self.tick_index = 0
 
         # The percentage of our buying power that we will allocate to a new
@@ -95,6 +95,7 @@ class MartingaleTrader(object):
                 self.last_price = tick_close
 
                 self.process_current_tick(tick_open, tick_close)
+        conn.run([f'A.{self.symbol}'])
 
         # Listen for quote data and perform trading logic
         @conn.on(r'T\..+', [self.symbol])
@@ -114,6 +115,8 @@ class MartingaleTrader(object):
                 self.last_price = tick_close
 
                 self.process_current_tick(tick_open, tick_close)
+
+        conn.run(['T.*'])
 
         # Listen for updates to our orders
         @conn.on(r'trade_updates')
@@ -142,6 +145,8 @@ class MartingaleTrader(object):
                     self.current_order = None
             elif event_type != 'new':
                 print(f'Unexpected order event type {event_type} received')
+        
+        conn.run(['trade_updates'])
 
     def process_current_tick(self, tick_open, tick_close):
         # Update streak info
