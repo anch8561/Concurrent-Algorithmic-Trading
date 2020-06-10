@@ -6,6 +6,16 @@ from datetime import datetime, timedelta, timezone
 
 nyc = timezone(timedelta(hours=-4))
 
+# get calendar
+calendar = alpaca.get_calendar()
+todayStr = datetime.now(nyc).strftime('%Y-%m-%d')
+for ii, date in enumerate(calendar):
+    if date._raw['date'] >= todayStr: # current or next market day
+        i_today = ii
+        break
+
+# TODO: update calendar daily
+
 def get_time(offset=0):
     # offset: int, hours relative to now (-1 is an hour ago)
     # returns: e.g. '19:01:26' (HH:MM:SS)
@@ -18,51 +28,49 @@ def get_date(offset=0):
     date = datetime.now(nyc) + timedelta(offset)
     return date.strftime('%Y-%m-%d')
 
+def get_market_date(offset=0):
+    # offset: int, MARKET days relative to today (-1 is prev market day)
+    # returns: e.g. '2020-05-28' (YYYY-MM-DD)
+    if offset > 0 and not is_market_day(): offset -= 1
+    return calendar[i_today + offset]._raw['date']
+
 def get_open_time():
     # returns: e.g. '19:01:26' (HH:MM:SS)
-    todayStr = get_date()
-    calendar = alpaca.get_calendar(todayStr, todayStr)[0]
-    return datetime.now().replace(
-        hour=calendar.open.hour,
-        minute=calendar.open.minute,
-        second=0
-    ).astimezone(nyc).strftime('%H:%M:%S')
-
+    if is_market_day():
+        return calendar[i_today].open
+    else:
+        warn('Market is closed today')
+        
 def get_close_time():
     # returns: e.g. '19:01:26' (HH:MM:SS)
-    todayStr = get_date()
-    calendar = alpaca.get_calendar(todayStr, todayStr)[0]
-    return datetime.now().replace(
-        hour=calendar.close.hour,
-        minute=calendar.close.minute,
-        second=0
-    ).astimezone(nyc).strftime('%H:%M:%S')
+    if is_market_day():
+        return calendar[i_today].close
+    else:
+        warn('Market is closed today')
 
 def is_market_day(offset=0):
     # offset: int, days relative to today (-1 is yesterday)
     # returns: bool
+
+    # get date
     dateStr = get_date(offset)
-    calendarDateStr = alpaca.get_calendar(dateStr, dateStr)[0]._raw['date']
-    return calendarDateStr == dateStr
 
-def get_n_market_days_ago(n=1):
-    # n: pos int, 
-    # returns: e.g. '2020-05-28' (YYYY-MM-DD)
+    # past day
+    if offset < 0:
+        for ii in range(-1, offset-1, -1):
+            calDateStr = calendar[i_today + ii]._raw['date']
+            if dateStr == calDateStr: return True
+            if dateStr > calDateStr: return False
 
-    # check arguments
-    if n <= 0:
-        warn(f'{n} <= 0')
-        return
+    # future day
+    if offset > 0:
+        for ii in range(1, offset+1, 1):
+            calDateStr = calendar[i_today + ii]._raw['date']
+            if dateStr == calDateStr: return True
+            if dateStr < calDateStr: return False
 
-    # check each previous day until n market days are found
-    offset = -1
-    count = 0
-    while True:
-        if is_market_day(offset):
-            count += 1
-            if count == n:
-                return get_date(offset)
-        offset -= 1
+    # today
+    return dateStr == calendar[i_today]._raw['date']
     
 def is_new_week_since(dateStr):
     # dateStr: e.g. '2020-05-28' (YYYY-MM-DD)
