@@ -24,6 +24,6 @@ if testing:
     alpacaPaper.polygon = polyAccess.polygon
 
 # initialize StreamConn
-conn = tradeapi.StreamConn(*paperCreds)
+conn = tradeapi.StreamConn(*paperCreds, data_stream='polygon')
 connPaper = tradeapi.StreamConn(*paperCreds)
 
