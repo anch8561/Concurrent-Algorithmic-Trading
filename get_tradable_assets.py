@@ -5,7 +5,7 @@
 
 from alpacaAPI import alpaca
 from Algo import Algo
-from marketHours import get_date, get_n_market_days_ago
+from marketHours import get_date, get_market_date
 from warn import warn
 
 
@@ -99,13 +99,13 @@ def add_asset(symbol):
     # TODO: try to load data (esp for secBars)
 
     # get minBars
-    fromDate = get_n_market_days_ago(1)
+    fromDate = get_market_date(-1)
     toDate = get_date()
     Algo.assets[symbol]['minBars'] = \
         alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate).df
 
     # get dayBars
-    fromDate = get_n_market_days_ago(100)
+    fromDate = get_market_date(-100)
     toDate = get_date()
     Algo.assets[symbol]['dayBars'] = \
         alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df

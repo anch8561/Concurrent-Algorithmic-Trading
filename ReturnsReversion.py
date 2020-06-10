@@ -3,7 +3,7 @@
 # positions indefinitely.
 
 from Algo import Algo
-from marketHours import get_time, get_date, get_open_time, get_close_time, get_n_market_days_ago, is_new_week_since
+from marketHours import get_time, get_date, get_market_date, get_open_time, get_close_time, is_new_week_since
 from warn import warn
 
 class ReturnsReversion(Algo):
@@ -42,7 +42,7 @@ class ReturnsReversion(Algo):
 
         # get symbols and dates
         symbols = list(Algo.assets.keys())[:100] # FIX: first 100 are for testing
-        fromDate = get_n_market_days_ago(self.numLookbackDays)
+        fromDate = get_market_date(-self.numLookbackDays)
         toDate = get_date()
 
         # get asset returns during lookback window
