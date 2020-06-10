@@ -26,7 +26,7 @@ def get_tradable_assets(algos, debugging=False):
     # NOTE: this takes a long time. Would it be faster with sort?
     activeSymbols = []
     for ii, asset in enumerate(alpacaAssets):
-        print(f'Checking asset {ii} / {len(alpacaAssets)}')
+        print(f'Checking asset {ii+1} / {len(alpacaAssets)}')
 
         # get price (if on polygon)
         price = 0
@@ -83,14 +83,15 @@ def remove_asset(symbol, algos):
 
     # check for orders
     for algo in algos:
-        for ii, order in enumerate(algo.orders):
+        orderIDs = []
+        for order in algo.orders:
             if order['symbol'] == symbol:
-                algo.alpaca.cancel_order(order['id'])
-                algo.orders.pop(ii)
-    for orders in (Algo.livePositions, Algo.paperOrders):
-        for ii, order in enumerate(orders):
-            if order['symbol'] == symbol:
-                orders.pop(ii)
+                orderIDs.append(order['id'])
+        for orderID in orderIDs:
+            algo.alpaca.cancel_order(orderID)
+            algo.allOrders.pop(orderID)
+            algo.orders.pop(orderID)
+
 
 def add_asset(symbol):
     # add key

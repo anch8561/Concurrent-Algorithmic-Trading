@@ -30,6 +30,9 @@ async def on_minute(conn, channel, data):
 def save_bars(barType, data):
 	# barType: 'secBars' or 'minBars'
 	# data: raw stream data
+	if barType not in ('secBars', 'minBars', 'dayBars'):
+		warn(f'barType "{barType}" not recognized')
+		return
 	df = pd.DataFrame({
             'open': data.open,
             'high': data.high,
@@ -38,6 +41,8 @@ def save_bars(barType, data):
             'volume': data.volume,
         }, index=[data.start])
 	# copy bars to Algo.assets
+	# TODO: implement for barType = 'dayBars'
+	# TODO: append to Algo.assets[symbol]['minBars'] dataframe
 	Algo.minBars.append(df) if barType == 'minBars' else Algo.secBars.append(df)
 	print(f'Saving {barType} for {data.symbol}')
 #	print(f'{df}')
