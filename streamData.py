@@ -1,14 +1,22 @@
 import asyncio, websocket, json, threading, requests, logging, nest_asyncio, sys 
 import pandas as pd
 from Algo import Algo
+from ReturnsReversion import ReturnsReversion
 from alpacaAPI import alpaca, alpacaPaper, conn, connPaper
-import get_tradable_assets
+from get_tradable_assets import get_tradable_assets
 from warn import warn
 from time import sleep
 
-alpacaAssets = alpaca.list_assets('active', 'us_equity')
-alpacaAssets = alpacaAssets[:100]
-symbols = list(alpacaAssets)[:10]
+
+returnsReversion = ReturnsReversion(1000)
+algos = [returnsReversion]
+
+get_tradable_assets(algos, debugging=True)
+symbols = list(Algo.assets.keys())
+# alpacaAssets = alpaca.list_assets('active', 'us_equity')
+# alpacaAssets = alpacaAssets[:100]
+# symbols = list(alpacaAssets)[:10]
+
 
 @conn.on(r'account_updates')
 async def on_account_updates(conn, channel, account):
@@ -16,15 +24,10 @@ async def on_account_updates(conn, channel, account):
 
 @conn.on(r'A')
 async def on_second(conn, channel, data):
-
-	#print(f'{data.symbol} Data: \n {data}')
-	#if data.symbol in symbols:
 	save_bars('secBars', data)
 
 @conn.on(r'AM')
 async def on_minute(conn, channel, data):
-	#print(f'{data.symbol} Data: \n {data}')
-	#if data.symbol in symbols:
 	save_bars('minBars', data)
 
 def save_bars(barType, data):
@@ -40,14 +43,11 @@ def save_bars(barType, data):
             'close': data.close,
             'volume': data.volume,
         }, index=[data.start])
+	# TODO: add dayBars functionality
 	# copy bars to Algo.assets
-	# TODO: implement for barType = 'dayBars'
-	# TODO: append to Algo.assets[symbol]['minBars'] dataframe
-	Algo.minBars.append(df) if barType == 'minBars' else Algo.secBars.append(df)
+	Algo.assets[data.symbol]['minBars'].append(df) if barType == 'minBars' else Algo.assets[data.symbol]['secBars'].append(df)
 	print(f'Saving {barType} for {data.symbol}')
-#	print(f'{df}')
 	print(f'-------------------------------------------------------------')
-#	print(f'{Algo.minBars}')
 
 print("Tracking {} symbols.".format(len(symbols)))
 channels = ['account_updates','AM.*', 'A.*']
@@ -66,6 +66,9 @@ async def periodic():
 			sys.exit(0)
 		#print(alpacaPaper.get_account())
 		await asyncio.sleep(5)
+
+
+# TODO: Add run function
 
 loop = conn.loop
 loop.run_until_complete(asyncio.gather(
