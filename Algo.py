@@ -24,7 +24,7 @@ class Algo:
     minBars = []
     orderUpdates = []
 
-    def __init__(self, cash, BPCalc, equityStyle, tickFreq='sec', maxPosFrac=0.01):
+    def __init__(self, cash, timeframe, equityStyle, tickFreq='sec', maxPosFrac=0.01):
         # TODO: check arguments
 
         # paper / live
@@ -41,7 +41,7 @@ class Algo:
         # order price is an estimate
 
         # properties
-        self.BPCalc = BPCalc # 'intraday', 'overnight', or 'overnightOnly'
+        self.timeframe = timeframe # 'intraday', 'overnight', or 'multiday'
         self.equityStyle = equityStyle # 'long', 'short', or 'longShort'
         self.tickFreq = tickFreq # 'sec' or 'min'
         self.maxPosFrac = maxPosFrac # maximum fraction of equity to hold in a position (at time of order)
@@ -67,7 +67,7 @@ class Algo:
             'equity',
             'positions',
             'orders',
-            'BPCalc',
+            'timeframe',
             'equityStyle',
             'tickFreq',
             'maxPosFrac'

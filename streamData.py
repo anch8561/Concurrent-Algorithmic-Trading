@@ -7,12 +7,16 @@ from get_tradable_assets import get_tradable_assets
 from warn import warn
 from time import sleep
 
-def save_bars(barType, data):
-	# barType: 'secBars' or 'minBars'
+def save_bar(barType, data):
+	# barType: 'secBars', 'minBars', or 'dayBars'
 	# data: raw stream data
+
+	# check arguments
 	if barType not in ('secBars', 'minBars', 'dayBars'):
 		warn(f'barType "{barType}" not recognized')
 		return
+
+	# copy bars to Algo.assets (needs to be initialized first)
 	df = pd.DataFrame({
             'open': data.open,
             'high': data.high,
@@ -20,10 +24,7 @@ def save_bars(barType, data):
             'close': data.close,
             'volume': data.volume,
         }, index=[data.start])
-	# TODO: add dayBars 
-
-	# copy bars to Algo.assets (needs to be initialized first)
-	Algo.assets[data.symbol][barType].append(df) 
+	Algo.assets[data.symbol][barType].append(df)
 
 	print(f'Saving {barType} for {data.symbol}')
 	print(f'-------------------------------------------------------------')
@@ -32,15 +33,16 @@ def run():
 
 	@conn.on(r'account_updates')
 	async def on_account_updates(conn, channel, account):
+		print(account)
 		print(f'{alpacaPaper.get_account()}')
 
-	# @conn.on(r'A')
-	# async def on_second(conn, channel, data):
-	# 	save_bars('secBars', data)
+	@conn.on(r'A')
+	async def on_second(conn, channel, data):
+		save_bar('secBars', data)
 
 	@conn.on(r'AM')
 	async def on_minute(conn, channel, data):
-		save_bars('minBars', data)
+		save_bar('minBars', data)
 
 	async def periodic():
 		while True:
@@ -49,10 +51,6 @@ def run():
 				sys.exit(0)
 			await asyncio.sleep(5)
 
-	returnsReversion = ReturnsReversion(1000)
-	algos = [returnsReversion]
-
-	get_tradable_assets(algos, debugging=True)
 	symbols = list(Algo.assets.keys())
 
 	print("Tracking {} symbols.".format(len(symbols)))
@@ -70,10 +68,6 @@ def run():
 		periodic()
 	))
 	loop.close()
-
-run()
-
-
 
 
 

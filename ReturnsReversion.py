@@ -12,7 +12,7 @@ class ReturnsReversion(Algo):
         self.numLookbackDays = numLookbackDays
         super().__init__(
             cash = cash,
-            BPCalc = 'overnight',
+            timeframe = 'overnight',
             equityStyle = 'longShort',
             tickFreq = 'hour',
             maxPosFrac = maxPosFrac

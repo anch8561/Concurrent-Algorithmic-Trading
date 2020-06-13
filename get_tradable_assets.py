@@ -7,9 +7,11 @@ from alpacaAPI import alpaca
 from Algo import Algo
 from marketHours import get_date, get_market_date
 from warn import warn
+import pandas as pd
+from storeAssets import load_asset
 
 
-def get_tradable_assets(algos, debugging=False):
+def get_tradable_assets(algos, debugging=False, numDebugAssets=100):
     # algos: list of algos
 
     print('Updating tradable assets')
@@ -19,7 +21,7 @@ def get_tradable_assets(algos, debugging=False):
 
     # get alpaca assets and polygon tickers
     alpacaAssets = alpaca.list_assets('active', 'us_equity')
-    if debugging: alpacaAssets = alpacaAssets[:100]
+    if debugging: alpacaAssets = alpacaAssets[:numDebugAssets]
     polygonTickers = alpaca.polygon.all_tickers()
     
     # get activeSymbols
@@ -41,19 +43,21 @@ def get_tradable_assets(algos, debugging=False):
             activeSymbols.append(asset.symbol)
 
     # check for inactive assets
-    inactive = []
+    inactiveSymbols = []
     for symbol in Algo.assets:
         if symbol not in activeSymbols:
-            inactive.append(symbol)
+            inactiveSymbols.append(symbol)
     
     # remove inactive assets
-    for symbol in inactive:
+    for ii, symbol in enumerate(inactiveSymbols):
+        print(f'Removing asset {ii+1} / {len(inactiveSymbols)}')
         remove_asset(symbol, algos)
         if logging: print(f'"{symbol}" is no longer active')
 
     # add tradable assets
-    for symbol in activeSymbols:
+    for ii, symbol in enumerate(activeSymbols):
         if symbol not in Algo.assets:
+            print(f'Adding asset {ii+1} / {len(activeSymbols)}')
             add_asset(symbol)
             if logging: print(f'"{symbol}" is now active')
 
@@ -97,7 +101,9 @@ def add_asset(symbol):
     # add key
     Algo.assets[symbol] = {}
 
-    # TODO: try to load data (esp for secBars)
+    # get secBars
+    try: load_asset(symbol, 'secBars')
+    except: Algo.assets[symbol]['secBars'] = pd.DataFrame()
 
     # get minBars
     fromDate = get_market_date(-1)
