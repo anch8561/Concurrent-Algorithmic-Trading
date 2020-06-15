@@ -1,6 +1,6 @@
 import alpaca_trade_api as tradeapi
-import requests
-import time
+from alpacaAPI import alpaca, alpacaPaper, conn, connPaper
+import asyncio, sys, requests, time
 from ta.trend import macd
 import numpy as np
 from datetime import datetime, timedelta
@@ -71,9 +71,6 @@ def find_stop(current_value, minute_history, now):
 
 
 def run(tickers, market_open_dt, market_close_dt):
-    # Establish streaming connection
-    conn = connPaper
-
     # Update initial state with information from tickers
     volume_today = {}
     prev_closes = {}
@@ -146,7 +143,7 @@ def run(tickers, market_open_dt, market_close_dt):
                 partial_fills[symbol] = 0
                 open_orders[symbol] = None
 
-    @conn.on(r'A$')
+    @conn.on(r'A')
     async def handle_second_bar(conn, channel, data):
         symbol = data.symbol
 
@@ -336,7 +333,7 @@ def run(tickers, market_open_dt, market_close_dt):
             ])
 
     # Replace aggregated 1s bars with incoming 1m bars
-    @conn.on(r'AM$')
+    @conn.on(r'AM')
     async def handle_minute_bar(conn, channel, data):
         ts = data.start
         ts -= timedelta(microseconds=ts.microsecond)
@@ -349,22 +346,38 @@ def run(tickers, market_open_dt, market_close_dt):
         ]
         volume_today[data.symbol] += data.volume
 
-    channels = ['trade_updates']
-    for symbol in symbols:
-        symbol_channels = ['A.{}'.format(symbol), 'AM.{}'.format(symbol)]
-        channels += symbol_channels
+    channels = ['trade_updates', 'A.SPY', 'AM.SPY']
+    # for symbol in symbols:
+    #     symbol_channels = ['A.{}'.format(symbol), 'AM.{}'.format(symbol)]
+    #     channels += symbol_channels
     print('Watching {} symbols.'.format(len(symbols)))
-    run_ws(conn, channels)
+
+    async def periodic():
+        # while True:
+            # if not api.get_clock().is_open:
+            #     print(f'Market is not open.')
+            #     sys.exit(0)
+        await asyncio.sleep(5)
 
 
-# Handle failed websocket connections by reconnecting
-def run_ws(conn, channels):
-    try:
-        conn.run(channels)
-    except Exception as e:
-        print(e)
-        conn.close()
-        run_ws(conn, channels)
+    loop = conn.loop
+    loop.run_until_complete(asyncio.gather(
+        conn.subscribe(channels),
+        periodic()
+    ))
+    loop.close()
+
+
+
+
+# # Handle failed websocket connections by reconnecting
+# def run_ws(conn, channels):
+#     try:
+#         conn.run(channels)
+#     except Exception as e:
+#         print(e)
+#         conn.close()
+#         run_ws(conn, channels)
 
 
 if __name__ == "__main__":

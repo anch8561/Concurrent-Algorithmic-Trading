@@ -1,5 +1,5 @@
 # Save and load Algo.assets (must populate Algo.assets first)
-
+from warn import warn
 from Algo import Algo
 
 def save_asset(symbol, barType):
@@ -10,9 +10,9 @@ def save_asset(symbol, barType):
     if symbol not in Algo.assets:
         warn(f'symbol "{barType}" not in Algo.assets')
         return
-	if barType not in ('secBars', 'minBars', 'dayBars'):
-		warn(f'barType "{barType}" not recognized')
-		return
+    if barType not in ('secBars', 'minBars', 'dayBars'):
+        warn(f'barType "{barType}" not recognized')
+        return
 
     # save bars
     try:
@@ -36,10 +36,10 @@ def load_asset(symbol, barType):
     # check arguments
     if symbol not in Algo.assets:
         warn(f'symbol "{barType}" not in Algo.assets')
-		return
-	if barType not in ('secBars', 'minBars', 'dayBars'):
-		warn(f'barType "{barType}" not recognized')
-		return
+        return
+    if barType not in ('secBars', 'minBars', 'dayBars'):
+        warn(f'barType "{barType}" not recognized')
+        return
     
     # load bars
     try:
