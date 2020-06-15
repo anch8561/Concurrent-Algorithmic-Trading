@@ -1,6 +1,7 @@
 # base class for algos
 
 from alpacaAPI import alpaca, alpacaPaper
+from config import maxPosFrac
 from warn import warn
 import statistics, json
 
@@ -24,7 +25,7 @@ class Algo:
     minBars = []
     orderUpdates = []
 
-    def __init__(self, cash, timeframe, equityStyle, tickFreq='sec', maxPosFrac=0.01):
+    def __init__(self, cash, timeframe, equityStyle, tickFreq='sec'):
         # TODO: check arguments
 
         # paper / live

@@ -8,7 +8,6 @@ from Algo import Algo
 from marketHours import get_date, get_market_date
 from warn import warn
 import pandas as pd
-from storeAssets import load_asset
 
 
 def get_tradable_assets(algos, debugging=False, numDebugAssets=100):
@@ -38,7 +37,7 @@ def get_tradable_assets(algos, debugging=False, numDebugAssets=100):
                 break
 
         # check marginablility
-        # TODO: check leverage
+        # TODO: check leverage (ask alpaca, can it be short?, long and check margin)
         if asset.marginable and price > 3:
             activeSymbols.append(asset.symbol)
 
@@ -81,8 +80,7 @@ def remove_asset(symbol, algos):
     # TODO: check algos
     for positions in (Algo.livePositions, Algo.paperPositions):
         if symbol in positions:
-            position = positions[symbol]
-            warn(f'You have {position} shares in {symbol} (inactive)')
+            warn(f'You have {positions[symbol]} shares in {symbol} (inactive)')
             # TODO: how to handle? (inactive on alpaca, not marginable, below price threshold)
 
     # check for orders
@@ -101,9 +99,8 @@ def add_asset(symbol):
     # add key
     Algo.assets[symbol] = {}
 
-    # get secBars
-    try: load_asset(symbol, 'secBars')
-    except: Algo.assets[symbol]['secBars'] = pd.DataFrame()
+    # init secBars
+    Algo.assets[symbol]['secBars'] = pd.DataFrame()
 
     # get minBars
     fromDate = get_market_date(-1)

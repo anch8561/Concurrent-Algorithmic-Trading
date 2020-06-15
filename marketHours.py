@@ -1,14 +1,18 @@
 # functions for navigating market hours, timezones, and holidays
+# all inputs and outputs are timezone-naive strings in NY timezone
+# time strings are actually naive datetime strings in ISO format
 
 from alpacaAPI import alpaca
 from warn import warn
 from datetime import datetime, timedelta, timezone
 
 nyc = timezone(timedelta(hours=-4))
+dateFormatStr = '%Y-%m-%d'
+timeFormatStr = dateFormatStr + ' %H:%M:%S'
 
 # get calendar
 calendar = alpaca.get_calendar()
-todayStr = datetime.now(nyc).strftime('%Y-%m-%d')
+todayStr = datetime.now(nyc).strftime(dateFormatStr)
 for ii, date in enumerate(calendar):
     if date._raw['date'] >= todayStr: # current or next market day
         i_today = ii
@@ -17,36 +21,40 @@ for ii, date in enumerate(calendar):
 # TODO: update calendar daily
 
 def get_time(offset=0):
-    # offset: int, hours relative to now (-1 is an hour ago)
+    # offset: int, minutes relative to now (-1 is an hour ago)
     # returns: e.g. '19:01:26' (HH:MM:SS)
-    time = datetime.now(nyc) + timedelta(hours=offset)
-    return time.strftime('%H:%M:%S')
+    time = datetime.now(nyc) + timedelta(minutes=offset)
+    return time.strftime(timeFormatStr)
 
 def get_date(offset=0):
     # offset: int, days relative to today (-1 is yesterday)
     # returns: e.g. '2020-05-28' (YYYY-MM-DD)
     date = datetime.now(nyc) + timedelta(offset)
-    return date.strftime('%Y-%m-%d')
+    return date.strftime(dateFormatStr)
 
 def get_market_date(offset=0):
     # offset: int, MARKET days relative to today (-1 is prev market day)
     # returns: e.g. '2020-05-28' (YYYY-MM-DD)
     if offset > 0 and not is_market_day(): offset -= 1
-    return calendar[i_today + offset]._raw['date']
+    return calendar[i_today + offset].date.strftime(dateFormatStr)
 
 def get_open_time():
     # returns: e.g. '19:01:26' (HH:MM:SS)
-    if is_market_day():
-        return calendar[i_today].open
-    else:
-        warn('Market is closed today')
+    time = calendar[i_today].open
+    date = datetime.now(nyc).replace(
+        hour = time.hour,
+        minute = time.minute,
+        second = time.second)
+    return date.strftime(timeFormatStr)
         
 def get_close_time():
     # returns: e.g. '19:01:26' (HH:MM:SS)
-    if is_market_day():
-        return calendar[i_today].close
-    else:
-        warn('Market is closed today')
+    time = calendar[i_today].close
+    date = datetime.now(nyc).replace(
+        hour = time.hour,
+        minute = time.minute,
+        second = time.second)
+    return date.strftime(timeFormatStr)
 
 def is_market_day(offset=0):
     # offset: int, days relative to today (-1 is yesterday)
@@ -77,7 +85,7 @@ def is_new_week_since(dateStr):
     # returns: bool
     
     # check argument
-    try: date = datetime.strptime(dateStr, '%Y-%m-%d').date()
+    try: date = datetime.strptime(dateStr, dateFormatStr).date()
     except:
         warn(f'{date} could not be parsed')
         return

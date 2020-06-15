@@ -1,15 +1,15 @@
-import asyncio, sys 
+import asyncio, sys
 import pandas as pd
 from Algo import Algo
-from ReturnsReversion import ReturnsReversion
-from alpacaAPI import alpaca, alpacaPaper, conn, connPaper
+from alpacaAPI import conn, connPaper
 from get_tradable_assets import get_tradable_assets
+from marketHours import get_time, get_open_time, get_close_time
 from warn import warn
-from time import sleep
 
 def save_bar(barType, data):
     # barType: 'secBars', 'minBars', or 'dayBars'
     # data: raw stream data
+
     # check arguments
     if barType not in ('secBars', 'minBars', 'dayBars'):
         warn(f'barType "{barType}" not recognized')
@@ -30,7 +30,6 @@ def run():
     @conn.on(r'account_updates')
     async def on_account_updates(conn, channel, account):
         print(account)
-        print(f'{alpacaPaper.get_account()}')
 
     @conn.on(r'A')
     async def on_second(conn, channel, data):
@@ -41,22 +40,23 @@ def run():
         save_bar('minBars', data)
 
     async def periodic():
-        # while True:
-        #     if not alpacaPaper.get_clock().is_open:
-        #         print(f'Market is not open.')
-        #         sys.exit(0)
-        await asyncio.sleep(5)
+        while True:
+            if (
+                get_time() < get_open_time() or
+                get_time() > get_close_time()
+            ):
+                print(f'Market is closed')
+                sys.exit(0) # FIX: closes program
+            else:
+                await asyncio.sleep(5)
 
-    symbols=['SPY']
-
+    symbols = list(Algo.assets.keys())
     print("Tracking {} symbols.".format(len(symbols)))
     channels = ['account_updates']
 
     # Add symbols to minute data (AM) and second data (A) to subscribe to channels
     for symbol in symbols:
-        symbol_channels = ['AM.{}'.format(symbol)]
-        #symbol_channels = ['A.{}'.format(symbol) , 'AM.{}'.format(symbol)]
-        channels += symbol_channels
+        channels += ['A.{}'.format(symbol) , 'AM.{}'.format(symbol)]
 
     loop = conn.loop
     loop.run_until_complete(asyncio.gather(
@@ -64,8 +64,3 @@ def run():
         periodic()
     ))
     loop.close()
-
-run()
-
-
-

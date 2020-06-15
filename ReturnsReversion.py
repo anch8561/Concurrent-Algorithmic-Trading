@@ -14,8 +14,7 @@ class ReturnsReversion(Algo):
             cash = cash,
             timeframe = 'overnight',
             equityStyle = 'longShort',
-            tickFreq = 'hour',
-            maxPosFrac = maxPosFrac
+            tickFreq = 'hour'
         )
 
         # additional attributes
