@@ -4,6 +4,7 @@ import alpaca_trade_api as tradeapi
 from credentials import *
 
 testing = True
+print(f'Testing: {testing}')
 
 # get credentials
 if testing:

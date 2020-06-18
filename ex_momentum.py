@@ -14,8 +14,8 @@ from marketHours import get_date, get_market_date
 session = requests.session()
 
 # We only consider stocks with per-share prices inside this range
-min_share_price = 2.0
-max_share_price = 13.0
+min_share_price = 5.0
+max_share_price = 6.0
 # Minimum previous-day dollar volume for a stock we might consider
 min_last_dv = 500000
 # Stop limit to default to
@@ -37,7 +37,7 @@ def get_1000m_history_data(symbols):
             timespan = 'minute',
             _from = fromDate,
             to = toDate
-        )
+        ).df
         c += 1
         print('{}/{}'.format(c, len(symbols)))
     print('Success.')
@@ -172,6 +172,7 @@ def run(tickers, market_open_dt, market_close_dt):
                 current.volume + data.volume
             ]
         minute_history[symbol].loc[ts] = new_data
+        print(f'{minute_history[symbol].loc[ts]}')
 
         # Next, check for existing orders for the stock
         existing_order = open_orders.get(symbol)
@@ -346,38 +347,30 @@ def run(tickers, market_open_dt, market_close_dt):
         ]
         volume_today[data.symbol] += data.volume
 
-    channels = ['trade_updates', 'A.SPY', 'AM.SPY']
-    # for symbol in symbols:
-    #     symbol_channels = ['A.{}'.format(symbol), 'AM.{}'.format(symbol)]
-    #     channels += symbol_channels
+    channels = ['trade_updates']
+    print(symbols == [ticker.ticker for ticker in tickers])
+    for symbol in symbols:
+        symbol_channels = ['A.{}'.format(symbol), 'AM.{}'.format(symbol)]
+        channels += symbol_channels
     print('Watching {} symbols.'.format(len(symbols)))
+    run_ws(conn, channels)
 
     async def periodic():
-        # while True:
-            # if not api.get_clock().is_open:
-            #     print(f'Market is not open.')
-            #     sys.exit(0)
+        while True:
+            if not api.get_clock().is_open:
+                print(f'Market is not open.')
+                sys.exit(0)
         await asyncio.sleep(5)
 
 
-    loop = conn.loop
-    loop.run_until_complete(asyncio.gather(
-        conn.subscribe(channels),
-        periodic()
-    ))
-    loop.close()
-
-
-
-
-# # Handle failed websocket connections by reconnecting
-# def run_ws(conn, channels):
-#     try:
-#         conn.run(channels)
-#     except Exception as e:
-#         print(e)
-#         conn.close()
-#         run_ws(conn, channels)
+# Handle failed websocket connections by reconnecting
+def run_ws(conn, channels):
+    try:
+        conn.run(channels)
+    except Exception as e:
+        print(e)
+        conn.close()
+        run_ws(conn, channels)
 
 
 if __name__ == "__main__":

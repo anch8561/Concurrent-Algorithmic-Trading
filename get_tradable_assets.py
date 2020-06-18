@@ -5,6 +5,7 @@
 
 from alpacaAPI import alpaca
 from Algo import Algo
+from config import minSharePrice
 from marketHours import get_date, get_market_date
 from warn import warn
 import pandas as pd
@@ -38,7 +39,7 @@ def get_tradable_assets(algos, debugging=False, numDebugAssets=100):
 
         # check marginablility
         # TODO: check leverage (ask alpaca, can it be short?, long and check margin)
-        if asset.marginable and price > 3:
+        if asset.marginable and price > minSharePrice:
             activeSymbols.append(asset.symbol)
 
     # check for inactive assets
