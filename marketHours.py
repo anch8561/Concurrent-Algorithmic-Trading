@@ -19,10 +19,11 @@ for ii, date in enumerate(calendar):
 # TODO: update calendar daily
 
 def get_time():
+    # returns: nyc datetime
     return datetime.now(nyc)
 
 def get_open_time():
-    # returns: e.g. '2020-06-16 19:01:26' (YYYY-MM-DD HH:MM:SS)
+    # returns: nyc datetime
     time = calendar[i_today].open
     date = calendar[i_today].date
     return datetime.now(nyc).replace(
@@ -34,7 +35,7 @@ def get_open_time():
         second = time.second)
         
 def get_close_time():
-    # returns: e.g. '2020-06-16 19:01:26' (YYYY-MM-DD HH:MM:SS)
+    # returns: nyc datetime
     time = calendar[i_today].close
     date = calendar[i_today].date
     return datetime.now(nyc).replace(

@@ -1,17 +1,18 @@
 # base class for algos
 
-from alpacaAPI import alpaca, alpacaPaper
+import alpacaAPI
 from config import maxPosFrac
 from warn import warn
+
+from datetime import timedelta
 import statistics, json
 
 class Algo:
-    assets = {} # {symbol: {easyToBorrow, secBars, minBars, dayBars}}
+    assets = {} # {symbol: {easyToBorrow, secBars, minBars, dayBars, <various indicators>}}
     # 'shortable': bool; whether easy_to_borrow on alpaca
     # 'secBars': pd.dataframe; past 10k second bars
     # 'minBars': pd.dataframe; past 1k minute bars
-    # 'dayBars': pd.dataframe; past 100 daily bars
-    lastSymbolUpdate = '0001-01-01' # last date assets.keys() was updated
+    # 'dayBars': pd.dataframe; past 100 day bars
 
     paperOrders = {} # {id: {symbol, quantity, price, algo}}
     liveOrders = {}
@@ -25,53 +26,51 @@ class Algo:
     minBars = []
     orderUpdates = []
 
-    def __init__(self, cash, timeframe, equityStyle, tickFreq='sec'):
+    def __init__(self, BP, timeframe, equityStyle, enterIndicators, exitIndicators = None, tickFreq='sec'):
         # TODO: check arguments
 
         # paper / live
-        self.alpaca = alpacaPaper # always call alpaca through self.alpaca
+        self.live = False # whether using real money
+        self.alpaca = alpacaAPI.alpacaPaper # always call alpaca through self.alpaca
         self.allOrders = Algo.paperOrders # have to be careful not to break these references
         self.allPositions = Algo.paperPositions
 
         # state variables
-        self.cash = cash # buying power NOT literal cash
-        self.equity = cash # udpated daily
-        self.positions = {} # {symbol: quantity}
+        self.BP = BP # buying power
+        self.equity = BP # udpated daily
+        self.positions = {} # {symbol: {quantity, basis}}
         self.orders = {} # {id: {symbol, quantity, price}}
         # quantity is positive for buy/long and negative for sell/short
         # order price is an estimate
+
+        # inticators
+        self.enterIndicators = enterIndicators
+        self.exitIndicators = exitIndicators
 
         # properties
         self.timeframe = timeframe # 'intraday', 'overnight', or 'multiday'
         self.equityStyle = equityStyle # 'long', 'short', or 'longShort'
         self.tickFreq = tickFreq # 'sec' or 'min'
-        self.maxPosFrac = maxPosFrac # maximum fraction of equity to hold in a position (at time of order)
 
-        # risk metrics
-
-
-        # performance metrics
+        # risk and performance metrics
         self.history = [] # [{time, prevTime, equity, prevEquity, cashFlow, growthFrac}]
         # change in equity minus cash allocations over previous equity
         # extra fields are kept for error proofing
         self.mean = 0 # average daily growth
         self.stdev = 0 # sample standard deviation of daily growth
-
-        self.live = False # whether using real money
         self.allocFrac = 0
 
         # attributes to save / load
         self.dataFields = [
             'live',
             'history',
-            'cash',
+            'BP',
             'equity',
             'positions',
             'orders',
             'timeframe',
             'equityStyle',
-            'tickFreq',
-            'maxPosFrac'
+            'tickFreq'
         ]
 
     def update_metrics(self):
@@ -94,16 +93,37 @@ class Algo:
         # update flag and api
         self.live = live
         if live:
-            self.alpaca = alpaca
+            self.alpaca = alpacaAPI.alpaca
             self.allOrders = Algo.liveOrders
             self.allPositions = Algo.livePositions
         else:
-            self.alpaca = alpacaPaper
+            self.alpaca = alpacaAPI.alpacaPaper
             self.allOrders = Algo.paperOrders
             self.allPositions = Algo.paperPositions
 
     def id(self):
         warn(f'{self} missing id()')
+
+    def tick(self, openTimedelta, closeTimedelta):
+        # openTimedelta: datetime.timedelta (current time - open time)
+        # openTimedelta: datetime.timedelta (current time - close time)
+        pass
+
+    def overnight_enter(self, symbol):
+        # check if indicator conditions are met
+        for indicator in self.enterIndicators:
+            if not Algo.assets[symbol][indicator]:
+                return
+        
+        # enter position
+        if self.equityStyle == 'long': side = 'buy'
+        elif self.equityStyle == 'short': side = 'sell'
+        else: warn(f'unknown equity style "{self.equityStyle}"')
+        qty = self.get_trade_quantity(symbol, side)
+
+    def overnight_exit(self):
+        # exit all positions
+        for symbol in self.positions: pass
 
     def get_trade_quantity(self, symbol, side, limitPrice=None, volumeMult=1, barType='minBars'):
         # symbol: e.g. 'AAPL'
@@ -141,14 +161,14 @@ class Algo:
             return
 
         # set quantity
-        quantity = int(self.maxPosFrac * self.equity / price)
+        quantity = int(maxPosFrac * self.equity / price)
         print(f'{symbol}: Quantity: {quantity}')
 
-        # check cash
+        # check buying power
         if limitPrice == None: price *= 1.04
-        if quantity * price > self.cash:
-            quantity = int(self.cash / price)
-            print(f'{symbol}: Cash limit quantity: {quantity}')
+        if quantity * price > self.BP:
+            quantity = int(self.BP / price)
+            print(f'{symbol}: BP limit quantity: {quantity}')
         
         # check volume
         volume = Algo.assets[symbol][barType][0].volume
@@ -209,7 +229,7 @@ class Algo:
         # TODO: check for leveraged ETFs
 
         return quantity
-    
+
     def cancel_order(self, id):
         # id: str
 
@@ -235,7 +255,7 @@ class Algo:
         file = open(fileName, 'w')
         json.dump(data, file)
         file.close()
-    
+
     def load_data(self):
         # read data
         fileName = self.id() + '.data'
@@ -246,4 +266,3 @@ class Algo:
         # set data
         for field in self.dataFields:
             self.__setattr__(field, data[field])
-            

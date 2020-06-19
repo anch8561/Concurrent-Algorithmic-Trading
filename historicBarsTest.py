@@ -39,6 +39,7 @@ print(minutes[-1].timestamp)
 # 04:00:00 - 20:00:00 (full pre-post market hours)
 # date - date2 gives data for both days
 # ignores ISO times, treats like simple dates
+# does not work with datetimes (only strings)
 
 
 print('\nalpaca.get_aggs')
