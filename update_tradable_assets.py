@@ -11,7 +11,7 @@ from warn import warn
 import pandas as pd
 
 
-def get_tradable_assets(algos, debugging=False, numDebugAssets=100):
+def update_tradable_assets(algos, debugging=False, numDebugAssets=100):
     # algos: list of algos
 
     print('Updating tradable assets')
