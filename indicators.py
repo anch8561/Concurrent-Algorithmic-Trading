@@ -8,7 +8,7 @@ class DayReturn:
     def __init__(self, days):
         self.days = days
         self.name = 'dayReturn' + str(days)
-    def get(self, symbol):
+    def tick(self, symbol):
         openPrice = Algo.assets[symbol]['dayBars'].iloc[-self.days].open
         closePrice = Algo.assets[symbol]['dayBars'].iloc[-1].close
         print(Algo.assets[symbol]['dayBars'].iloc[-1])

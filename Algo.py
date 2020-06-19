@@ -36,6 +36,7 @@ class Algo:
         self.allPositions = Algo.paperPositions
 
         # state variables
+        self.active = True # if algo has open positions or needs its metrics updated
         self.BP = BP # buying power
         self.equity = BP # udpated daily
         self.positions = {} # {symbol: {quantity, basis}}
@@ -104,16 +105,16 @@ class Algo:
     def id(self):
         warn(f'{self} missing id()')
 
-    def tick(self, openTimedelta, closeTimedelta):
-        # openTimedelta: datetime.timedelta (current time - open time)
-        # openTimedelta: datetime.timedelta (current time - close time)
+    def tick(self, TTOpen, TTClose):
+        # TTOpen: datetime.timedelta; time until open (open time - current time)
+        # TTClose: datetime.timedelta; time until close (close time - current time)
         pass
 
-    def overnight_enter(self, symbol):
-        # check if indicator conditions are met
-        for indicator in self.enterIndicators:
-            if not Algo.assets[symbol][indicator]:
-                return
+    def overnight_enter(self):
+        for symbol in Algo.assets:
+            for indicator in self.enterIndicators:
+                if not Algo.assets[symbol][indicator]:
+                    return
         
         # enter position
         if self.equityStyle == 'long': side = 'buy'
@@ -121,9 +122,9 @@ class Algo:
         else: warn(f'unknown equity style "{self.equityStyle}"')
         qty = self.get_trade_quantity(symbol, side)
 
-    def overnight_exit(self):
-        # exit all positions
+    def exit_all_positions(self):
         for symbol in self.positions: pass
+
 
     def get_trade_quantity(self, symbol, side, limitPrice=None, volumeMult=1, barType='minBars'):
         # symbol: e.g. 'AAPL'
@@ -131,8 +132,7 @@ class Algo:
         # limitPrice: float or None for market order
         # volumeMult: float; volume limit multiplier
         # barType: 'secBars', 'minBars', or 'dayBars'; quantity < volume of last bar of this type
-        # returns: 
-        #   quantity: int; positive # of shares to buy/sell
+        # returns: int; positive # of shares to buy/sell
 
         # check arguments
         if symbol not in Algo.assets:

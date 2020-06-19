@@ -2,7 +2,7 @@ import asyncio, sys
 import pandas as pd
 from Algo import Algo
 from alpacaAPI import conn, connPaper
-from get_tradable_assets import get_tradable_assets
+from update_tradable_assets import update_tradable_assets
 from marketHours import get_time, get_open_time, get_close_time
 from warn import warn
 
