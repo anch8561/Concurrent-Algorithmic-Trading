@@ -257,4 +257,4 @@ if __name__ == '__main__':
         elif sys.argv[1] == 'run':
             run_live(api)
         else:
-            print('Error: Unrecognized command ' + sys.argv[1])
+            print('Error: unknown command ' + sys.argv[1])

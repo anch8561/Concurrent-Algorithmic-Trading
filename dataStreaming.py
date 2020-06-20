@@ -12,7 +12,7 @@ def save_bar(barType, data):
 
     # check arguments
     if barType not in ('secBars', 'minBars', 'dayBars'):
-        warn(f'barType "{barType}" not recognized')
+        warn(f'unknown barType "{barType}"')
         return
 
     # copy bars to Algo.assets (needs to be initialized first)

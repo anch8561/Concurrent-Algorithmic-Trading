@@ -11,7 +11,7 @@ def save_asset(symbol, barType):
         warn(f'symbol "{barType}" not in Algo.assets')
         return
     if barType not in ('secBars', 'minBars', 'dayBars'):
-        warn(f'barType "{barType}" not recognized')
+        warn(f'unknown barType "{barType}"')
         return
 
     # save bars
@@ -38,7 +38,7 @@ def load_asset(symbol, barType):
         warn(f'symbol "{barType}" not in Algo.assets')
         return
     if barType not in ('secBars', 'minBars', 'dayBars'):
-        warn(f'barType "{barType}" not recognized')
+        warn(f'unknown barType "{barType}"')
         return
     
     # load bars
