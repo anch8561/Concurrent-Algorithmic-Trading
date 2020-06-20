@@ -62,7 +62,7 @@ while True:
         update_tradable_assets(algos)
         lastSymbolUpdate = get_date()
 
-    # update bars and orders
+    # TODO: update bars and orders
 
     # update indicators
     for indicator in indicators:
@@ -98,9 +98,9 @@ while True:
     ):
         for algo in overnightAlgos: algo.overnight_enter()
 
-    # update allOrders and allPositions
+    # TODO: update allOrders and allPositions
 
-    # wait remainder of 1 sec
+    # TODO: wait remainder of 1 sec
 
 def handoff_BP(oldAlgos, newAlgos):
     # oldAlgos: list of algos to get BP from

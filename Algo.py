@@ -14,7 +14,7 @@ class Algo:
     # 'minBars': pd.dataframe; past 1k minute bars
     # 'dayBars': pd.dataframe; past 100 day bars
 
-    paperOrders = {} # {id: {symbol, quantity, price, algo}}
+    paperOrders = {} # {orderID: {symbol, quantity, price, algo}}
     liveOrders = {}
 
     paperPositions = {} # {symbol: quantity}
@@ -40,7 +40,7 @@ class Algo:
         self.BP = BP # buying power
         self.equity = BP # udpated daily
         self.positions = {} # {symbol: {quantity, basis}}
-        self.orders = {} # {id: {symbol, quantity, price}}
+        self.orders = {} # {orderID: {symbol, quantity, price}}
         # quantity is positive for buy/long and negative for sell/short
         # order price is an estimate
 
@@ -82,6 +82,7 @@ class Algo:
         self.stdev = statistics.stdev(growth)
 
     def set_live(self, live):
+        # live: bool; whether algo uses real money
 
         # check argument
         if self.live == live:
@@ -102,8 +103,7 @@ class Algo:
             self.allOrders = Algo.paperOrders
             self.allPositions = Algo.paperPositions
 
-    def id(self):
-        warn(f'{self} missing id()')
+    def id(self): warn(f'{self} missing id()')
 
     def tick(self, TTOpen, TTClose):
         # TTOpen: datetime.timedelta; time until open (open time - current time)
@@ -123,8 +123,9 @@ class Algo:
         qty = self.get_trade_quantity(symbol, side)
 
     def exit_all_positions(self):
-        for symbol in self.positions: pass
-
+        for symbol, position in self.positions.items():
+            # TODO: check for allPositions zero crossing
+            self.submit_order(symbol, position['quantity'])
 
     def get_trade_quantity(self, symbol, side, limitPrice=None, volumeMult=1, barType='minBars'):
         # symbol: e.g. 'AAPL'
@@ -197,10 +198,10 @@ class Algo:
                 # TODO: queue same trade again
 
         # check for existing orders
-        for order in self.orders:
+        for orderID, order in self.orders.items():
             if order['symbol'] == symbol:
                 if order['quantity'] * quantity < 0: # opposite side
-                    order = self.alpaca.get_order(order['id'])
+                    order = self.alpaca.get_order(orderID)
                     warn(f'{self.id()} opposing orders')
                     # TODO: log first order info
                     # TODO: cancel first order
@@ -216,10 +217,10 @@ class Algo:
                 # TODO: queue same trade again
 
         # check allOrders for opposing shorts
-        for order in self.allOrders:
+        for orderID, order in self.allOrders.items():
             if order['symbol'] == symbol:
                 if order['quantity'] < 0 and self.allPositions[symbol] == 0: # pending short
-                    order = self.alpaca.get_order(order['id'])
+                    order = self.alpaca.get_order(orderID)
                     warn(f'{self.id()} opposing global order')
                     # TODO: log first order info
                     return
@@ -229,6 +230,37 @@ class Algo:
         # TODO: check for leveraged ETFs
 
         return quantity
+
+    def get_trade_limit(self): pass
+
+    def submit_order(self, symbol, quantity, limit=None):
+        # symbol: e.g. 'AAPL'
+        # quantity: int; signed number of shares to trade (positive buy, negative sell)
+        # side: 'buy' or 'sell'
+        # limit: float or str; limit price (market order if limit == None)
+
+        # submit order
+        side = 'buy' if quantity > 0 else 'sell'
+        orderType = 'market' if limit is None else 'limit'
+        order = self.alpaca.submit_order(
+            symbol = symbol,
+            qty = abs(quantity),
+            side = side,
+            type = orderType,
+            time_in_force = 'day',
+            limit_price = limit)
+
+        # add to orders and allOrders
+        orderID = order.order_id
+        self.orders[orderID] = {
+            'symbol': symbol,
+            'quantity': quantity,
+            'price': limit}
+        self.allOrders[orderID] = {
+            'symbol': symbol,
+            'quantity': quantity,
+            'price': limit,
+            'algo': self}
 
     def cancel_order(self, id):
         # id: str
