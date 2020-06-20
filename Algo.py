@@ -14,10 +14,10 @@ class Algo:
     # 'minBars': pd.dataframe; past 1k minute bars
     # 'dayBars': pd.dataframe; past 100 day bars
 
-    paperOrders = {} # {orderID: {symbol, quantity, price, algo}}
+    paperOrders = {} # {orderID: {symbol, qty, price, algo}}
     liveOrders = {}
 
-    paperPositions = {} # {symbol: quantity}
+    paperPositions = {} # {symbol: {qty, basis}}
     livePositions = {}
 
     # streaming buffers
@@ -39,9 +39,9 @@ class Algo:
         self.active = True # if algo has open positions or needs its metrics updated
         self.BP = BP # buying power
         self.equity = BP # udpated daily
-        self.positions = {} # {symbol: {quantity, basis}}
-        self.orders = {} # {orderID: {symbol, quantity, price}}
-        # quantity is positive for buy/long and negative for sell/short
+        self.positions = {} # {symbol: {qty, basis}}
+        self.orders = {} # {orderID: {symbol, qty, price}}
+        # qty is positive for buy/long and negative for sell/short
         # order price is an estimate
 
         # inticators
@@ -120,20 +120,20 @@ class Algo:
         if self.equityStyle == 'long': side = 'buy'
         elif self.equityStyle == 'short': side = 'sell'
         else: warn(f'unknown equity style "{self.equityStyle}"')
-        qty = self.get_trade_quantity(symbol, side)
+        qty = self.get_trade_qty(symbol, side)
 
     def exit_all_positions(self):
         for symbol, position in self.positions.items():
             # TODO: check for allPositions zero crossing
-            self.submit_order(symbol, position['quantity'])
+            self.submit_order(symbol, position['qty'])
 
-    def get_trade_quantity(self, symbol, side, limitPrice=None, volumeMult=1, barType='minBars'):
+    def get_trade_qty(self, symbol, side, limitPrice=None, volumeMult=1, barType='minBars'):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
         # limitPrice: float or None for market order
         # volumeMult: float; volume limit multiplier
-        # barType: 'secBars', 'minBars', or 'dayBars'; quantity < volume of last bar of this type
-        # returns: int; positive # of shares to buy/sell
+        # barType: 'secBars', 'minBars', or 'dayBars'; bar type for checking volume limit
+        # returns: int; signed # of shares to trade
 
         # check arguments
         if symbol not in Algo.assets:
@@ -162,64 +162,68 @@ class Algo:
             return
 
         # set quantity
-        quantity = int(maxPosFrac * self.equity / price)
-        print(f'{symbol}: Quantity: {quantity}')
+        qty = int(maxPosFrac * self.equity / price)
+        print(f'{symbol}: Quantity: {qty}')
 
         # check buying power
         if limitPrice == None: price *= 1.04
-        if quantity * price > self.BP:
-            quantity = int(self.BP / price)
-            print(f'{symbol}: BP limit quantity: {quantity}')
+        if qty * price > self.BP:
+            qty = int(self.BP / price)
+            print(f'{symbol}: BP limit quantity: {qty}')
         
         # check volume
         volume = Algo.assets[symbol][barType][0].volume
-        if quantity > volume * volumeMult:
-            quantity = volume * volumeMult
-            print(f'{symbol}: Volume limit quantity: {quantity}')
+        if qty > volume * volumeMult:
+            qty = volume * volumeMult
+            print(f'{symbol}: Volume limit quantity: {qty}')
 
         # check zero
-        if quantity == 0: return
+        if qty == 0: return
         
         # set sell quantity negative
-        if side == 'sell': quantity *= -1
+        if side == 'sell': qty *= -1
 
         # check for existing position
         if symbol in self.positions:
-            if self.positions[symbol] * quantity > 0: # same side as position
-                if abs(self.positions[symbol]) > abs(quantity): # add to position
-                    quantity -= self.positions[symbol]
-                    print(f'{symbol}: Adding {quantity} to exising position of {self.positions[symbol]}')
+            posQty = self.positions[symbol]['qty']
+            if posQty * qty > 0: # same side as position
+                if abs(posQty) < abs(qty): # position is smaller than order
+                    qty -= posQty # add to position
+                    print(f'{symbol}: Adding {qty} to exising position of {posQty}')
                 else: # position is large enough
-                    print(f'{symbol}: Existing position of {self.positions[symbol]} large enough')
+                    print(f'{symbol}: Existing position of {posQty} large enough')
                     return
-            elif self.positions[symbol] * quantity < 0: # opposite side from position
-                quantity = -self.positions[symbol] # exit position
-                print(f'{symbol}: Exiting position of {self.positions[symbol]}')
+            elif posQty * qty < 0: # opposite side from position
+                qty = -posQty # exit position
+                print(f'{symbol}: Exiting position of {posQty}')
                 # TODO: queue same trade again
 
         # check for existing orders
         for orderID, order in self.orders.items():
             if order['symbol'] == symbol:
-                if order['quantity'] * quantity < 0: # opposite side
+                if order['qty'] * qty < 0: # opposite side
                     order = self.alpaca.get_order(orderID)
                     warn(f'{self.id()} opposing orders')
                     # TODO: log first order info
                     # TODO: cancel first order
                 else: # same side
-                    print(f'{symbol}: Existing order for {order["quantity"]}')
+                    print(f'{symbol}: Existing order for {order["qty"]}')
                     return
 
         # check allPositions for zero crossing
         if symbol in self.allPositions:
-            if (self.allPositions[symbol] + quantity) * self.allPositions[symbol] < 0: # if trade will swap position
-                quantity = -self.allPositions[symbol]
-                print(f'{symbol}: Exiting global position of {self.allPositions[symbol]}')
+            allPosQty = self.allPositions[symbol]['qty']
+            if (allPosQty + qty) * allPosQty < 0: # trade will swap position
+                qty = -allPosQty # exit position
+                print(f'{symbol}: Exiting global position of {posQty}')
                 # TODO: queue same trade again
+        else:
+            allPosQty = 0
 
-        # check allOrders for opposing shorts
-        for orderID, order in self.allOrders.items():
-            if order['symbol'] == symbol:
-                if order['quantity'] < 0 and self.allPositions[symbol] == 0: # pending short
+        # check allOrders for opposing short
+        if qty > 0 and allPosQty == 0: # buying from zero position
+            for orderID, order in self.allOrders.items():
+                if order['symbol'] == symbol and order['qty'] < 0: # pending short
                     order = self.alpaca.get_order(orderID)
                     warn(f'{self.id()} opposing global order')
                     # TODO: log first order info
@@ -229,7 +233,7 @@ class Algo:
         # TODO: check risk
         # TODO: check for leveraged ETFs
 
-        return quantity
+        return qty
 
     def get_trade_limit(self): pass
 
@@ -239,42 +243,32 @@ class Algo:
         # side: 'buy' or 'sell'
         # limit: float or str; limit price (market order if limit == None)
 
-        # submit order
         side = 'buy' if quantity > 0 else 'sell'
         orderType = 'market' if limit is None else 'limit'
-        order = self.alpaca.submit_order(
-            symbol = symbol,
-            qty = abs(quantity),
-            side = side,
-            type = orderType,
-            time_in_force = 'day',
-            limit_price = limit)
+        try:
+            # submit order
+            order = self.alpaca.submit_order(
+                symbol = symbol,
+                qty = abs(quantity),
+                side = side,
+                type = orderType,
+                time_in_force = 'day',
+                limit_price = limit)
+            
+            # TODO: update buying power
 
-        # add to orders and allOrders
-        orderID = order.order_id
-        self.orders[orderID] = {
-            'symbol': symbol,
-            'quantity': quantity,
-            'price': limit}
-        self.allOrders[orderID] = {
-            'symbol': symbol,
-            'quantity': quantity,
-            'price': limit,
-            'algo': self}
-
-    def cancel_order(self, id):
-        # id: str
-
-        # cancel order
-        self.alpaca.cancel_order(id)
-
-        # remove from orders and allOrders
-        for orders in (self.orders, self.allOrders):
-            index = None
-            for ii, order in enumerate(orders):
-                if order['id'] == id:
-                    index = ii
-            if index is not None: orders.pop(index)
+            # add to orders and allOrders
+            orderID = order.order_id
+            self.orders[orderID] = {
+                'symbol': symbol,
+                'qty': quantity,
+                'price': limit}
+            self.allOrders[orderID] = {
+                'symbol': symbol,
+                'qty': quantity,
+                'price': limit,
+                'algo': self}
+        except Exception as e: print(e)
 
     def save_data(self):
         # get data
