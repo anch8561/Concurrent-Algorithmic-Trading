@@ -24,12 +24,25 @@ class Indicator:
 
 indicators = []
 
-def growth(self, asset):
+def secondMomentum(self, asset):
+    openPrice = asset['secBars'].iloc[-self.seconds].open
+    closePrice = asset['secBars'].iloc[-1].close
+    return (closePrice - openPrice) / openPrice
+
+def minuteMomentum(self, asset):
+    openPrice = asset['minBars'].iloc[-self.minutes].open
+    closePrice = asset['minBars'].iloc[-1].close
+    asset[self.name] = (closePrice - openPrice) / openPrice
+
+def dayMomentum(self, asset):
     openPrice = asset['dayBars'].iloc[-self.days].open
     closePrice = asset['dayBars'].iloc[-1].close
     asset[self.name] = (closePrice - openPrice) / openPrice
 
-indicators.append(Indicator(growth, 'val', days=5))
+for numBars in (1, 2, 3, 5, 10, 20):
+    indicators.append(Indicator(secondMomentum, 'val', seconds=numBars))
+    indicators.append(Indicator(minuteMomentum, 'val', minutes=numBars))
+    indicators.append(Indicator(dayMomentum, 'val', days=numBars))
 
 def volume(self, asset):
     volume = 0

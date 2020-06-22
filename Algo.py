@@ -1,7 +1,7 @@
 # base class for algos
 
 import alpacaAPI
-from config import maxPosFrac
+from config import maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice
 from warn import warn
 
 from datetime import timedelta
@@ -85,7 +85,7 @@ class Algo:
 
         # check argument
         if self.live == live:
-            warn(f'{self}.set_live({live}) did not change state')
+            warn(f'{self.id()} set_live({live}) did not change state')
             return
         
         # TODO: cancel orders
@@ -135,11 +135,8 @@ class Algo:
 
     def enter_position(self, symbol):
         # symbol: e.g. 'AAPL'
-
-        # get quantity
         qty = self.get_trade_qty(symbol)
-
-
+        self.submit_order(symbol, qty)
 
     def exit_position(self, symbol):
         # symbol: e.g. 'AAPL'
@@ -147,71 +144,87 @@ class Algo:
         # get quantity
         try: qty = -self.positions[symbol]['qty']
         except: qty = 0
-        if qty == 0: warn(f'no position in "{symbol}" to exit')
+        if qty == 0: warn(f'{self.id()} no position in "{symbol}" to exit')
 
-        # TODO: check allPositions for zero crossing
-
+        # submit order
         self.submit_order(symbol, qty)
 
     def exit_all_positions(self):
         for symbol in self.positions:
             self.exit_position(symbol)
 
-    def get_trade_qty(self, symbol, limitPrice=None, volumeMult=1, barType='minBars'):
+    def get_limit_price(self, symbol, side):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
+
+        # get price
+        try: price = Algo.assets[symbol]['secBars'].iloc[-1].close
+        except Exception as e: print(e)
+
+        # add limit
+        if side == 'buy':
+            price *= 1 + limitPriceFrac
+        elif side == 'sell':
+            price *= 1 - limitPriceFrac
+        else: warn(f'{self.id()} unknown side "{side}"')
+
+        return price
+
+    def get_trade_qty(self, symbol, limitPrice=None, volumeMult=1, barType='minBars'):
+        # symbol: e.g. 'AAPL'
         # limitPrice: float or None for market order
         # volumeMult: float; volume limit multiplier
         # barType: 'secBars', 'minBars', or 'dayBars'; bar type for checking volume limit
         # returns: int; signed # of shares to trade (positive buy, negative sell)
 
         # check arguments
+        # TODO: replace with try except
         if symbol not in Algo.assets:
             warn(f'{self.id()} unknown symbol "{symbol}"')
-            return
-        # TODO: check other args
-        if barType not in ('secBars', 'minBars', 'dayBars'):
-            warn(f'{self.id()} unknown barType "{barType}"')
-            return
+            return 0
 
         # get side
-        if self.equityStyle == 'long': side = 'buy'
-        elif self.equityStyle == 'short': side = 'sell'
-        else: warn(f'unknown equityStyle "{self.equityStyle}"')
+        if self.equityStyle == 'long':
+            side = 'buy'
+        elif self.equityStyle == 'short':
+            side = 'sell'
+        else:
+            warn(f'{self.id()} unknown equityStyle "{self.equityStyle}"')
 
         # get price
         if limitPrice == None:
-            price = Algo.assets[symbol]['secBars'][0].close
+            price = self.get_limit_price(symbol)
         else:
             price = limitPrice
 
         # check price
         if side == 'long' and price < 3:
             print(f'{symbol}: share price < 3.00')
-            return
+            return 0
         if side == 'short' and price < 17:
             print(f'{symbol}: share price < 17.00')
-            return
+            return 0
 
         # set quantity
         qty = int(maxPosFrac * self.equity / price)
         print(f'{symbol}: quantity: {qty}')
 
         # check buying power
-        # # FIX: only if entering position
-        if limitPrice == None: price *= 1.04
         if qty * price > self.buyPow:
             qty = int(self.buyPow / price)
             print(f'{symbol}: buyPow limit quantity: {qty}')
         
         # check volume
-        volume = Algo.assets[symbol][barType][0].volume
+        try:
+            volume = Algo.assets[symbol][barType][0].volume
+        except Exception as e:
+            print(e)
         if qty > volume * volumeMult:
             qty = volume * volumeMult
             print(f'{symbol}: volume limit quantity: {qty}')
 
         # check zero
-        if qty == 0: return
+        if qty == 0: return 0
         
         # set sell quantity negative
         if side == 'sell': qty *= -1
@@ -225,7 +238,7 @@ class Algo:
                     print(f'{symbol}: adding {qty} to position of {posQty}')
                 else: # position is large enough
                     print(f'{symbol}: position of {posQty} is large enough')
-                    return
+                    return 0
             elif posQty * qty < 0: # opposite side from position
                 qty = -posQty # exit position
                 print(f'{symbol}: exiting position of {posQty}')
@@ -240,14 +253,26 @@ class Algo:
                     # TODO: cancel first order
                 else: # same side
                     print(f'{symbol}: already placed order for {order["qty"]}')
-                    return
+                    return 0
+
+        # TODO: check risk
+        # TODO: check for leveraged ETFs
+
+        return qty
+
+    def submit_order(self, symbol, qty, limitPrice=None):
+        # symbol: e.g. 'AAPL'
+        # qty: int; signed # of shares to trade (positive buy, negative sell)
+        # limitPrice: float or str; limit price (market order if limit == None)
+
+        if qty == 0: return
 
         # check allPositions for zero crossing
         if symbol in self.allPositions:
             allPosQty = self.allPositions[symbol]['qty']
             if (allPosQty + qty) * allPosQty < 0: # trade will swap position
                 qty = -allPosQty # exit position
-                print(f'{symbol}: exiting global position of {posQty}')
+                print(f'{symbol}: exiting global position of {qty}')
                 # TODO: queue same trade again
         else:
             allPosQty = 0
@@ -256,25 +281,14 @@ class Algo:
         if qty > 0 and allPosQty == 0: # buying from zero position
             for orderID, order in self.allOrders.items():
                 if order['symbol'] == symbol and order['qty'] < 0: # pending short
-                    warn(f'{self.id()} opposing global order')
+                    warn(f'{self.id()} opposing global order of {order["qty"]}')
                     # TODO: log first order info
                     return
 
-
-        # TODO: check risk
-        # TODO: check for leveraged ETFs
-
-        return qty
-
-    def get_trade_limit(self, symbol, multiplier, modifier):
-        return Algo.assets[symbol]['secBars'][0].close * multiplier + modifier
-
-    def submit_order(self, symbol, qty, limitPrice):
-        # symbol: e.g. 'AAPL'
-        # qty: int; signed # of shares to trade (positive buy, negative sell)
-        # limitPrice: float or str; limit price (market order if limit == None)
-
+        # get side and limitPrice
         side = 'buy' if qty > 0 else 'sell'
+        if limitPrice == None: limitPrice = self.get_limit_price(symbol)
+
         try:
             # submit order
             order = self.alpaca.submit_order(
