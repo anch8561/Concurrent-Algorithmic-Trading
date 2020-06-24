@@ -2,34 +2,7 @@
 # Allocate buying power once per week. Update assets and metrics daily.
 # Tick algorithms at regular intervals.
 
-# initialize indicators
-from indicators import DayReturn, DayVolume
-indicators = []
-dayIndicators = [
-    DayReturn,
-    DayVolume
-]
-for indicator in dayIndicators:
-    for days in (1, 2, 3, 5, 10, 20):
-        indicators.append(indicator(days))
-
-# initialize algos
-from Algo import Algo
-from config import minAllocBP
-intradayAlgos = []
-overnightAlgos = [
-    Algo( # overnight hold
-        BP = minAllocBP,
-        enterIndicators = [
-            DayReturn(5).name,
-            'dayVolume5'],
-        exitIndicators = None,
-        timeframe = 'overnight',
-        equityStyle = 'longShort',
-        tickFreq = 'min')
-]
-multidayAlgos = []
-algos = intradayAlgos + overnightAlgos + multidayAlgos
+from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 
 # TODO: dataStreaming
 
