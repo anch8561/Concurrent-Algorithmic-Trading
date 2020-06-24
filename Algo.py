@@ -119,6 +119,7 @@ class Algo:
                     (
                         indicator.type is 'rank' and
                         Algo.assets[symbol][indicator] > numTrades
+                        # FIX: unlikely to place numTrades trades unless all other indicators are true for top ranked
                     ) or
                     (
                         indicator.type is 'bool' and
@@ -126,12 +127,7 @@ class Algo:
                     )
                 ):
                     enterSignal = False
-                
             if enterSignal: self.enter_position(symbol)
-        
-        
-        qty = self.get_trade_qty(symbol, side)
-        self.submit_order(symbol, qty)
 
     def enter_position(self, symbol):
         # symbol: e.g. 'AAPL'
