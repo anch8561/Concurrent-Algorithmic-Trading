@@ -21,7 +21,7 @@ def stream():
             elif id in Algo.paperOrders:
                 orders = Algo.paperOrders
                 positions = Algo.paperPositions[data.symbol]
-            
+            #TODO: Fix algo.cash
             #check event 
             if event == 'fill':
                 orders.pop(orderID)
