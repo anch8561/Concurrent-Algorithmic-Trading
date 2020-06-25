@@ -1,7 +1,7 @@
 import asyncio, websocket, json, threading, requests, logging, nest_asyncio, sys, datetime 
 from credentials import *
 import alpaca_trade_api as tradeapi
-from Algo import Algo
+from algoClasses import Algo
 from alpacaAPI import alpaca, alpacaPaper, conn, connPaper
 from update_assets import update_assets
 from warn import warn

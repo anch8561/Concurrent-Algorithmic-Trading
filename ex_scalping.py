@@ -1,6 +1,6 @@
 import asyncio, websocket, json, threading, requests, logging, nest_asyncio, sys 
 import pandas as pd
-from Algo import Algo
+from algoClasses import Algo
 from alpacaAPI import alpaca, alpacaPaper, conn, connPaper
 from warn import warn
 from time import sleep

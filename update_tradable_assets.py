@@ -4,7 +4,7 @@
 # populates Algo.assets with historical data.
 
 from alpacaAPI import alpaca
-from Algo import Algo
+from algoClasses import Algo
 from config import minSharePrice
 from marketHours import get_date, get_market_date
 from warn import warn

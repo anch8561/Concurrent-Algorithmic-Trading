@@ -2,7 +2,7 @@
 # It assumes high returns will come back down and vice versa. It holds these
 # positions indefinitely.
 
-from Algo import Algo
+from algoClasses import Algo
 from marketHours import get_time, get_date, get_market_date, get_open_time, get_close_time, is_new_week_since
 from warn import warn
 

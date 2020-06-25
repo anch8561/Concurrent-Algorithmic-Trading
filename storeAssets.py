@@ -1,6 +1,6 @@
 # Save and load Algo.assets (must populate Algo.assets first)
 from warn import warn
-from Algo import Algo
+from algoClasses import Algo
 
 def save_asset(symbol, barType):
     # symbol: e.g. 'AAPL'

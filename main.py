@@ -2,7 +2,14 @@
 # Allocate buying power once per week. Update assets and metrics daily.
 # Tick algorithms at regular intervals.
 
+from algoClasses import Algo
 from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
+from config import marketCloseTransitionMinutes
+from datetime import timedelta
+from distribute_funds import distribute_funds
+from indicators import indicators
+from marketHours import get_time, get_date, get_open_time, get_close_time, is_new_week_since
+from update_tradable_assets import update_tradable_assets
 
 # TODO: dataStreaming
 
@@ -11,19 +18,15 @@ from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 lastRebalanceDate = "0001-01-01"
 
 # main loop
-from config import marketCloseTransitionMinutes
-from marketHours import get_time, get_date, get_open_time, get_close_time, is_new_week_since
-from datetime import timedelta
-from distribute_funds import distribute_funds
-from update_tradable_assets import update_tradable_assets
+
 state = 'night' # day, night
 # TODO: load positions and check state
 while True:
     # update buying power
     if is_new_week_since(lastRebalanceDate):
-        distribute_funds(allAlgos)
+        distribute_funds(intradayAlgos, overnightAlgos, multidayAlgos)
 
-    # update time
+    # get time
     time = get_time()
     TTOpen = get_open_time() - time # time til open
     TTClose = get_close_time() - time # time til close
@@ -39,9 +42,7 @@ while True:
     # TODO: update bars and orders
 
     # update indicators
-    for indicator in indicators:
-        for symbol in Algo.assets:
-            indicator.tick(symbol)
+    for indicator in indicators: indicator.tick()
     
     # update algos
     if ( # market is open and overnight positions are open
@@ -72,7 +73,7 @@ while True:
         state == 'night' and
         TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
     ):
-        for algo in overnightAlgos: algo.tick(TTOpen, TTClose)
+        for algo in overnightAlgos: algo.tick()
 
     # TODO: update allOrders and allPositions
 

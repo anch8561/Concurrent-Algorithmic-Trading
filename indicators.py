@@ -1,19 +1,19 @@
 # functions to be used for enter and exit indications
 # populate indicators list
 
-from Algo import Algo
-from Ranking import Ranking
+from algoClasses import Algo
 from warn import warn
 import statistics as stats
 
 # TODO: confirm indices have correct timestamps
 
 class Indicator:
-    def __init__(self, func, numBars, barType, **kwargs):
+    def __init__(self, func, numBars, barFreq, **kwargs):
         self.func = func
         self.numBars = numBars # int
-        self.barType = barType
-        self.name = str(numBars) + barType[:-4]
+        self.barFreq = barFreq # 'sec', 'min', or 'day'
+        self.barType = barFreq + 'Bars'
+        self.name = str(numBars) + barFreq
         for key, val in kwargs.items(): # e.g. moving average function
             self.__setattr__(key, val)
             self.name += str(val).capitalize()
@@ -31,30 +31,27 @@ def momentum(self, asset):
     closePrice = asset[self.barType].iloc[-1].close
     return (closePrice - openPrice) / openPrice
 
-def volume(self, asset, numBars=None, barType=None):
-    if numBars == None: numBars = self.numBars
-    if barType == None: barType = self.barType
+def volume(self, asset):
     volume = 0
     for bar in range(numBars):
         volume += asset[barType].iloc[-bar].volume
     return volume
 
 def volume_stdev(self, asset):
-    volumes = asset[self.barType].iloc[-self.numBars:].volume
+    volumes = asset[self.barType].iloc[-self.numBars:].loc['volume']
     return stats.stdev(volumes)
 
 def volume_num_stdevs(self, asset):
-    return volume(None, asset, 1, 'dayBars') / volume_stdev(self, asset)
-
-def momentum_times_volume_num_stdevs(self, asset):
-    return momentum(self, asset) * volume_num_stdevs(self, asset)
+    _volume = asset[Indicator(volume, 1, self.barFreq).name]
+    volumeStdev = asset[Indicator(volume_stdev, self.numBars, self.barFreq).name]
+    return  _volume / volumeStdev
 
 # instances
 indicators = []
 rankings = []
-for barType in ('secBars', 'minBars', 'dayBars'):
+for barType in ('sec', 'min', 'day'):
     for numBars in (1, 2, 3, 5, 10, 20):
-        # indicators.append(Indicator(momentum, numBars, barType))
-        # indicators.append(Indicator(volume, numBars, barType))
-        indicators.append(Indicator(momentum_times_volume_num_stdevs, numBars, barType))
-        rankings.append(Ranking(indicators[-1]))
+        indicators.append(Indicator(momentum, numBars, barType))
+        indicators.append(Indicator(volume, numBars, barType))
+        indicators.append(Indicator(volume_stdev, numBars, barType))
+        indicators.append(Indicator(volume_num_stdevs, numBars, barType))
