@@ -1,49 +1,49 @@
 # populate algos list
 
-from Algo import Algo
+from algoClasses import Algo, DayAlgo, NightAlgo
 from config import maxPosFrac
-import indicators as i
 
 # intraday functions
 
 # intraday algos
-intradayAlgos = [
-
-]
+intradayAlgos = []
 
 # overnight functions
-# def dayMomentumVolume(self, TTOpen, TTClose): # kwargs: numDays
-#     # rank symbols by momentum*volume
-#     valNamePrefix = str(self.numDays) + 'day'
-#     sortedSymbols = sorted(list(Algo.assets.keys()), key=lambda symbol:
-#         Algo.assets[symbol][valNamePrefix + 'Momentum'][-1] * 
-#         Algo.assets[symbol][valNamePrefix + 'Volume_num_stdevs'][-1])
-
-#     numTrades = int(self.buyPow / (self.equity * maxPosFrac))
-#     for symbol in sortedSymbols[:numTrades]:
-#         self.enterPosition(symbol)
-
 def dayMomentumVolume(self, TTOpen, TTClose): # kwargs: numDays
-    numTrades = int(self.buyPow / (self.equity * maxPosFrac))
-    # indicatorName = i.Indicator(i.momentum_times_volume_num_stdevs, 5, 'dayBars').name
-    for symbol in Algo.rankings['5dayMomentum_times_volume_num_stdevs'][:numTrades]:
-        self.enterPosition(symbol)
+    # rank symbols by momentum*volume
+    indicatorPrefix = str(self.numDays) + 'day'
+    metrics = {}
+    for symbol in Algo.assets:
+        metrics[symbol] = \
+            Algo.assets[symbol][indicatorPrefix + 'Momentum'][-1] * \
+            Algo.assets[symbol][indicatorPrefix + 'Volume_num_stdevs'][-1]
+
+    sortedSymbols = sorted(metrics, key=lambda symbol: metrics[symbol])
+
+    # enter long positions
+    for symbol in reversed(sortedSymbols):
+        if self.longBuyPow < 100: break
+        if metrics[symbol] < 0: break
+        self.enterPosition(symbol, 'buy')
+
+    # enter short positions
+    for symbol in sortedSymbols:
+        if self.shortBuyPow < 100: break
+        if metrics[symbol] > 0: break
+        self.enterPosition(symbol, 'sell')
+
 
 # overnight algos
-overnightAlgos = [
-    Algo(
-        tick = dayMomentumVolume,
-        timeframe = 'overnight',
-        equityStyle = 'longShort',
-        numDays = 5)
-]
+overnightAlgos = []
+for numDays in (3, 5, 10):
+    overnightAlgos += [
+        NightAlgo(dayMomentumVolume, numDays=numDays)
+    ]
 
 # multiday functions
 
 # multiday algos
-multidayAlgos = [
-
-]
+multidayAlgos = []
 
 # all algos list
 allAlgos = intradayAlgos + overnightAlgos + multidayAlgos
