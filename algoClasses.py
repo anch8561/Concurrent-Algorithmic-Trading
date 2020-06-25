@@ -1,5 +1,3 @@
-# base class for algos
-
 import alpacaAPI
 from config import maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice
 from warn import warn
@@ -14,6 +12,9 @@ class Algo:
     # 'minBars': pd.dataframe; past 1k minute bars
     # 'dayBars': pd.dataframe; past 100 day bars
 
+    rankings = {} # {indicator: sortedSymbols}
+    # indicator: str; name of indicator used for sort
+
     paperOrders = {} # {orderID: {symbol, qty, limit, algo}}
     liveOrders = {}
 
@@ -26,8 +27,18 @@ class Algo:
     minBars = []
     orderUpdates = []
 
-    def __init__(self, buyPow, timeframe, equityStyle, enterIndicators, exitIndicators = None, tickFreq='sec'):
-        # TODO: check arguments
+    def __init__(self, func, **kwargs):
+        self.func = func # function to determine when to enter and exit positions
+        # will be called with the following arguments: func(self, TTOpen, TTClose)
+        # TTOpen: datetime.timedelta; time until open (open time - current time)
+        # TTClose: datetime.timedelta; time until close (close time - current time)
+
+        # name and kwargs
+        self.name = ''
+        for key, val in kwargs.items():
+            self.__setattr__(key, val)
+            self.name += str(val).capitalize()
+        self.name += self.func.__name__.capitalize()
 
         # paper / live
         self.live = False # whether using real money
@@ -37,40 +48,35 @@ class Algo:
 
         # state variables
         self.active = True # if algo has open positions or needs its metrics updated
-        self.buyPow = buyPow # buying power
-        self.equity = buyPow # udpated daily
+        self.longBuyPow = 0 # buying power
+        self.shortBuyPow = 0
+        self.longEquity = 0 # udpated daily
+        self.shortEquity = 0
         self.positions = {} # {symbol: {qty, basis}}
         self.orders = {} # {orderID: {symbol, qty, limit}}
         # qty is positive for buy/long and negative for sell/short
-
-        # inticators
-        self.enterIndicators = enterIndicators
-        self.exitIndicators = exitIndicators
-
-        # properties
-        self.timeframe = timeframe # 'intraday', 'overnight', or 'multiday'
-        self.equityStyle = equityStyle # 'long', 'short', or 'longShort'
-        self.tickFreq = tickFreq # 'sec' or 'min'
 
         # risk and performance metrics
         self.history = [] # [{time, prevTime, equity, prevEquity, cashFlow, growthFrac}]
         # change in equity minus cash allocations over previous equity
         # extra fields are kept for error proofing
-        self.mean = 0 # average daily growth
-        self.stdev = 0 # sample standard deviation of daily growth
+        self.longMean = 0 # average daily growth
+        self.longStdev = 0 # sample standard deviation of daily growth
+        self.shortMean = 0
+        self.shortStdev = 0
         self.allocFrac = 0
+        self.longShortFrac = 0.5 # float; 0 is all shorts; 1 is all longs
 
         # attributes to save / load
         self.dataFields = [
             'live',
-            'history',
-            'buyPow',
-            'equity',
+            'longBuyPow',
+            'shortBuyPow',
+            'longEquity',
+            'shortEquity',
             'positions',
             'orders',
-            'timeframe',
-            'equityStyle',
-            'tickFreq'
+            'history'
         ]
 
     def update_metrics(self):
@@ -85,7 +91,7 @@ class Algo:
 
         # check argument
         if self.live == live:
-            warn(f'{self.id()} set_live({live}) did not change state')
+            warn(f'{self.name} set_live({live}) did not change state')
             return
         
         # TODO: cancel orders
@@ -102,47 +108,16 @@ class Algo:
             self.allOrders = Algo.paperOrders
             self.allPositions = Algo.paperPositions
 
-    def id(self): warn(f'{self} missing id()')
-
-    def tick(self, TTOpen, TTClose):
-        # TTOpen: datetime.timedelta; time until open (open time - current time)
-        # TTClose: datetime.timedelta; time until close (close time - current time)
-        pass
-
-    def overnight_enter(self):
-        numTrades = int(self.buyPow / (self.equity * maxPosFrac))
-
-        for symbol in Algo.assets:
-            enterSignal = True
-            for indicator in self.enterIndicators:
-                if (
-                    (
-                        indicator.type is 'rank' and
-                        Algo.assets[symbol][indicator] > numTrades
-                        # FIX: unlikely to place numTrades trades unless all other indicators are true for top ranked
-                    ) or
-                    (
-                        indicator.type is 'bool' and
-                        Algo.assets[symbol][indicator] == False
-                    )
-                ):
-                    enterSignal = False
-            if enterSignal: self.enter_position(symbol)
-
-    def enter_position(self, symbol):
+    def enter_position(self, symbol, side):
         # symbol: e.g. 'AAPL'
-        qty = self.get_trade_qty(symbol)
+        qty = self.get_trade_qty(symbol, side)
         self.submit_order(symbol, qty)
 
     def exit_position(self, symbol):
         # symbol: e.g. 'AAPL'
-
-        # get quantity
         try: qty = -self.positions[symbol]['qty']
         except: qty = 0
-        if qty == 0: warn(f'{self.id()} no position in "{symbol}" to exit')
-
-        # submit order
+        if qty == 0: warn(f'{self.name} no position in "{symbol}" to exit')
         self.submit_order(symbol, qty)
 
     def exit_all_positions(self):
@@ -162,52 +137,47 @@ class Algo:
             price *= 1 + limitPriceFrac
         elif side == 'sell':
             price *= 1 - limitPriceFrac
-        else: warn(f'{self.id()} unknown side "{side}"')
+        else: warn(f'{self.name} unknown side "{side}"')
 
         return price
 
-    def get_trade_qty(self, symbol, limitPrice=None, volumeMult=1, barType='minBars'):
+    def get_trade_qty(self, symbol, side, limitPrice=None, volumeMult=1, barType='minBars'):
         # symbol: e.g. 'AAPL'
-        # limitPrice: float or None for market order
+        # side: 'buy' or 'sell'
+        # limitPrice: float or None for configured price collar
         # volumeMult: float; volume limit multiplier
         # barType: 'secBars', 'minBars', or 'dayBars'; bar type for checking volume limit
         # returns: int; signed # of shares to trade (positive buy, negative sell)
 
-        # check arguments
-        # TODO: replace with try except
-        if symbol not in Algo.assets:
-            warn(f'{self.id()} unknown symbol "{symbol}"')
-            return 0
-
-        # get side
-        if self.equityStyle == 'long':
-            side = 'buy'
-        elif self.equityStyle == 'short':
-            side = 'sell'
-        else:
-            warn(f'{self.id()} unknown equityStyle "{self.equityStyle}"')
+        # get buying power and equity
+        if side == 'buy':
+            equity = self.longEquity
+            buyPow = self.longBuyPow
+        elif side == 'sell':
+            equity = self.shortEquity
+            buyPow = self.shortBuyPow
 
         # get price
         if limitPrice == None:
-            price = self.get_limit_price(symbol)
+            price = self.get_limit_price(symbol, side)
         else:
             price = limitPrice
 
         # check price
-        if side == 'long' and price < 3:
+        if side == 'buy' and price < 3:
             print(f'{symbol}: share price < 3.00')
             return 0
-        if side == 'short' and price < 17:
+        elif side == 'sell' and price < 17:
             print(f'{symbol}: share price < 17.00')
             return 0
 
         # set quantity
-        qty = int(maxPosFrac * self.equity / price)
+        qty = int(maxPosFrac * equity / price)
         print(f'{symbol}: quantity: {qty}')
 
         # check buying power
-        if qty * price > self.buyPow:
-            qty = int(self.buyPow / price)
+        if qty * price > buyPow:
+            qty = int(buyPow / price)
             print(f'{symbol}: buyPow limit quantity: {qty}')
         
         # check volume
@@ -244,7 +214,7 @@ class Algo:
         for orderID, order in self.orders.items():
             if order['symbol'] == symbol:
                 if order['qty'] * qty < 0: # opposite side
-                    warn(f'{self.id()} opposing orders')
+                    warn(f'{self.name} opposing orders')
                     # TODO: log first order info
                     # TODO: cancel first order
                 else: # same side
@@ -259,7 +229,7 @@ class Algo:
     def submit_order(self, symbol, qty, limitPrice=None):
         # symbol: e.g. 'AAPL'
         # qty: int; signed # of shares to trade (positive buy, negative sell)
-        # limitPrice: float or str; limit price (market order if limit == None)
+        # limitPrice: float or None for configured price collar
 
         if qty == 0: return
 
@@ -277,7 +247,7 @@ class Algo:
         if qty > 0 and allPosQty == 0: # buying from zero position
             for orderID, order in self.allOrders.items():
                 if order['symbol'] == symbol and order['qty'] < 0: # pending short
-                    warn(f'{self.id()} opposing global order of {order["qty"]}')
+                    warn(f'{self.name} opposing global order of {order["qty"]}')
                     # TODO: log first order info
                     return
 
@@ -302,7 +272,7 @@ class Algo:
             self.orders[orderID] = {
                 'symbol': symbol,
                 'qty': qty,
-                'limit': limit}
+                'limit': limitPrice}
             self.allOrders[orderID] = {
                 'symbol': symbol,
                 'qty': qty,
@@ -317,14 +287,14 @@ class Algo:
             data[field] = self.__getattribute__(field)
         
         # write data
-        fileName = self.id() + '.data'
+        fileName = self.name + '.data'
         file = open(fileName, 'w')
         json.dump(data, file)
         file.close()
 
     def load_data(self):
         # read data
-        fileName = self.id() + '.data'
+        fileName = self.name + '.data'
         file = open(fileName, 'r')
         data = json.load(file)
         file.close()
@@ -332,3 +302,12 @@ class Algo:
         # set data
         for field in self.dataFields:
             self.__setattr__(field, data[field])
+
+class NightAlgo(Algo):
+    def tick(self):
+        if self.longBuyPow + self.shortBuyPow > 200:
+            self.func()
+
+class DayAlgo(Algo):
+    def tick(self, TTOpen, TTClose):
+        self.func(TTOpen, TTClose)

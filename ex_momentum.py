@@ -23,7 +23,7 @@ default_stop = .95
 # How much of our portfolio to allocate to any one position
 risk = 0.01
 
-# NOTE: this will come from Algo.assets, but the function might still be useful to populate Algo.assets 
+# NOTE: this will come from algoClasses.assets, but the function might still be useful to populate Algo.assets 
 def get_1000m_history_data(symbols):
     print('Getting historical data...')
     minute_history = {}

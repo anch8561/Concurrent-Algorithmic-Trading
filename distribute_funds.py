@@ -1,10 +1,10 @@
 # allocate cash to algos based on risk and performance metrics
 
 from alpacaAPI import alpaca, alpacaPaper
-from config import *
+from config import minAllocBP, maxAllocFrac
 from warn import warn
 
-def distribute_funds(algos):
+def distribute_funds(intradayAlgos, overnightAlgos, multidayAlgos):
     account = alpaca.get_account()
     equity = float(account.equity)
 
