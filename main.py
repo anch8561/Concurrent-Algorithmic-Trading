@@ -11,6 +11,7 @@ from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 lastRebalanceDate = "0001-01-01"
 
 # main loop
+from config import marketCloseTransitionMinutes
 from marketHours import get_time, get_date, get_open_time, get_close_time, is_new_week_since
 from datetime import timedelta
 from distribute_funds import distribute_funds
@@ -20,7 +21,7 @@ state = 'night' # day, night
 while True:
     # update buying power
     if is_new_week_since(lastRebalanceDate):
-        distribute_funds(algos)
+        distribute_funds(allAlgos)
 
     # update time
     time = get_time()
@@ -32,7 +33,7 @@ while True:
         lastSymbolUpdate != get_date() and # weren't updated today
         TTOpen < timedelta(hours=1) # < 1 hour until market open
     ):
-        update_tradable_assets(algos)
+        update_tradable_assets(allAlgos)
         lastSymbolUpdate = get_date()
 
     # TODO: update bars and orders
@@ -41,12 +42,12 @@ while True:
     for indicator in indicators:
         for symbol in Algo.assets:
             indicator.tick(symbol)
-
+    
     # update algos
     if ( # market is open and overnight positions are open
         state == 'night' and
         TTOpen < timedelta(0) and
-        TTClose > timedelta(minutes=10)
+        TTClose > timedelta(minutes=marketCloseTransitionMinutes)
     ):
         if handoff_BP(overnightAlgos, intradayAlgos): # true when done
             for algo in intradayAlgos: algo.active = True
@@ -54,22 +55,24 @@ while True:
 
     elif ( # market is open and overnight positions are closed
         state == 'day' and
-        TTClose > timedelta(minutes=10)
+        TTClose > timedelta(minutes=marketCloseTransitionMinutes)
     ):
         for algo in intradayAlgos: algo.tick(TTOpen, TTClose) # in parallel
         for algo in multidayAlgos: algo.tick(TTOpen, TTClose)
 
     elif ( # market will close soon and intraday positions are open
-        state == 'day'
+        state == 'day' and
+        TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
     ):
         if handoff_BP(intradayAlgos, overnightAlgos): # true when done
             for algo in overnightAlgos: algo.active = True
             state = 'night'
 
     elif ( # market will close soon and intraday positions are closed
-        state == 'night'
+        state == 'night' and
+        TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
     ):
-        for algo in overnightAlgos: algo.overnight_enter()
+        for algo in overnightAlgos: algo.tick(TTOpen, TTClose)
 
     # TODO: update allOrders and allPositions
 
@@ -81,6 +84,7 @@ def handoff_BP(oldAlgos, newAlgos):
     # returns: bool; whether handoff is complete
     
     # exit positions and update metrics
+    # FIX: need partial handoff in case an algo can't exit a position
     oldActive = False
     for algo in oldAlgos:
         if algo.active:

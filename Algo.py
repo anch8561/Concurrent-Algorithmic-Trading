@@ -1,5 +1,3 @@
-# base class for algos
-
 import alpacaAPI
 from config import maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice
 from warn import warn
@@ -14,6 +12,9 @@ class Algo:
     # 'minBars': pd.dataframe; past 1k minute bars
     # 'dayBars': pd.dataframe; past 100 day bars
 
+    rankings = {} # {indicator: sortedSymbols}
+    # indicator: str; name of indicator used for sort
+
     paperOrders = {} # {orderID: {symbol, qty, limit, algo}}
     liveOrders = {}
 
@@ -26,7 +27,7 @@ class Algo:
     minBars = []
     orderUpdates = []
 
-    def __init__(self, buyPow, timeframe, equityStyle, enterIndicators, exitIndicators = None, tickFreq='sec'):
+    def __init__(self, tick, timeframe, equityStyle, **kwargs):
         # TODO: check arguments
 
         # paper / live
@@ -37,20 +38,19 @@ class Algo:
 
         # state variables
         self.active = True # if algo has open positions or needs its metrics updated
-        self.buyPow = buyPow # buying power
-        self.equity = buyPow # udpated daily
+        self.buyPow = 0 # buying power
+        self.equity = 0 # udpated daily
         self.positions = {} # {symbol: {qty, basis}}
         self.orders = {} # {orderID: {symbol, qty, limit}}
         # qty is positive for buy/long and negative for sell/short
 
-        # inticators
-        self.enterIndicators = enterIndicators
-        self.exitIndicators = exitIndicators
-
         # properties
+        self.tick = tick # function to determine when to enter and exit positions
+        # will be called with the following format: tick(self, TTOpen, TTClose)
+        # TTOpen: datetime.timedelta; time until open (open time - current time)
+        # TTClose: datetime.timedelta; time until close (close time - current time)
         self.timeframe = timeframe # 'intraday', 'overnight', or 'multiday'
         self.equityStyle = equityStyle # 'long', 'short', or 'longShort'
-        self.tickFreq = tickFreq # 'sec' or 'min'
 
         # risk and performance metrics
         self.history = [] # [{time, prevTime, equity, prevEquity, cashFlow, growthFrac}]
@@ -69,9 +69,16 @@ class Algo:
             'positions',
             'orders',
             'timeframe',
-            'equityStyle',
-            'tickFreq'
+            'equityStyle'
         ]
+
+        # name and kwargs
+        self.name = timeframe + equityStyle.capitalize()
+        for key, val in kwargs.items():
+            self.__setattr__(key, val)
+            self.dataFields.append(str(key))
+            self.name += str(val).capitalize()
+        self.name += tick.__name__.capitalize()
 
     def update_metrics(self):
         # TODO: check each datapoint is one market day apart
@@ -85,7 +92,7 @@ class Algo:
 
         # check argument
         if self.live == live:
-            warn(f'{self.id()} set_live({live}) did not change state')
+            warn(f'{self.name} set_live({live}) did not change state')
             return
         
         # TODO: cancel orders
@@ -102,33 +109,6 @@ class Algo:
             self.allOrders = Algo.paperOrders
             self.allPositions = Algo.paperPositions
 
-    def id(self): warn(f'{self} missing id()')
-
-    def tick(self, TTOpen, TTClose):
-        # TTOpen: datetime.timedelta; time until open (open time - current time)
-        # TTClose: datetime.timedelta; time until close (close time - current time)
-        pass
-
-    def overnight_enter(self):
-        numTrades = int(self.buyPow / (self.equity * maxPosFrac))
-
-        for symbol in Algo.assets:
-            enterSignal = True
-            for indicator in self.enterIndicators:
-                if (
-                    (
-                        indicator.type is 'rank' and
-                        Algo.assets[symbol][indicator] > numTrades
-                        # FIX: unlikely to place numTrades trades unless all other indicators are true for top ranked
-                    ) or
-                    (
-                        indicator.type is 'bool' and
-                        Algo.assets[symbol][indicator] == False
-                    )
-                ):
-                    enterSignal = False
-            if enterSignal: self.enter_position(symbol)
-
     def enter_position(self, symbol):
         # symbol: e.g. 'AAPL'
         qty = self.get_trade_qty(symbol)
@@ -136,13 +116,9 @@ class Algo:
 
     def exit_position(self, symbol):
         # symbol: e.g. 'AAPL'
-
-        # get quantity
         try: qty = -self.positions[symbol]['qty']
         except: qty = 0
-        if qty == 0: warn(f'{self.id()} no position in "{symbol}" to exit')
-
-        # submit order
+        if qty == 0: warn(f'{self.name} no position in "{symbol}" to exit')
         self.submit_order(symbol, qty)
 
     def exit_all_positions(self):
@@ -162,7 +138,7 @@ class Algo:
             price *= 1 + limitPriceFrac
         elif side == 'sell':
             price *= 1 - limitPriceFrac
-        else: warn(f'{self.id()} unknown side "{side}"')
+        else: warn(f'{self.name} unknown side "{side}"')
 
         return price
 
@@ -176,7 +152,7 @@ class Algo:
         # check arguments
         # TODO: replace with try except
         if symbol not in Algo.assets:
-            warn(f'{self.id()} unknown symbol "{symbol}"')
+            warn(f'{self.name} unknown symbol "{symbol}"')
             return 0
 
         # get side
@@ -185,7 +161,7 @@ class Algo:
         elif self.equityStyle == 'short':
             side = 'sell'
         else:
-            warn(f'{self.id()} unknown equityStyle "{self.equityStyle}"')
+            warn(f'{self.name} unknown equityStyle "{self.equityStyle}"')
 
         # get price
         if limitPrice == None:
@@ -244,7 +220,7 @@ class Algo:
         for orderID, order in self.orders.items():
             if order['symbol'] == symbol:
                 if order['qty'] * qty < 0: # opposite side
-                    warn(f'{self.id()} opposing orders')
+                    warn(f'{self.name} opposing orders')
                     # TODO: log first order info
                     # TODO: cancel first order
                 else: # same side
@@ -277,7 +253,7 @@ class Algo:
         if qty > 0 and allPosQty == 0: # buying from zero position
             for orderID, order in self.allOrders.items():
                 if order['symbol'] == symbol and order['qty'] < 0: # pending short
-                    warn(f'{self.id()} opposing global order of {order["qty"]}')
+                    warn(f'{self.name} opposing global order of {order["qty"]}')
                     # TODO: log first order info
                     return
 
@@ -317,14 +293,14 @@ class Algo:
             data[field] = self.__getattribute__(field)
         
         # write data
-        fileName = self.id() + '.data'
+        fileName = self.name + '.data'
         file = open(fileName, 'w')
         json.dump(data, file)
         file.close()
 
     def load_data(self):
         # read data
-        fileName = self.id() + '.data'
+        fileName = self.name + '.data'
         file = open(fileName, 'r')
         data = json.load(file)
         file.close()
