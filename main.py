@@ -28,13 +28,13 @@ while True:
 
     # get time
     time = get_time()
-    TTOpen = get_open_time() - time # time til open
-    TTClose = get_close_time() - time # time til close
+    Algo.TTOpen = get_open_time() - time # time til open
+    Algo.TTClose = get_close_time() - time # time til close
 
     # update symbols
     if (
         lastSymbolUpdate != get_date() and # weren't updated today
-        TTOpen < timedelta(hours=1) # < 1 hour until market open
+        Algo.TTOpen < timedelta(hours=1) # < 1 hour until market open
     ):
         update_tradable_assets(allAlgos)
         lastSymbolUpdate = get_date()
@@ -47,8 +47,8 @@ while True:
     # update algos
     if ( # market is open and overnight positions are open
         state == 'night' and
-        TTOpen < timedelta(0) and
-        TTClose > timedelta(minutes=marketCloseTransitionMinutes)
+        Algo.TTOpen < timedelta(0) and
+        Algo.TTClose > timedelta(minutes=marketCloseTransitionMinutes)
     ):
         if handoff_BP(overnightAlgos, intradayAlgos): # true when done
             for algo in intradayAlgos: algo.active = True
@@ -56,14 +56,14 @@ while True:
 
     elif ( # market is open and overnight positions are closed
         state == 'day' and
-        TTClose > timedelta(minutes=marketCloseTransitionMinutes)
+        Algo.TTClose > timedelta(minutes=marketCloseTransitionMinutes)
     ):
-        for algo in intradayAlgos: algo.tick(TTOpen, TTClose) # in parallel
-        for algo in multidayAlgos: algo.tick(TTOpen, TTClose)
+        for algo in intradayAlgos: algo.tick() # in parallel
+        for algo in multidayAlgos: algo.tick()
 
     elif ( # market will close soon and intraday positions are open
         state == 'day' and
-        TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
+        Algo.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
     ):
         if handoff_BP(intradayAlgos, overnightAlgos): # true when done
             for algo in overnightAlgos: algo.active = True
@@ -71,7 +71,7 @@ while True:
 
     elif ( # market will close soon and intraday positions are closed
         state == 'night' and
-        TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
+        Algo.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
     ):
         for algo in overnightAlgos: algo.tick()
 

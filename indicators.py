@@ -49,9 +49,9 @@ def volume_num_stdevs(self, asset):
 # instances
 indicators = []
 rankings = []
-for barType in ('sec', 'min', 'day'):
+for barFreq in ('sec', 'min', 'day'):
     for numBars in (1, 2, 3, 5, 10, 20):
-        indicators.append(Indicator(momentum, numBars, barType))
-        indicators.append(Indicator(volume, numBars, barType))
-        indicators.append(Indicator(volume_stdev, numBars, barType))
-        indicators.append(Indicator(volume_num_stdevs, numBars, barType))
+        indicators.append(Indicator(momentum, numBars, barFreq))
+        indicators.append(Indicator(volume, numBars, barFreq))
+        indicators.append(Indicator(volume_stdev, numBars, barFreq))
+        indicators.append(Indicator(volume_num_stdevs, numBars, barFreq))

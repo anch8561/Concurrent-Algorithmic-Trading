@@ -6,14 +6,14 @@ from datetime import timedelta
 import statistics, json
 
 class Algo:
+    TTOpen = None # timedelta; time until open (open time - current time)
+    TTClose = None # timedelta; time until close (close time - current time)
+
     assets = {} # {symbol: {easyToBorrow, secBars, minBars, dayBars, <various indicators>}}
     # 'shortable': bool; whether easy_to_borrow on alpaca
     # 'secBars': pd.dataframe; past 10k second bars
     # 'minBars': pd.dataframe; past 1k minute bars
     # 'dayBars': pd.dataframe; past 100 day bars
-
-    rankings = {} # {indicator: sortedSymbols}
-    # indicator: str; name of indicator used for sort
 
     paperOrders = {} # {orderID: {symbol, qty, limit, algo}}
     liveOrders = {}
@@ -29,9 +29,6 @@ class Algo:
 
     def __init__(self, func, **kwargs):
         self.func = func # function to determine when to enter and exit positions
-        # will be called with the following arguments: func(self, TTOpen, TTClose)
-        # TTOpen: datetime.timedelta; time until open (open time - current time)
-        # TTClose: datetime.timedelta; time until close (close time - current time)
 
         # name and kwargs
         self.name = ''
@@ -309,5 +306,5 @@ class NightAlgo(Algo):
             self.func()
 
 class DayAlgo(Algo):
-    def tick(self, TTOpen, TTClose):
-        self.func(TTOpen, TTClose)
+    def tick(self):
+        self.func()
