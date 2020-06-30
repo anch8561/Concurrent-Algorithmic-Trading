@@ -100,6 +100,9 @@ def add_asset(symbol):
     # add key
     Algo.assets[symbol] = {}
 
+    #0 positions
+    Algo.assets[symbol]['qty'] = 0
+
     # init secBars
     Algo.assets[symbol]['secBars'] = pd.DataFrame()
 
