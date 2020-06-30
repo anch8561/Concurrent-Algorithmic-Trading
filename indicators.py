@@ -26,7 +26,8 @@ class Indicator:
             try: asset[self.name].append(val)
             except: asset[self.name] = [val]
 
-# functions
+
+## FUNCTIONS
 def momentum(self, asset):
     openPrice = asset[self.barType].iloc[-self.numBars].open
     closePrice = asset[self.barType].iloc[-1].close
@@ -71,12 +72,25 @@ def KAMA(self, asset):
     prices = asset[self.barType].iloc[-self.numBars:].close
     return ta.momentum.kama(prices, self.numBars)
 
-# instances
+
+## INSTANCES
 indicators = []
-rankings = []
+
+# momentum and volume
 for barFreq in ('sec', 'min', 'day'):
     for numBars in (1, 2, 3, 5, 10, 20):
-        indicators.append(Indicator(momentum, numBars, barFreq))
-        indicators.append(Indicator(volume, numBars, barFreq))
-        indicators.append(Indicator(volume_stdev, numBars, barFreq))
-        indicators.append(Indicator(volume_num_stdevs, numBars, barFreq))
+        indicators += [
+            Indicator(momentum, numBars, barFreq),
+            Indicator(volume, numBars, barFreq),
+            Indicator(volume_stdev, numBars, barFreq),
+            Indicator(volume_num_stdevs, numBars, barFreq)
+        ]
+    
+# moving averages
+barFreq = 'day'
+for numBars in (3, 5, 10, 20):
+    indicators += [
+        Indicator(SMA, numBars, barFreq),
+        Indicator(EMA, numBars, barFreq),
+        Indicator(KAMA, numBars, barFreq)
+    ]

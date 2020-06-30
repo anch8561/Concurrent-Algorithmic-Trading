@@ -5,6 +5,8 @@
 from algoClasses import Algo
 from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 from config import marketCloseTransitionMinutes
+from datastreaming import run
+from orderStreaming import stream
 from datetime import timedelta
 from distribute_funds import distribute_funds
 from indicators import indicators
@@ -23,8 +25,8 @@ state = 'night' # day, night
 # TODO: load positions and check state
 while True:
     # update buying power
-    if is_new_week_since(lastRebalanceDate):
-        distribute_funds(intradayAlgos, overnightAlgos, multidayAlgos)
+    # if is_new_week_since(lastRebalanceDate):
+    #     distribute_funds(intradayAlgos, overnightAlgos, multidayAlgos)
 
     # get time
     time = get_time()
@@ -50,9 +52,11 @@ while True:
         Algo.TTOpen < timedelta(0) and
         Algo.TTClose > timedelta(minutes=marketCloseTransitionMinutes)
     ):
+        print('Transitioning to intraday algos')
         if handoff_BP(overnightAlgos, intradayAlgos): # true when done
             for algo in intradayAlgos: algo.active = True
             state = 'day'
+            print('state = day')
 
     elif ( # market is open and overnight positions are closed
         state == 'day' and
@@ -65,17 +69,17 @@ while True:
         state == 'day' and
         Algo.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
     ):
+        print('Transitioning to overnight algos')
         if handoff_BP(intradayAlgos, overnightAlgos): # true when done
             for algo in overnightAlgos: algo.active = True
             state = 'night'
+            print('state = night')
 
     elif ( # market will close soon and intraday positions are closed
         state == 'night' and
         Algo.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
     ):
         for algo in overnightAlgos: algo.tick()
-
-    # TODO: update allOrders and allPositions
 
     # TODO: wait remainder of 1 sec
 

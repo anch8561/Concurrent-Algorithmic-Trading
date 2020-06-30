@@ -1,5 +1,5 @@
 from algoClasses import Algo, DayAlgo, NightAlgo
-from config import maxPosFrac
+from config import maxPosFrac, minTradeBuyPow
 
 # intraday
 intradayAlgos = []
@@ -62,13 +62,13 @@ def dayMomentumVolume(self): # kwargs: numDays
 
     # enter long
     for symbol in reversed(sortedSymbols):
-        if self.longBuyPow < 100: break
+        if self.buyPow['long'] < minTradeBuyPow: break
         if metrics[symbol] < 0: break
         self.enterPosition(symbol, 'buy')
 
     # enter short
     for symbol in sortedSymbols:
-        if self.shortBuyPow < 100: break
+        if self.buyPow['short'] < minTradeBuyPow: break
         if metrics[symbol] > 0: break
         self.enterPosition(symbol, 'sell')
 for numDays in (3, 5, 10):

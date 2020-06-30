@@ -1,5 +1,5 @@
 import alpacaAPI, json, statistics
-from config import maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice
+from config import maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice, minTradeBuyPow
 from warn import warn
 
 class Algo:
@@ -42,10 +42,8 @@ class Algo:
 
         # state variables
         self.active = True # if algo has open positions or needs its metrics updated
-        self.longBuyPow = 0 # buying power
-        self.shortBuyPow = 0
-        self.longEquity = 0 # udpated daily
-        self.shortEquity = 0
+        self.buyPow = {'long': 0, 'short': 0}
+        self.equity = {'long': 0, 'short': 0}
         self.positions = {} # {symbol: {qty, basis}}
         self.orders = {} # {orderID: {symbol, qty, limit}}
         # qty is positive for buy/long and negative for sell/short
@@ -64,10 +62,8 @@ class Algo:
         # attributes to save / load
         self.dataFields = [
             'live',
-            'longBuyPow',
-            'shortBuyPow',
-            'longEquity',
-            'shortEquity',
+            'buyPow',
+            'equity',
             'positions',
             'orders',
             'history'
@@ -104,15 +100,17 @@ class Algo:
 
     def enter_position(self, symbol, side):
         # symbol: e.g. 'AAPL'
-        qty = self.get_trade_qty(symbol, side)
-        self.submit_order(symbol, qty)
+        price = self.get_limit_price(symbol, side)
+        qty = self.get_trade_qty(symbol, side, price)
+        self.submit_order(symbol, qty, price, 'enter')
+        self.buyPow[ -= price * qty
 
     def exit_position(self, symbol):
         # symbol: e.g. 'AAPL'
         try: qty = -self.positions[symbol]['qty']
         except: qty = 0
         if qty == 0: warn(f'{self.name} no position in "{symbol}" to exit')
-        self.submit_order(symbol, qty)
+        self.submit_order(symbol, qty, 'exit')
 
     def exit_all_positions(self):
         for symbol in self.positions:
@@ -135,7 +133,7 @@ class Algo:
 
         return price
 
-    def get_trade_qty(self, symbol, side, limitPrice=None, volumeMult=1, barType='minBars'):
+    def get_trade_qty(self, symbol, side, price, volumeMult=1, barType='minBars'):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
         # limitPrice: float or None for configured price collar
@@ -145,24 +143,18 @@ class Algo:
 
         # get buying power and equity
         if side == 'buy':
-            equity = self.longEquity
-            buyPow = self.longBuyPow
+            equity = self.equity['long']
+            buyPow = self.buyPow['long']
         elif side == 'sell':
-            equity = self.shortEquity
-            buyPow = self.shortBuyPow
-
-        # get price
-        if limitPrice == None:
-            price = self.get_limit_price(symbol, side)
-        else:
-            price = limitPrice
+            equity = self.equity['short']
+            buyPow = self.buyPow['short']
 
         # check price
-        if side == 'buy' and price < 3:
-            print(f'{symbol}: share price < 3.00')
+        if side == 'buy' and price < minLongPrice:
+            print(f'{symbol}: share price < {minLongPrice}')
             return 0
-        elif side == 'sell' and price < 17:
-            print(f'{symbol}: share price < 17.00')
+        elif side == 'sell' and price < minShortPrice:
+            print(f'{symbol}: share price < {minShortPrice}')
             return 0
 
         # set quantity
@@ -220,12 +212,24 @@ class Algo:
 
         return qty
 
-    def submit_order(self, symbol, qty, limitPrice=None):
+    def submit_order(self, symbol, qty, limitPrice, longShort):
         # symbol: e.g. 'AAPL'
         # qty: int; signed # of shares to trade (positive buy, negative sell)
+        # longShort: 'long' or 'short'
         # limitPrice: float or None for configured price collar
 
         if qty == 0: return
+        elif qty > 0:
+            if enterExit == 'enter':
+                buyPow = 
+            elif enterExit == 'exit':
+                buyPow = self.buyPow['short']
+        elif qty < 0:
+            if enterExit == 'enter':
+                buyPow = self.buyPow['short']
+            elif enterExit == 'exit':
+                buyPow = 
+        
 
         # check allPositions for zero crossing
         if symbol in self.allPositions:
@@ -233,7 +237,6 @@ class Algo:
             if (allPosQty + qty) * allPosQty < 0: # trade will swap position
                 qty = -allPosQty # exit position
                 print(f'{symbol}: exiting global position of {qty}')
-                # TODO: queue same trade again
         else:
             allPosQty = 0
 
@@ -245,9 +248,8 @@ class Algo:
                     # TODO: log first order info
                     return
 
-        # get side and limitPrice
+        # get side
         side = 'buy' if qty > 0 else 'sell'
-        if limitPrice == None: limitPrice = self.get_limit_price(symbol)
 
         try:
             # submit order
@@ -259,7 +261,7 @@ class Algo:
                 time_in_force = 'day',
                 limit_price = limitPrice)
             
-            self.buyPow -= abs(qty) * limit
+            buyPow -= abs(qty) * limit
 
             # add to orders and allOrders
             orderID = order.order_id
@@ -299,7 +301,7 @@ class Algo:
 
 class NightAlgo(Algo):
     def tick(self):
-        if self.longBuyPow + self.shortBuyPow > 200:
+        if sum(self.buyPow.values()) > 2 * minTradeBuyPow:
             self.func()
 
 class DayAlgo(Algo):
