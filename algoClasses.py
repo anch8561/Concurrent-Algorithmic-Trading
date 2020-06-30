@@ -90,7 +90,7 @@ class Algo:
         # update flag and api
         self.live = live
         if live:
-            self.alpaca = alpacaAPI.alpaca
+            self.alpaca = alpacaAPI.alpacaLive
             self.allOrders = Algo.liveOrders
             self.allPositions = Algo.livePositions
         else:

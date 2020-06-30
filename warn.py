@@ -18,7 +18,7 @@ def warn(message, fileName=None):
     # write to files
     for fileName in fileNames:
         file = open(fileName, 'a')
-        file.write('WARNING: ' + message + "\tTimestamp: " + timestamp)
+        file.write(timestamp + ': WARNING: ' + message)
         for item in stack:
             file.write(item)
         file.close()

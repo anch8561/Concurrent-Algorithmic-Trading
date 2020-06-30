@@ -1,7 +1,7 @@
 # wrapper for toggling testing state
 
 import alpaca_trade_api as tradeapi
-from credentials import *
+from credentials import paper, live, paperTest, liveTest
 
 testing = True
 print(f'Testing: {testing}')
@@ -15,16 +15,15 @@ else:
     paperCreds = paper.creds
 
 # initialize alpaca api
-alpaca = tradeapi.REST(*liveCreds)
+alpacaLive = tradeapi.REST(*liveCreds)
 alpacaPaper = tradeapi.REST(*paperCreds)
 
 # get polygon access for old paper accounts
 if testing:
     polyAccess = tradeapi.REST(*live.creds)
-    alpaca.polygon = polyAccess.polygon
+    alpacaLive.polygon = polyAccess.polygon
     alpacaPaper.polygon = polyAccess.polygon
 
 # initialize StreamConn
-conn = tradeapi.StreamConn(*paperCreds, data_stream='polygon')
+connLive = tradeapi.StreamConn(*liveCreds)
 connPaper = tradeapi.StreamConn(*paperCreds)
-

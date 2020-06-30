@@ -3,7 +3,7 @@
 # price threshold and not leveraged). It also sets the shortable flags and
 # populates Algo.assets with historical data.
 
-from alpacaAPI import alpaca
+import alpacaAPI.alpacaPaper as alpaca
 from algoClasses import Algo
 from config import minSharePrice
 from marketHours import get_date, get_market_date
@@ -23,7 +23,7 @@ def update_tradable_assets(algos, debugging=False, numDebugAssets=100):
     alpacaAssets = alpaca.list_assets('active', 'us_equity')
     if debugging: alpacaAssets = alpacaAssets[:numDebugAssets]
     polygonTickers = alpaca.polygon.all_tickers()
-    
+
     # get activeSymbols
     # NOTE: this takes a long time. Would it be faster with sort?
     activeSymbols = []
@@ -38,7 +38,7 @@ def update_tradable_assets(algos, debugging=False, numDebugAssets=100):
                 break
 
         # check marginablility
-        # TODO: check leverage (ask alpaca, can it be short?, long and check margin)
+        # TODO: check leverage (ask alpaca, buy and check margin)
         if asset.marginable and price > minSharePrice:
             activeSymbols.append(asset.symbol)
 
@@ -100,8 +100,11 @@ def add_asset(symbol):
     # add key
     Algo.assets[symbol] = {}
 
-    #0 positions
-    Algo.assets[symbol]['qty'] = 0
+    # add zero positions
+    Algo.paperPositions[symbol]['qty'] = 0
+    Algo.paperPositions[symbol]['basis'] = 0
+    Algo.livePositions[symbol]['qty'] = 0
+    Algo.livePositions[symbol]['basis'] = 0
 
     # init secBars
     Algo.assets[symbol]['secBars'] = pd.DataFrame()

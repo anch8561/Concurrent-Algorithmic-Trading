@@ -1,12 +1,10 @@
 # allocate cash to algos based on risk and performance metrics
 
-from alpacaAPI import alpaca, alpacaPaper
+from alpacaAPI import alpacaLive, alpacaPaper
 from config import minAllocBuyPow, maxAllocFrac
 from warn import warn
 
 def distribute_funds(intradayAlgos, overnightAlgos, multidayAlgos):
-    account = alpaca.get_account()
-    equity = float(account.equity)
 
     # calculate weights based on performance
     # calculate fractions based on weights and min / max allocations
@@ -16,7 +14,7 @@ def distribute_funds(intradayAlgos, overnightAlgos, multidayAlgos):
 
     # TODO: calculate allocFrac
 
-    for alpaca in (alpaca, alpacaPaper):
+    for alpaca in (alpacaLive, alpacaPaper):
         for algoType in ('overnight', 'intraday'):
             pass
     # consider overnight, live / paper, fees

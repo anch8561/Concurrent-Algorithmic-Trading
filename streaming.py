@@ -1,9 +1,6 @@
-import asyncio, sys
+import asyncio
 import pandas as pd
 from algoClasses import Algo
-from alpacaAPI import conn, connPaper
-from main import main_loop
-from marketHours import get_time, get_open_time, get_close_time
 from warn import warn
 
 def save_bar(barType, data):
@@ -25,7 +22,7 @@ def save_bar(barType, data):
     }, index=[data.start])
     Algo.assets[data.symbol][barType].append(df)
 
-def stream():
+def stream(conn, channels):
     @conn.on(r'A')
     async def on_second(conn, channel, data):
         save_bar('secBars', data)
@@ -100,20 +97,11 @@ def stream():
 
     async def periodic():
         while True:
-            main_loop()
             await asyncio.sleep(5)
 
-    # subscribe to channels
-    symbols = list(Algo.assets.keys())
-    print("Tracking {} symbols.".format(len(symbols)))
-    channels = ['account_updates', 'trade_update']
-    for symbol in symbols:
-        channels += ['A.{}'.format(symbol) , 'AM.{}'.format(symbol)]
-
     # start loop
-    loop = conn.loop
-    loop.run_until_complete(asyncio.gather(
+    conn.loop.run_until_complete(asyncio.gather(
         conn.subscribe(channels),
         periodic()
     ))
-    loop.close()
+    conn.loop.close()
