@@ -50,8 +50,6 @@ for barFreq in ('sec', 'min'):
 overnightAlgos = []
 
 def dayMomentumVolume(self): # kwargs: numDays
-    # 
-
     # sort symbols
     indicatorPrefix = str(self.numDays) + 'day'
     metrics = {}
@@ -79,6 +77,46 @@ for numDays in (3, 5, 10):
 
 # multiday
 multidayAlgos = []
+
+def crossover(self): # kwargs: fastNumBars, fastBarFreq, fastMovAvg, slowNumBars, slowBarFreq, slowMovAvg
+    fastInd = str(self.fastNumBars) + self.fastBarFreq + self.fastMoveAve
+    slowInd = str(self.slowNumBars) + self.slowBarFreq + self.slowMoveAve
+
+    for symbol, asset in Algo.assets.items():
+        # enter position
+        if self.positions[symbol]['qty'] == 0: # no position
+            if asset[fastInd][-1] < asset[slowInd][-1]: # oversold
+                self.enter_position(symbol, 'buy')
+            elif asset[fastInd][-1] > asset[slowInd][-1]: # overbought
+                self.enter_position(symbol, 'sell')
+        
+        # exit position
+        if (
+            (
+                self.positions[symbol]['qty'] > 0 and # long
+                asset[fastInd][-1] > asset[slowInd][-1] # overbought
+            ) or (
+                self.positions[symbol]['qty'] < 0 and # short
+                asset[fastInd][-1] < asset[slowInd][-1] # oversold
+            )
+        ):
+            self.exit_position(symbol)
+
+for movAvg in ('SMA', 'EMA', 'KAMA'):
+    for slowNumBars in (5, 10, 20):
+        for fastNumBars in (3, 5, 10):
+            if slowNumBars > fastNumBars:
+                multidayAlgos += [
+                    DayAlgo(
+                        crossover,
+                        fastNumBars = fastNumBars,
+                        fastBarFreq = 'day',
+                        fastMovAvg = movAvg,
+                        slowNumBars = slowNumBars,
+                        slowBarFreq = 'day',
+                        slowMovAvg = movAvg)
+                ]
+
 
 # all algos list
 allAlgos = intradayAlgos + overnightAlgos + multidayAlgos

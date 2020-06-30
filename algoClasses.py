@@ -1,9 +1,6 @@
-import alpacaAPI
+import alpacaAPI, json, statistics
 from config import maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice
 from warn import warn
-
-from datetime import timedelta
-import statistics, json
 
 class Algo:
     TTOpen = None # timedelta; time until open (open time - current time)

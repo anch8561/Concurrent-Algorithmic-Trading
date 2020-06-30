@@ -2,8 +2,9 @@
 # populate indicators list
 
 from algoClasses import Algo
-from warn import warn
 import statistics as stats
+import ta
+from warn import warn
 
 # TODO: confirm indices have correct timestamps
 
@@ -33,8 +34,8 @@ def momentum(self, asset):
 
 def volume(self, asset):
     volume = 0
-    for bar in range(numBars):
-        volume += asset[barType].iloc[-bar].volume
+    for i_bar in range(-1, -self.numBars-1, -1):
+        volume += asset[self.barType].iloc[i_bar].volume
     return volume
 
 def volume_stdev(self, asset):
@@ -45,6 +46,30 @@ def volume_num_stdevs(self, asset):
     _volume = asset[Indicator(volume, 1, self.barFreq).name]
     volumeStdev = asset[Indicator(volume_stdev, self.numBars, self.barFreq).name]
     return  _volume / volumeStdev
+
+def typical_price(self, asset):
+    data = asset[self.barType].iloc[-1]
+    high = data.high
+    low = data.low
+    close = data.close
+    for i_bar in range(-2, -self.numBars-1, -1):
+        data = asset[self.barType].iloc[i_bar]
+        if data.high > high: high = data.high
+        if data.low < low: low = data.low
+    return (high + low + close) / 3
+
+def SMA(self, asset):
+    prices = asset[self.barType].iloc[-self.numBars:].close
+    return ta.trend.sma_indicator(prices, self.numBars)
+
+def EMA(self, asset):
+    prices = asset[self.barType].iloc[-self.numBars:].close
+    return ta.trend.ema_indicator(prices, self.numBars)
+
+def KAMA(self, asset):
+    # variable EMA from 2 to 30 bars (default)
+    prices = asset[self.barType].iloc[-self.numBars:].close
+    return ta.momentum.kama(prices, self.numBars)
 
 # instances
 indicators = []
