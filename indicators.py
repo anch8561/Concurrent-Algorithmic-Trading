@@ -1,6 +1,3 @@
-# functions to be used for enter and exit indications
-# populate indicators list
-
 from algoClasses import Algo
 import statistics as stats
 import ta

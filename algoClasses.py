@@ -229,7 +229,6 @@ class Algo:
                     return 0
 
         # TODO: check risk
-        # TODO: check for leveraged ETFs
 
         return qty
 

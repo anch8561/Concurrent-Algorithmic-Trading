@@ -9,16 +9,11 @@ from datetime import timedelta
 from distribute_funds import distribute_funds
 from indicators import indicators
 from marketHours import get_time, get_date, get_open_time, get_close_time, is_new_week_since
-from streaming import stream
 from update_tradable_assets import update_tradable_assets
-
-# TODO: dataStreaming
 
 
 # TODO: read date from file or prompt to coninue
 lastRebalanceDate = "0001-01-01"
-
-# main loop
 
 state = 'night' # day, night
 # TODO: load positions and check state
@@ -39,8 +34,6 @@ def main_loop():
     ):
         update_tradable_assets(allAlgos)
         lastSymbolUpdate = get_date()
-
-    # TODO: update bars and orders
 
     # update indicators
     for indicator in indicators: indicator.tick()
@@ -99,3 +92,7 @@ def handoff_BP(oldAlgos, newAlgos):
                 algo.update_metrics()
                 algo.active = False
     return not oldActive
+
+# enter loop
+from streaming import stream
+stream()
