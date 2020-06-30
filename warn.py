@@ -1,7 +1,8 @@
 from traceback import extract_stack
+from marketHours import get_time
 
 def warn(message, fileName=None):
-    # TODO: add timestamp
+    timestamp = get_time()
 
     fileNames = ['warnings.log']
     if fileName is None: fileNames.append('warnings.log')
@@ -17,7 +18,7 @@ def warn(message, fileName=None):
     # write to files
     for fileName in fileNames:
         file = open(fileName, 'a')
-        file.write('WARNING: ' + message)
+        file.write('WARNING: ' + message + "\tTimestamp: " + timestamp)
         for item in stack:
             file.write(item)
         file.close()
