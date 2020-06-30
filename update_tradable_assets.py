@@ -101,10 +101,8 @@ def add_asset(symbol):
     Algo.assets[symbol] = {}
 
     # add zero positions
-    Algo.paperPositions[symbol]['qty'] = 0
-    Algo.paperPositions[symbol]['basis'] = 0
-    Algo.livePositions[symbol]['qty'] = 0
-    Algo.livePositions[symbol]['basis'] = 0
+    Algo.paperPositions[symbol] = {'qty': 0, 'basis': 0}
+    Algo.livePositions[symbol] = {'qty': 0, 'basis': 0}
 
     # init secBars
     Algo.assets[symbol]['secBars'] = pd.DataFrame()

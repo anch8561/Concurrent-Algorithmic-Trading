@@ -33,7 +33,7 @@ alpacaPaperStream.start()
 
 # stream polygon
 channels = []
-for symbol in Algo.assets.keys():
+for symbol in Algo.assets:
     channels += [f'A.{symbol}' , f'AM.{symbol}']
 polygonStream = threading.Thread(target=stream(connLive, channels))
 polygonStream.start()
