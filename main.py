@@ -5,12 +5,11 @@
 from algoClasses import Algo
 from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 from config import marketCloseTransitionMinutes
-from datastreaming import run
-from orderStreaming import stream
 from datetime import timedelta
 from distribute_funds import distribute_funds
 from indicators import indicators
 from marketHours import get_time, get_date, get_open_time, get_close_time, is_new_week_since
+from streaming import stream
 from update_tradable_assets import update_tradable_assets
 
 # TODO: dataStreaming
@@ -23,7 +22,7 @@ lastRebalanceDate = "0001-01-01"
 
 state = 'night' # day, night
 # TODO: load positions and check state
-while True:
+def main_loop():
     # update buying power
     # if is_new_week_since(lastRebalanceDate):
     #     distribute_funds(intradayAlgos, overnightAlgos, multidayAlgos)

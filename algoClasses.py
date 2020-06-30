@@ -12,7 +12,7 @@ class Algo:
     # 'minBars': pd.dataframe; past 1k minute bars
     # 'dayBars': pd.dataframe; past 100 day bars
 
-    paperOrders = {} # {orderID: {symbol, qty, limit, algo}}
+    paperOrders = {} # {orderID: {symbol, qty, limit, longShort, enterExit, algo}}
     liveOrders = {}
 
     paperPositions = {} # {symbol: {qty, basis}}
@@ -45,7 +45,7 @@ class Algo:
         self.buyPow = {'long': 0, 'short': 0}
         self.equity = {'long': 0, 'short': 0}
         self.positions = {} # {symbol: {qty, basis}}
-        self.orders = {} # {orderID: {symbol, qty, limit}}
+        self.orders = {} # {orderID: {symbol, qty, limit, longShort}}
         # qty is positive for buy/long and negative for sell/short
 
         # risk and performance metrics
@@ -100,17 +100,39 @@ class Algo:
 
     def enter_position(self, symbol, side):
         # symbol: e.g. 'AAPL'
+
+        # get price and qty
         price = self.get_limit_price(symbol, side)
         qty = self.get_trade_qty(symbol, side, price)
-        self.submit_order(symbol, qty, price, 'enter')
-        self.buyPow[ -= price * qty
+
+        # get longShort
+        if side == 'buy': longShort = 'long'
+        elif side == 'sell': longShort = 'short'
+
+        # submit order and update buying power
+        self.submit_order(symbol, qty, price, longShort, 'enter')
+        self.buyPow[longShort] -= abs(qty) * price
 
     def exit_position(self, symbol):
         # symbol: e.g. 'AAPL'
+
+        # get qty
         try: qty = -self.positions[symbol]['qty']
-        except: qty = 0
-        if qty == 0: warn(f'{self.name} no position in "{symbol}" to exit')
-        self.submit_order(symbol, qty, 'exit')
+        except:
+            warn(f'{self.name} no position in "{symbol}" to exit')
+            return
+
+        # get side and longShort
+        if qty > 0:
+            side = 'buy'
+            longShort = 'short'
+        elif qty < 0:
+            side = 'sell'
+            longShort = 'long'
+        
+        # get price and submit order
+        price = self.get_limit_price(symbol, side)
+        self.submit_order(symbol, qty, price, longShort, 'exit')
 
     def exit_all_positions(self):
         for symbol in self.positions:
@@ -194,7 +216,6 @@ class Algo:
             elif posQty * qty < 0: # opposite side from position
                 qty = -posQty # exit position
                 print(f'{symbol}: exiting position of {posQty}')
-                # TODO: queue same trade again
 
         # check for existing orders
         for orderID, order in self.orders.items():
@@ -212,24 +233,13 @@ class Algo:
 
         return qty
 
-    def submit_order(self, symbol, qty, limitPrice, longShort):
+    def submit_order(self, symbol, qty, limitPrice, longShort, enterExit):
         # symbol: e.g. 'AAPL'
         # qty: int; signed # of shares to trade (positive buy, negative sell)
         # longShort: 'long' or 'short'
         # limitPrice: float or None for configured price collar
 
         if qty == 0: return
-        elif qty > 0:
-            if enterExit == 'enter':
-                buyPow = 
-            elif enterExit == 'exit':
-                buyPow = self.buyPow['short']
-        elif qty < 0:
-            if enterExit == 'enter':
-                buyPow = self.buyPow['short']
-            elif enterExit == 'exit':
-                buyPow = 
-        
 
         # check allPositions for zero crossing
         if symbol in self.allPositions:
@@ -260,19 +270,21 @@ class Algo:
                 type = 'limit',
                 time_in_force = 'day',
                 limit_price = limitPrice)
-            
-            buyPow -= abs(qty) * limit
 
             # add to orders and allOrders
             orderID = order.order_id
             self.orders[orderID] = {
                 'symbol': symbol,
                 'qty': qty,
-                'limit': limitPrice}
+                'limit': limitPrice,
+                'longShort': longShort,
+                'enterExit': enterExit}
             self.allOrders[orderID] = {
                 'symbol': symbol,
                 'qty': qty,
                 'limit': limitPrice,
+                'longShort': longShort,
+                'enterExit': enterExit,
                 'algo': self}
         except Exception as e: print(e)
 

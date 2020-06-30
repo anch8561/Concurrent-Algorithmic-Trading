@@ -2,6 +2,7 @@ import asyncio, sys
 import pandas as pd
 from algoClasses import Algo
 from alpacaAPI import conn, connPaper
+from main import main_loop
 from marketHours import get_time, get_open_time, get_close_time
 from warn import warn
 
@@ -34,8 +35,8 @@ def stream():
         save_bar('minBars', data)
 
     @conn.on(r'account_updates')
-    async def on_account_updates(conn, channel, account):
-        print(account)
+    async def on_account_updates(conn, channel, data):
+        print(data)
 
     @conn.on(r'trade_update')
     async def handle_trade_update(conn, channel, data):
@@ -43,45 +44,73 @@ def stream():
         orderID = data.order.id
     
         try:
-            # set orders and positions to live or paper
-            if orderID in Algo.liveOrders:
-                orders = Algo.liveOrders
-                positions = Algo.livePositions[data.symbol]
-            elif orderID in Algo.paperOrders:
-                orders = Algo.paperOrders
-                positions = Algo.paperPositions[data.symbol]
+            # paper / live
+            if orderID in Algo.paperOrders:
+                order = Algo.paperOrders[orderID]
+                allOrders = Algo.paperOrders
+                allPositions = Algo.paperPositions[data.symbol]
+            elif orderID in Algo.liveOrders:
+                order = Algo.liveOrders[orderID]
+                allOrders = Algo.liveOrders
+                allPositions = Algo.livePositions[data.symbol]
             else:
                 print(f'Unknown order id: {orderID}')
-            #TODO: Fix algo.cash
-            #check event 
+            
+            # check event 
             if event == 'fill':
-                positions[orderID] = orderID
-                algo.cash += data.order.price * data.order.qty - data.order.filled_avg_price * data.order.filled_qty
-                orders.pop(orderID)
-            elif event == 'partial_fill': #TODO: make sure this is the right equation for partial and expired
-                algo.cash += (data.order.price)*(data.order.qty) - (data.order.filled_avg_price)*(data.order.filled_qty)
-            elif event == 'expired':
+                # get local data
+                qty = order['qty']
+                limit = order['limit']
+                longShort = order['longShort']
+                enterExit = order['enterExit']
+                algo = order['algo']
+
+                # get streamed data
+                symbol = data.order.symbol
+                fillQty = data.order.filled_qty
+                if data.order.side == 'sell': fillQty *= -1
+                fillPrice = data.order.filled_avg_price
+
+                # update positions
+                for positions in (allPositions, algo.positions):
+                    oldBasis = positions[symbol]['basis']
+                    oldQty = positions[symbol]['qty']
+                    positions[symbol]['qty'] += fillQty
+                    if positions[symbol]['qty'] == 0:
+                        positions[symbol]['basis'] = 0
+                    positions[symbol]['basis'] = ((oldBasis * oldQty) + (fillPrice * fillQty)) / (oldQty + fillQty)
+                    # FIX: need FIFO
+
+                # update buying power
+                if enterExit == 'enter':
+                    algo.buyPow[longShort] += abs(qty) * limit
+                    algo.buyPow[longShort] -= abs(fillQty) * fillPrice
+                elif enterExit == 'exit':
+                    algo.buyPow[longShort] += abs(fillQty) * fillPrice
+
+                # pop order
+                allOrders.pop(orderID)
+                algo.orders.pop(orderID)
+            elif event in ('canceled', 'expired', 'rejected'):
                 algo.cash += (data.order.price)*(data.order.qty)-(data.order.filled_avg_price)*(data.order.filled_qty)
-            elif event == 'canceled' or event == 'rejected':
-                print(f'Order canceled or rejected')
-            else:
-                warn(f'Unknown event: {event}')
+                print(f'{orderID}: {event}')
 
         except:
             print(f'Invalid order id: {orderID}')
 
     async def periodic():
         while True:
+            main_loop()
             await asyncio.sleep(5)
 
+    # subscribe to channels
     symbols = list(Algo.assets.keys())
     print("Tracking {} symbols.".format(len(symbols)))
     channels = ['account_updates', 'trade_update']
-
-    # subscribe to channels
     for symbol in symbols:
         channels += ['A.{}'.format(symbol) , 'AM.{}'.format(symbol)]
 
+    # start loop
     loop = conn.loop
     loop.run_until_complete(asyncio.gather(
         conn.subscribe(channels),
