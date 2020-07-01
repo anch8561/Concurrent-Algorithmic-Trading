@@ -80,16 +80,6 @@ class Algo:
 
     def set_live(self, live):
         # live: bool; whether algo uses real money
-
-        # check argument
-        if self.live == live:
-            warn(f'{self.name} set_live({live}) did not change state')
-            return
-        
-        # TODO: cancel orders
-        # TODO: close positions
-
-        # update flag and api
         self.live = live
         if live:
             self.alpaca = alpacaAPI.alpacaLive
@@ -232,7 +222,7 @@ class Algo:
                 if order['qty'] * qty < 0: # opposite side
                     warn(f'{self.name} opposing orders')
                     # TODO: log first order info
-                    # TODO: cancel first order
+                    self.cancel_order(orderID)
                 else: # same side
                     print(f'{self.name}\t{symbol}\talready placed order for {order["qty"]}')
                     return 0
@@ -295,6 +285,11 @@ class Algo:
                 'enterExit': enterExit,
                 'algo': self}
         except Exception as e: print(e)
+
+    def cancel_order(self, orderID):
+        self.alpaca.cancel_order(orderID)
+        self.orders.pop(orderID)
+        self.allOrders.pop(orderID)
 
     def save_data(self):
         # get data

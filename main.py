@@ -16,6 +16,11 @@ from update_tradable_assets import update_tradable_assets
 
 from time import sleep
 
+# FIX: account reset
+from alpacaAPI import alpacaPaper
+alpacaPaper.cancel_all_orders()
+alpacaPaper.close_all_positions()
+
 def handoff_BP(oldAlgos, newAlgos):
     # oldAlgos: list of algos to get BP from
     # newAlgos: list of algos to give BP to
@@ -112,7 +117,7 @@ while True:
 
     elif ( # market will close soon and intraday positions are open
         state == 'day' and
-        # FIX: Algo.TTClose > 0 and # market is open
+        Algo.TTClose > 0 and # market is open
         Algo.TTClose <= timedelta(minutes=marketCloseTransitionMinutes) # closing soon
     ):
         if handoff_BP(intradayAlgos, overnightAlgos): # true when done
@@ -123,10 +128,12 @@ while True:
 
     elif ( # market will close soon and intraday positions are closed
         state == 'night' and
-        # FIX: Algo.TTClose > 0 and # market is open
+        Algo.TTClose > 0 and # market is open
         Algo.TTClose <= timedelta(minutes=marketCloseTransitionMinutes) # closing soon
     ):
         for algo in overnightAlgos: algo.tick()
+    else:
+        print('Market is closed')
 
     # TODO: wait remainder of 1 sec
     sleep(10)

@@ -8,7 +8,6 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
     indicator = str(1) + barFreq + 'Momentum'
     # NOTE: could use multibar momentum also
     
-    # TODO: create zero position for each symbol on construction / update_tradable_assets
     for symbol, asset in Algo.assets.items():
         # enter position
         if self.positions[symbol]['qty'] == 0: # no position

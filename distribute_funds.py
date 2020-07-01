@@ -19,6 +19,12 @@ def distribute_funds(intradayAlgos, overnightAlgos, multidayAlgos):
             pass
     # consider overnight, live / paper, fees
 
+    # set live
+        # cancel orders once
+        # close positions until closed
+        # then algo.set_live()
+
+
 def get_overnight_fee(self, debt):
         # accrues daily (including weekends) and posts at end of month
         return debt * 0.0375 / 360
