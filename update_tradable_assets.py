@@ -6,7 +6,7 @@
 from alpacaAPI import alpacaPaper as alpaca
 from algoClasses import Algo
 from algos import allAlgos
-from config import minSharePrice
+from config import minSharePrice, minDayVolume
 from marketHours import get_date, get_market_date
 from warn import warn
 import pandas as pd
@@ -15,9 +15,6 @@ import pandas as pd
 def update_tradable_assets(debugging=False, numDebugAssets=100):
 
     print('Updating tradable assets')
-
-    # check for first run
-    logging = False if Algo.assets == {} else True
 
     # get alpaca assets and polygon tickers
     alpacaAssets = alpaca.list_assets('active', 'us_equity')
@@ -28,7 +25,7 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
     # NOTE: this takes a long time. Would it be faster with sort?
     activeSymbols = []
     for ii, asset in enumerate(alpacaAssets):
-        print(f'Checking asset {ii+1} / {len(alpacaAssets)}')
+        print(f'Checking asset {ii+1} / {len(alpacaAssets)} {asset.symbol}')
 
         # get price (if on polygon)
         price = 0
@@ -50,16 +47,14 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
     
     # remove inactive assets
     for ii, symbol in enumerate(inactiveSymbols):
-        print(f'Removing asset {ii+1} / {len(inactiveSymbols)}')
+        print(f'Removing asset {ii+1} / {len(inactiveSymbols)} {symbol}')
         remove_asset(symbol)
-        if logging: print(f'"{symbol}" is no longer active')
 
     # add tradable assets
     for ii, symbol in enumerate(activeSymbols):
         if symbol not in Algo.assets:
-            print(f'Adding asset {ii+1} / {len(activeSymbols)}')
+            print(f'Adding asset {ii+1} / {len(activeSymbols)} {symbol}')
             add_asset(symbol)
-            if logging: print(f'"{symbol}" is now active')
 
     # set shortable flag
     for asset in alpacaAssets:

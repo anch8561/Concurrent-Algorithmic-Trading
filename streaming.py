@@ -22,7 +22,7 @@ def save_bar(barType, data):
     }, index=[data.start])
     Algo.assets[data.symbol][barType].append(df)
 
-def stream(conn, channels, debugging=False):
+def stream(conn, channels):
     @conn.on(r'A')
     async def on_second(conn, channel, data):
         save_bar('secBars', data)
@@ -35,7 +35,7 @@ def stream(conn, channels, debugging=False):
     async def on_account_updates(conn, channel, data):
         print(data)
 
-    @conn.on(r'trade_update')
+    @conn.on(r'trade_updates')
     async def handle_trade_update(conn, channel, data):
         event = data.event
         orderID = data.order.id
@@ -95,16 +95,4 @@ def stream(conn, channels, debugging=False):
         except:
             print(f'Invalid order id: {orderID}')
 
-    async def periodic():
-        while True:
-            print(f'Listening on {len(channels)} channels')
-            await asyncio.sleep(5)
-
-    if debugging:
-        conn.loop.run_until_complete(
-            asyncio.gather(
-                conn.subscribe(channels),
-                periodic()
-            )
-        )
-    else: conn.run(channels)
+    conn.run(channels)

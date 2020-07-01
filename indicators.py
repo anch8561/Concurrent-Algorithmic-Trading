@@ -19,7 +19,7 @@ class Indicator:
     
     def tick(self):
         for asset in Algo.assets.values():
-            val = self.func(asset)
+            val = self.func(self, asset)
             try: asset[self.name].append(val)
             except: asset[self.name] = [val]
 

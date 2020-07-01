@@ -15,3 +15,5 @@ minLongPrice = 3
 minShortPrice = 17
 
 minTradeBuyPow = 100
+
+minDayVolume = 2000

@@ -3,6 +3,7 @@
 # Tick algorithms at regular intervals.
 
 from algoClasses import Algo
+from algos import intradayAlgos, overnightAlgos, multidayAlgos
 from alpacaAPI import connLive, connPaper
 from config import marketCloseTransitionMinutes
 from datetime import timedelta
@@ -13,6 +14,7 @@ from streaming import stream
 from threading import Thread
 from update_tradable_assets import update_tradable_assets
 
+from time import sleep
 
 # TODO: read date from file or prompt to coninue
 lastRebalanceDate = "0001-01-01"
@@ -25,22 +27,16 @@ update_tradable_assets(True, 10) # FIX: debugging
 
 # stream alpaca
 channels = ['account_updates', 'trade_updates']
-Thread(target=stream, args=(connPaper, channels, True)).start()
-print('Streaming alpaca paper')
-
-Thread(target=stream, args=(connLive, channels, True)).start()
-print('Streaming alpaca live')
-
-# stream polygon
-channels = []
 for symbol in Algo.assets:
-    channels += [f'A.{symbol}' , f'AM.{symbol}']
-Thread(target=stream, args=(connLive, channels)).start()
-print('Streaming polygon')
+    channels += [f'A.{symbol}', f'AM.{symbol}'] # TODO: second bars
+Thread(target=stream, args=(connPaper, channels)).start()
+print(f'Streaming {len(Algo.assets)} symbols')
 
 # main loop
 print('Entering main loop')
 while True:
+    sleep(5)
+    print('loop')
     # update buying power
     # if is_new_week_since(lastRebalanceDate):
     #     distribute_funds()
