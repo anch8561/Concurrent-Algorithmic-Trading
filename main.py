@@ -23,7 +23,7 @@ state = 'night' # day, night
 # TODO: load positions and check state
 
 # get assets
-update_tradable_assets(True, 10) # FIX: debugging
+update_tradable_assets(True, 100) # FIX: debugging
 
 # stream alpaca
 channels = ['account_updates', 'trade_updates']

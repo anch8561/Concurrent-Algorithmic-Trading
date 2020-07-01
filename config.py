@@ -5,15 +5,13 @@ maxSectorFrac = 0.1
 maxIndustryFrac = 0.05
 maxPosFrac = 0.01
 
-minSharePrice = 3
+minSharePrice = 20
+minDayVolume = 200000
+
+minTradeBuyPow = 100
+minLongPrice = 3
+minShortPrice = 17
 
 marketCloseTransitionMinutes = 10
 
 limitPriceFrac = 0.02
-
-minLongPrice = 3
-minShortPrice = 17
-
-minTradeBuyPow = 100
-
-minDayVolume = 2000

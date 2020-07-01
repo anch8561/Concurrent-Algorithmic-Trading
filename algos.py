@@ -41,7 +41,8 @@ for exitNumBars in (1, 2, 3, 5):
                     momentum,
                     enterNumBars = enterNumBars,
                     exitNumBars = exitNumBars,
-                    barFreq = barFreq)
+                    barFreq = barFreq
+                )
             ]
 
 # TODO: momentumMACD

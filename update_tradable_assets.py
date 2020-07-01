@@ -30,7 +30,10 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
         # get price (if on polygon)
         price = 0
         for ticker in polygonTickers:
-            if ticker.ticker == asset.symbol:
+            if (
+                ticker.ticker == asset.symbol and
+                ticker.prevDay['v'] > minDayVolume
+            ):
                 price = ticker.prevDay['l']
                 break
 
