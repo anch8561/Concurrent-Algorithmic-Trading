@@ -32,7 +32,7 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
 
 
 
-for barFreq in ('sec', 'min'):
+for barFreq in ('min'):
     for exitNumBars in (1, 2, 3, 5):
         for enterNumBars in (1, 2, 3, 5):
             if enterNumBars >= exitNumBars:

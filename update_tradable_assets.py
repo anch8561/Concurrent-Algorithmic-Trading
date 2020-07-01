@@ -3,16 +3,16 @@
 # price threshold and not leveraged). It also sets the shortable flags and
 # populates Algo.assets with historical data.
 
-import alpacaAPI.alpacaPaper as alpaca
+from alpacaAPI import alpacaPaper as alpaca
 from algoClasses import Algo
+from algos import allAlgos
 from config import minSharePrice
 from marketHours import get_date, get_market_date
 from warn import warn
 import pandas as pd
 
 
-def update_tradable_assets(algos, debugging=False, numDebugAssets=100):
-    # algos: list of algos
+def update_tradable_assets(debugging=False, numDebugAssets=100):
 
     print('Updating tradable assets')
 
@@ -51,7 +51,7 @@ def update_tradable_assets(algos, debugging=False, numDebugAssets=100):
     # remove inactive assets
     for ii, symbol in enumerate(inactiveSymbols):
         print(f'Removing asset {ii+1} / {len(inactiveSymbols)}')
-        remove_asset(symbol, algos)
+        remove_asset(symbol)
         if logging: print(f'"{symbol}" is no longer active')
 
     # add tradable assets
@@ -73,7 +73,7 @@ def update_tradable_assets(algos, debugging=False, numDebugAssets=100):
     Algo.lastSymbolUpdate = get_date()
 
 
-def remove_asset(symbol, algos):
+def remove_asset(symbol):
     # remove from assets
     Algo.assets.pop(symbol)
 
@@ -85,7 +85,7 @@ def remove_asset(symbol, algos):
             # TODO: how to handle? (inactive on alpaca, not marginable, below price threshold)
 
     # check for orders
-    for algo in algos:
+    for algo in allAlgos:
         orderIDs = []
         for order in algo.orders:
             if order['symbol'] == symbol:
@@ -101,8 +101,11 @@ def add_asset(symbol):
     Algo.assets[symbol] = {}
 
     # add zero positions
-    Algo.paperPositions[symbol] = {'qty': 0, 'basis': 0}
-    Algo.livePositions[symbol] = {'qty': 0, 'basis': 0}
+    positionsList = [Algo.paperPositions, Algo.livePositions]
+    positionsList += [algo.positions for algo in allAlgos]
+    for positions in positionsList:
+        if symbol not in positions:
+            positions[symbol] = {'qty': 0, 'basis': 0}
 
     # init secBars
     Algo.assets[symbol]['secBars'] = pd.DataFrame()

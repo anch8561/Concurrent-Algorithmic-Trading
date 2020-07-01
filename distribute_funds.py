@@ -1,6 +1,6 @@
 # allocate cash to algos based on risk and performance metrics
 
-from alpacaAPI import alpacaLive, alpacaPaper
+from algos import intradayAlgos, overnightAlgos, multidayAlgos
 from config import minAllocBuyPow, maxAllocFrac
 from warn import warn
 

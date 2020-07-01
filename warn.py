@@ -1,8 +1,10 @@
+from datetime import datetime, timedelta, timezone
 from traceback import extract_stack
-from marketHours import get_time
+
+nyc = timezone(timedelta(hours=-4))
 
 def warn(message, fileName=None):
-    timestamp = get_time()
+    timestamp = datetime.now(nyc)
 
     fileNames = ['warnings.log']
     if fileName is None: fileNames.append('warnings.log')

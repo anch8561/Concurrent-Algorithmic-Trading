@@ -2,9 +2,7 @@
 # Allocate buying power once per week. Update assets and metrics daily.
 # Tick algorithms at regular intervals.
 
-import threading
 from algoClasses import Algo
-from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 from alpacaAPI import connLive, connPaper
 from config import marketCloseTransitionMinutes
 from datetime import timedelta
@@ -12,6 +10,7 @@ from distribute_funds import distribute_funds
 from indicators import indicators
 from marketHours import get_time, get_date, get_open_time, get_close_time, is_new_week_since
 from streaming import stream
+from threading import Thread
 from update_tradable_assets import update_tradable_assets
 
 
@@ -22,26 +21,29 @@ state = 'night' # day, night
 # TODO: load positions and check state
 
 # get assets
-update_tradable_assets(allAlgos, True, 10) # FIX: debugging
+update_tradable_assets(True, 10) # FIX: debugging
 
 # stream alpaca
-channels = ['account_updates', 'trade_update']
-alpacaLiveStream = threading.Thread(target=stream(connLive, channels))
-alpacaLiveStream.start()
-alpacaPaperStream = threading.Thread(target=stream(connPaper, channels))
-alpacaPaperStream.start()
+channels = ['account_updates', 'trade_updates']
+Thread(target=stream, args=(connPaper, channels, True)).start()
+print('Streaming alpaca paper')
+
+Thread(target=stream, args=(connLive, channels, True)).start()
+print('Streaming alpaca live')
 
 # stream polygon
 channels = []
 for symbol in Algo.assets:
     channels += [f'A.{symbol}' , f'AM.{symbol}']
-polygonStream = threading.Thread(target=stream(connLive, channels))
-polygonStream.start()
+Thread(target=stream, args=(connLive, channels)).start()
+print('Streaming polygon')
 
-def main_loop():
+# main loop
+print('Entering main loop')
+while True:
     # update buying power
     # if is_new_week_since(lastRebalanceDate):
-    #     distribute_funds(intradayAlgos, overnightAlgos, multidayAlgos)
+    #     distribute_funds()
 
     # get time
     time = get_time()
@@ -53,7 +55,7 @@ def main_loop():
     #     lastSymbolUpdate != get_date() and # weren't updated today
     #     Algo.TTOpen < timedelta(hours=1) # < 1 hour until market open
     # ):
-    #     update_tradable_assets(allAlgos)
+    #     update_tradable_assets()
     #     lastSymbolUpdate = get_date()
 
     # update indicators
@@ -113,7 +115,3 @@ def handoff_BP(oldAlgos, newAlgos):
                 algo.update_metrics()
                 algo.active = False
     return not oldActive
-
-# enter loop
-from streaming import stream
-stream()

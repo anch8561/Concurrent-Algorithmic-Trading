@@ -45,8 +45,6 @@ class Algo:
         self.buyPow = {'long': 0, 'short': 0}
         self.equity = {'long': 0, 'short': 0}
         self.positions = {} # {symbol: {qty, basis}}
-        for symbol in Algo.assets:
-            self.positions[symbol] = {'qty': 0, 'basis': 0}
         self.orders = {} # {orderID: {symbol, qty, limit, longShort}}
         # qty is positive for buy/long and negative for sell/short
 

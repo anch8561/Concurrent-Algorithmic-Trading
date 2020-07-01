@@ -74,7 +74,7 @@ def KAMA(self, asset):
 indicators = []
 
 # momentum and volume
-for barFreq in ('sec', 'min', 'day'):
+for barFreq in ('min'):
     for numBars in (1, 2, 3, 5, 10, 20):
         indicators += [
             Indicator(momentum, numBars, barFreq),

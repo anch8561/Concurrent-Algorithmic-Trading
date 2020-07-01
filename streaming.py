@@ -22,7 +22,7 @@ def save_bar(barType, data):
     }, index=[data.start])
     Algo.assets[data.symbol][barType].append(df)
 
-def stream(conn, channels):
+def stream(conn, channels, debugging=False):
     @conn.on(r'A')
     async def on_second(conn, channel, data):
         save_bar('secBars', data)
@@ -97,11 +97,14 @@ def stream(conn, channels):
 
     async def periodic():
         while True:
+            print(f'Listening on {len(channels)} channels')
             await asyncio.sleep(5)
 
-    # start loop
-    conn.loop.run_until_complete(asyncio.gather(
-        conn.subscribe(channels),
-        periodic()
-    ))
-    conn.loop.close()
+    if debugging:
+        conn.loop.run_until_complete(
+            asyncio.gather(
+                conn.subscribe(channels),
+                periodic()
+            )
+        )
+    else: conn.run(channels)
