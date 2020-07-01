@@ -42,7 +42,7 @@ def volume_stdev(self, asset):
     return stats.stdev(volumes)
 
 def volume_num_stdevs(self, asset):
-    _volume = asset[self.barType].iloc[-1].volume
+    _volume = asset[Indicator(volume, 1, self.barFreq).name]
     volumeStdev = asset[Indicator(volume_stdev, self.numBars, self.barFreq).name]
     return  _volume / volumeStdev
 
@@ -76,10 +76,13 @@ indicators = []
 
 # momentum and volume
 barFreq = 'min'
-for numBars in (3, 5, 10, 20):
+for numBars in (1, 3, 5, 10, 20):
     indicators += [
         Indicator(momentum, numBars, barFreq),
-        Indicator(volume, numBars, barFreq),
+        Indicator(volume, numBars, barFreq)
+    ]
+for numBars in (3, 5, 10, 20):
+    indicators += [
         Indicator(volume_stdev, numBars, barFreq),
         Indicator(volume_num_stdevs, numBars, barFreq)
     ]

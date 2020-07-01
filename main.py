@@ -16,23 +16,6 @@ from update_tradable_assets import update_tradable_assets
 
 from time import sleep
 
-# TODO: read date from file or prompt to coninue
-lastRebalanceDate = "0001-01-01"
-
-state = 'night' # day, night
-# TODO: load positions and check state
-
-# get assets
-update_tradable_assets(True, 100) # FIX: debugging
-
-# stream alpaca
-channels = ['account_updates', 'trade_updates']
-for symbol in Algo.assets:
-    channels += [f'AM.{symbol}'] # TODO: second bars
-Thread(target=stream, args=(connPaper, channels)).start()
-print(f'Streaming {len(Algo.assets)} symbols')
-
-
 def handoff_BP(oldAlgos, newAlgos):
     # oldAlgos: list of algos to get BP from
     # newAlgos: list of algos to give BP to
@@ -44,18 +27,33 @@ def handoff_BP(oldAlgos, newAlgos):
     for algo in oldAlgos:
         if algo.active:
             oldActive = True
-            if algo.positions:
+            if any(algo.positions[symbol]['qty'] for symbol in algo.positions):
                 algo.exit_all_positions()
             else:
                 algo.update_metrics()
                 algo.active = False
     return not oldActive
+
+# TODO: read date from file or prompt to coninue
+lastRebalanceDate = "0001-01-01"
+
+state = 'night' # day, night
+# TODO: load positions and check state
+
+# get assets
+update_tradable_assets(True, 10) # FIX: debugging
+
+# stream alpaca
+channels = ['account_updates', 'trade_updates']
+for symbol in Algo.assets:
+    channels += [f'AM.{symbol}'] # TODO: second bars
+Thread(target=stream, args=(connPaper, channels)).start()
+print(f'Streaming {len(Algo.assets)} symbols')
+
 # main loop
 print('Entering main loop')
 
 while True:
-    sleep(5)
-    print('loop')
     # update buying power
     # if is_new_week_since(lastRebalanceDate):
     #     distribute_funds()
@@ -82,11 +80,11 @@ while True:
         Algo.TTOpen < timedelta(0) and
         Algo.TTClose > timedelta(minutes=marketCloseTransitionMinutes)
     ):
-        print('Transitioning to intraday algos')
         if handoff_BP(overnightAlgos, intradayAlgos): # true when done
             for algo in intradayAlgos: algo.active = True
             state = 'day'
             print('state = day')
+        else: print('Transitioning to intraday algos')
 
     elif ( # market is open and overnight positions are closed
         state == 'day' and
@@ -99,11 +97,11 @@ while True:
         state == 'day' and
         Algo.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
     ):
-        print('Transitioning to overnight algos')
         if handoff_BP(intradayAlgos, overnightAlgos): # true when done
             for algo in overnightAlgos: algo.active = True
             state = 'night'
             print('state = night')
+        else: print('Transitioning to overnight algos')
 
     elif ( # market will close soon and intraday positions are closed
         state == 'night' and
@@ -112,5 +110,6 @@ while True:
         for algo in overnightAlgos: algo.tick()
 
     # TODO: wait remainder of 1 sec
-
+    sleep(1)
+    print('loop')
 

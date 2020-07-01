@@ -29,9 +29,6 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
         ):
             self.exit_position(symbol)
 
-
-
-
 barFreq = 'min'
 for exitNumBars in (1, 2, 3, 5):
     for enterNumBars in (1, 2, 3, 5):
@@ -80,8 +77,8 @@ for numDays in (3, 5, 10):
 multidayAlgos = []
 
 def crossover(self): # kwargs: fastNumBars, fastBarFreq, fastMovAvg, slowNumBars, slowBarFreq, slowMovAvg
-    fastInd = str(self.fastNumBars) + self.fastBarFreq + self.fastMoveAve
-    slowInd = str(self.slowNumBars) + self.slowBarFreq + self.slowMoveAve
+    fastInd = str(self.fastNumBars) + self.fastBarFreq + self.fastMovAvg.capitalize()
+    slowInd = str(self.slowNumBars) + self.slowBarFreq + self.slowMovAvg.capitalize()
 
     for symbol, asset in Algo.assets.items():
         # enter position

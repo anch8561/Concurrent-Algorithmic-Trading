@@ -1,5 +1,6 @@
-import alpacaAPI, json, statistics
+import alpacaAPI, json
 from config import maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice, minTradeBuyPow
+import statistics as stats
 from warn import warn
 
 class Algo:
@@ -70,11 +71,12 @@ class Algo:
         ]
 
     def update_metrics(self):
+        return
         # TODO: check each datapoint is one market day apart
         growth = [day['growthFrac'] for day in self.history]
         if len(growth) >= 5: growth = growth[5:]
-        self.mean = statistics.mean(growth)
-        self.stdev = statistics.stdev(growth)
+        self.mean = stats.mean(growth)
+        self.stdev = stats.stdev(growth)
 
     def set_live(self, live):
         # live: bool; whether algo uses real money
@@ -136,16 +138,19 @@ class Algo:
         self.submit_order(symbol, qty, price, longShort, 'exit')
 
     def exit_all_positions(self):
-        for symbol in self.positions:
-            self.exit_position(symbol)
+        for symbol, position in self.positions.items():
+            if position['qty']:
+                self.exit_position(symbol)
 
     def get_limit_price(self, symbol, side):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
 
         # get price
-        try: price = Algo.assets[symbol]['secBars'].iloc[-1].close
-        except Exception as e: print(e)
+        try: price = Algo.assets[symbol]['minBars'].iloc[-1].close # TODO: secBars
+        except Exception as e:
+            warn(e)
+            return 0
 
         # add limit
         if side == 'buy':
@@ -174,29 +179,30 @@ class Algo:
 
         # check price
         if side == 'buy' and price < minLongPrice:
-            print(f'{symbol}: share price < {minLongPrice}')
+            print(f'{self.name}\t{symbol}\tshare price < {minLongPrice}')
             return 0
         elif side == 'sell' and price < minShortPrice:
-            print(f'{symbol}: share price < {minShortPrice}')
+            print(f'{self.name}\t{symbol}\tshare price < {minShortPrice}')
             return 0
 
         # set quantity
         qty = int(maxPosFrac * equity / price)
-        print(f'{symbol}: quantity: {qty}')
+        print(f'{self.name}\t{symbol}\tquantity: {qty}')
 
         # check buying power
         if qty * price > buyPow:
             qty = int(buyPow / price)
-            print(f'{symbol}: buyPow limit quantity: {qty}')
+            print(f'{self.name}\t{symbol}\tbuyPow limit quantity: {qty}')
         
         # check volume
         try:
-            volume = Algo.assets[symbol][barType][0].volume
+            volume = Algo.assets[symbol][barType].iloc[-1].volume
         except Exception as e:
-            print(e)
+            warn(e)
+            volume = 0
         if qty > volume * volumeMult:
             qty = volume * volumeMult
-            print(f'{symbol}: volume limit quantity: {qty}')
+            print(f'{self.name}\t{symbol}\tvolume limit quantity: {qty}')
 
         # check zero
         if qty == 0: return 0
@@ -210,13 +216,13 @@ class Algo:
             if posQty * qty > 0: # same side as position
                 if abs(posQty) < abs(qty): # position is smaller than order
                     qty -= posQty # add to position
-                    print(f'{symbol}: adding {qty} to position of {posQty}')
+                    print(f'{self.name}\t{symbol}\tadding {qty} to position of {posQty}')
                 else: # position is large enough
-                    print(f'{symbol}: position of {posQty} is large enough')
+                    print(f'{self.name}\t{symbol}\tposition of {posQty} is large enough')
                     return 0
             elif posQty * qty < 0: # opposite side from position
                 qty = -posQty # exit position
-                print(f'{symbol}: exiting position of {posQty}')
+                print(f'{self.name}\t{symbol}\texiting position of {posQty}')
 
         # check for existing orders
         for orderID, order in self.orders.items():
@@ -226,7 +232,7 @@ class Algo:
                     # TODO: log first order info
                     # TODO: cancel first order
                 else: # same side
-                    print(f'{symbol}: already placed order for {order["qty"]}')
+                    print(f'{self.name}\t{symbol}\talready placed order for {order["qty"]}')
                     return 0
 
         # TODO: check risk
@@ -246,7 +252,7 @@ class Algo:
             allPosQty = self.allPositions[symbol]['qty']
             if (allPosQty + qty) * allPosQty < 0: # trade will swap position
                 qty = -allPosQty # exit position
-                print(f'{symbol}: exiting global position of {qty}')
+                print(f'{self.name}\t{symbol}\texiting global position of {qty}')
         else:
             allPosQty = 0
 
@@ -314,8 +320,8 @@ class Algo:
 class NightAlgo(Algo):
     def tick(self):
         if sum(self.buyPow.values()) > 2 * minTradeBuyPow:
-            self.func()
+            self.func(self)
 
 class DayAlgo(Algo):
     def tick(self):
-        self.func()
+        self.func(self)
