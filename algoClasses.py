@@ -32,8 +32,8 @@ class Algo:
         self.name = ''
         for key, val in kwargs.items():
             self.__setattr__(key, val)
-            self.name += str(val).capitalize()
-        self.name += self.func.__name__.capitalize()
+            self.name += str(val) + '_'
+        self.name += self.func.__name__
 
         # paper / live
         self.live = False # whether using real money
@@ -187,12 +187,12 @@ class Algo:
 
         # set quantity
         qty = int(maxPosFrac * equity / price)
-        print(f'{self.name}\t{symbol}\tquantity: {qty}')
+        print(f'{self.name}\t{symbol}\tqty: {qty}')
 
         # check buying power
         if qty * price > buyPow:
             qty = int(buyPow / price)
-            print(f'{self.name}\t{symbol}\tbuyPow limit quantity: {qty}')
+            print(f'{self.name}\t{symbol}\tbuyPow qty limit: {qty}')
         
         # check volume
         try:
@@ -202,7 +202,7 @@ class Algo:
             volume = 0
         if qty > volume * volumeMult:
             qty = volume * volumeMult
-            print(f'{self.name}\t{symbol}\tvolume limit quantity: {qty}')
+            print(f'{self.name}\t{symbol}\tvolume qty limit: {qty}')
 
         # check zero
         if qty == 0: return 0
@@ -278,7 +278,7 @@ class Algo:
                 limit_price = limitPrice)
 
             # add to orders and allOrders
-            orderID = order.order_id
+            orderID = order.id
             self.orders[orderID] = {
                 'symbol': symbol,
                 'qty': qty,

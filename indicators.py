@@ -11,11 +11,11 @@ class Indicator:
         self.numBars = numBars # int
         self.barFreq = barFreq # 'sec', 'min', or 'day'
         self.barType = barFreq + 'Bars'
-        self.name = str(numBars) + barFreq
+        self.name = str(numBars) + '_' + barFreq + '_'
         for key, val in kwargs.items(): # e.g. moving average function
             self.__setattr__(key, val)
-            self.name += str(val).capitalize()
-        self.name += func.__name__.capitalize()
+            self.name += str(val) + '_'
+        self.name += func.__name__
     
     def tick(self):
         for asset in Algo.assets.values():
@@ -42,8 +42,8 @@ def volume_stdev(self, asset):
     return stats.stdev(volumes)
 
 def volume_num_stdevs(self, asset):
-    _volume = asset[Indicator(volume, 1, self.barFreq).name]
-    volumeStdev = asset[Indicator(volume_stdev, self.numBars, self.barFreq).name]
+    _volume = asset[Indicator(volume, 1, self.barFreq).name][-1]
+    volumeStdev = asset[Indicator(volume_stdev, self.numBars, self.barFreq).name][-1]
     return  _volume / volumeStdev
 
 def typical_price(self, asset):
@@ -73,25 +73,24 @@ def KAMA(self, asset):
 
 ## INSTANCES
 indicators = []
-
-# momentum and volume
-barFreq = 'min'
-for numBars in (1, 3, 5, 10, 20):
+for barFreq in ('min', 'day'):
+    # 1 bar
     indicators += [
-        Indicator(momentum, numBars, barFreq),
-        Indicator(volume, numBars, barFreq)
-    ]
-for numBars in (3, 5, 10, 20):
-    indicators += [
-        Indicator(volume_stdev, numBars, barFreq),
-        Indicator(volume_num_stdevs, numBars, barFreq)
+        Indicator(momentum, 1, barFreq),
+        Indicator(volume, 1, barFreq)
     ]
     
-# moving averages
-barFreq = 'day'
-for numBars in (3, 5, 10, 20):
-    indicators += [
-        Indicator(SMA, numBars, barFreq),
-        Indicator(EMA, numBars, barFreq),
-        Indicator(KAMA, numBars, barFreq)
-    ]
+    # multibar
+    for numBars in (3, 5, 10, 20):
+        indicators += [
+            # momentum and volume
+            Indicator(momentum, numBars, barFreq),
+            Indicator(volume, numBars, barFreq),
+            Indicator(volume_stdev, numBars, barFreq),
+            Indicator(volume_num_stdevs, numBars, barFreq),
+
+            # moving averages
+            Indicator(SMA, numBars, barFreq),
+            Indicator(EMA, numBars, barFreq),
+            Indicator(KAMA, numBars, barFreq)
+        ]

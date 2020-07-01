@@ -25,7 +25,7 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
     # NOTE: this takes a long time. Would it be faster with sort?
     activeSymbols = []
     for ii, asset in enumerate(alpacaAssets):
-        print(f'Checking asset {ii+1} / {len(alpacaAssets)} {asset.symbol}')
+        print(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}')
 
         # get price (if on polygon)
         price = 0
@@ -50,13 +50,13 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
     
     # remove inactive assets
     for ii, symbol in enumerate(inactiveSymbols):
-        print(f'Removing asset {ii+1} / {len(inactiveSymbols)} {symbol}')
+        print(f'Removing asset {ii+1} / {len(inactiveSymbols)}\t{symbol}')
         remove_asset(symbol)
 
     # add tradable assets
     for ii, symbol in enumerate(activeSymbols):
         if symbol not in Algo.assets:
-            print(f'Adding asset {ii+1} / {len(activeSymbols)} {symbol}')
+            print(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
             add_asset(symbol)
 
     # set shortable flag

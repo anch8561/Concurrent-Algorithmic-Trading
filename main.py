@@ -41,18 +41,30 @@ state = 'night' # day, night
 # TODO: load positions and check state
 
 # get assets
-update_tradable_assets(True, 10) # FIX: debugging
+update_tradable_assets(True, 100)
+
+# allocate buying power
+for algo in overnightAlgos:
+    algo.buyPow['long'] = 10000
+    algo.buyPow['short'] = 10000
+    algo.equity['long'] = 10000
+    algo.equity['short'] = 10000
+for algo in intradayAlgos:
+    algo.buyPow['long'] = 10000
+    algo.buyPow['short'] = 10000
+    algo.equity['long'] = 10000
+    algo.equity['short'] = 10000
+
 
 # stream alpaca
 channels = ['account_updates', 'trade_updates']
 for symbol in Algo.assets:
     channels += [f'AM.{symbol}'] # TODO: second bars
 Thread(target=stream, args=(connPaper, channels)).start()
-print(f'Streaming {len(Algo.assets)} symbols')
+print(f'Streaming {len(Algo.assets)} tickers')
 
 # main loop
 print('Entering main loop')
-
 while True:
     # update buying power
     # if is_new_week_since(lastRebalanceDate):
@@ -72,13 +84,17 @@ while True:
     #     lastSymbolUpdate = get_date()
 
     # update indicators
-    for indicator in indicators: indicator.tick()
+    print('Ticking indicators')
+    for ii, indicator in enumerate(indicators):
+        print(f'Ticking indicator {ii+1} / {len(indicators)}\t{indicator.name}')
+        indicator.tick()
     
     # update algos
+    print('Ticking algos')
     if ( # market is open and overnight positions are open
         state == 'night' and
-        Algo.TTOpen < timedelta(0) and
-        Algo.TTClose > timedelta(minutes=marketCloseTransitionMinutes)
+        Algo.TTOpen < timedelta(0) and # market is open
+        Algo.TTClose > timedelta(minutes=marketCloseTransitionMinutes) # not closing soon
     ):
         if handoff_BP(overnightAlgos, intradayAlgos): # true when done
             for algo in intradayAlgos: algo.active = True
@@ -88,14 +104,16 @@ while True:
 
     elif ( # market is open and overnight positions are closed
         state == 'day' and
-        Algo.TTClose > timedelta(minutes=marketCloseTransitionMinutes)
+        Algo.TTOpen < timedelta(0) and # market is open
+        Algo.TTClose > timedelta(minutes=marketCloseTransitionMinutes) # not closing soon
     ):
         for algo in intradayAlgos: algo.tick() # in parallel
         for algo in multidayAlgos: algo.tick()
 
     elif ( # market will close soon and intraday positions are open
         state == 'day' and
-        Algo.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
+        # FIX: Algo.TTClose > 0 and # market is open
+        Algo.TTClose <= timedelta(minutes=marketCloseTransitionMinutes) # closing soon
     ):
         if handoff_BP(intradayAlgos, overnightAlgos): # true when done
             for algo in overnightAlgos: algo.active = True
@@ -105,11 +123,10 @@ while True:
 
     elif ( # market will close soon and intraday positions are closed
         state == 'night' and
-        Algo.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
+        # FIX: Algo.TTClose > 0 and # market is open
+        Algo.TTClose <= timedelta(minutes=marketCloseTransitionMinutes) # closing soon
     ):
         for algo in overnightAlgos: algo.tick()
 
     # TODO: wait remainder of 1 sec
-    sleep(1)
-    print('loop')
-
+    sleep(10)
