@@ -4,7 +4,7 @@ from traceback import extract_stack
 nyc = timezone(timedelta(hours=-4))
 
 def warn(message, fileName=None):
-    timestamp = datetime.now(nyc)
+    timestamp = datetime.now(nyc).strftime('%Y-%m-%d %H:%M:%S:%f')
 
     fileNames = ['warnings.log']
     if fileName is None: fileNames.append('warnings.log')

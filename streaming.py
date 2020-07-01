@@ -38,18 +38,19 @@ def stream(conn, channels):
     @conn.on(r'trade_updates')
     async def handle_trade_update(conn, channel, data):
         event = data.event
-        orderID = data.order.id
+        orderID = data.order['id']
+        symbol = data.order['symbol']
     
         try:
             # paper / live
             if orderID in Algo.paperOrders:
                 order = Algo.paperOrders[orderID]
                 allOrders = Algo.paperOrders
-                allPositions = Algo.paperPositions[data.symbol]
+                allPositions = Algo.paperPositions[symbol]
             elif orderID in Algo.liveOrders:
                 order = Algo.liveOrders[orderID]
                 allOrders = Algo.liveOrders
-                allPositions = Algo.livePositions[data.symbol]
+                allPositions = Algo.livePositions[symbol]
             else:
                 print(f'Unknown order id: {orderID}')
             
@@ -63,7 +64,6 @@ def stream(conn, channels):
                 algo = order['algo']
 
                 # get streamed data
-                symbol = data.order.symbol
                 fillQty = data.order.filled_qty
                 if data.order.side == 'sell': fillQty *= -1
                 fillPrice = data.order.filled_avg_price
@@ -92,7 +92,7 @@ def stream(conn, channels):
                 algo.cash += (data.order.price)*(data.order.qty)-(data.order.filled_avg_price)*(data.order.filled_qty)
                 print(f'{orderID}: {event}')
 
-        except:
-            print(f'Invalid order id: {orderID}')
+        except Exception as e:
+            warn(f'{e}')
 
     conn.run(channels)

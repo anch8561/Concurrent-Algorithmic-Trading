@@ -102,6 +102,8 @@ class Algo:
 
     def enter_position(self, symbol, side):
         # symbol: e.g. 'AAPL'
+        
+        if side == 'sell' and not Algo.assets[symbol]['shortable']: return
 
         # get price and qty
         price = self.get_limit_price(symbol, side)
@@ -260,7 +262,7 @@ class Algo:
         if qty > 0 and allPosQty == 0: # buying from zero position
             for orderID, order in self.allOrders.items():
                 if order['symbol'] == symbol and order['qty'] < 0: # pending short
-                    warn(f'{self.name} opposing global order of {order["qty"]}')
+                    print(f'{self.name} opposing global order of {order["qty"]}')
                     # TODO: log first order info
                     return
 

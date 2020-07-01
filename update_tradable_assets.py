@@ -61,7 +61,8 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
 
     # set shortable flag
     for asset in alpacaAssets:
-        if asset in Algo.assets:
+        symbol = asset.symbol
+        if symbol in Algo.assets:
             Algo.assets[symbol]['shortable'] = asset.easy_to_borrow
             # TODO: warn about HTB positions
         
