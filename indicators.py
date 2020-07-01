@@ -19,7 +19,8 @@ class Indicator:
     
     def tick(self):
         for asset in Algo.assets.values():
-            val = self.func(self, asset)
+            try: val = self.func(self, asset)
+            except: val = None
             try: asset[self.name].append(val)
             except: asset[self.name] = [val]
 
@@ -37,11 +38,11 @@ def volume(self, asset):
     return volume
 
 def volume_stdev(self, asset):
-    volumes = asset[self.barType].iloc[-self.numBars:].loc['volume']
+    volumes = asset[self.barType].iloc[-self.numBars:].volume
     return stats.stdev(volumes)
 
 def volume_num_stdevs(self, asset):
-    _volume = asset[Indicator(volume, 1, self.barFreq).name]
+    _volume = asset[self.barType].iloc[-1].volume
     volumeStdev = asset[Indicator(volume_stdev, self.numBars, self.barFreq).name]
     return  _volume / volumeStdev
 
@@ -74,14 +75,14 @@ def KAMA(self, asset):
 indicators = []
 
 # momentum and volume
-for barFreq in ('min'):
-    for numBars in (1, 2, 3, 5, 10, 20):
-        indicators += [
-            Indicator(momentum, numBars, barFreq),
-            Indicator(volume, numBars, barFreq),
-            Indicator(volume_stdev, numBars, barFreq),
-            Indicator(volume_num_stdevs, numBars, barFreq)
-        ]
+barFreq = 'min'
+for numBars in (3, 5, 10, 20):
+    indicators += [
+        Indicator(momentum, numBars, barFreq),
+        Indicator(volume, numBars, barFreq),
+        Indicator(volume_stdev, numBars, barFreq),
+        Indicator(volume_num_stdevs, numBars, barFreq)
+    ]
     
 # moving averages
 barFreq = 'day'

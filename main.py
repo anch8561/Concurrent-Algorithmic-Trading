@@ -28,12 +28,31 @@ update_tradable_assets(True, 10) # FIX: debugging
 # stream alpaca
 channels = ['account_updates', 'trade_updates']
 for symbol in Algo.assets:
-    channels += [f'A.{symbol}', f'AM.{symbol}'] # TODO: second bars
+    channels += [f'AM.{symbol}'] # TODO: second bars
 Thread(target=stream, args=(connPaper, channels)).start()
 print(f'Streaming {len(Algo.assets)} symbols')
 
+
+def handoff_BP(oldAlgos, newAlgos):
+    # oldAlgos: list of algos to get BP from
+    # newAlgos: list of algos to give BP to
+    # returns: bool; whether handoff is complete
+    
+    # exit positions and update metrics
+    # FIX: need partial handoff in case an algo can't exit a position
+    oldActive = False
+    for algo in oldAlgos:
+        if algo.active:
+            oldActive = True
+            if algo.positions:
+                algo.exit_all_positions()
+            else:
+                algo.update_metrics()
+                algo.active = False
+    return not oldActive
 # main loop
 print('Entering main loop')
+
 while True:
     sleep(5)
     print('loop')
@@ -94,20 +113,4 @@ while True:
 
     # TODO: wait remainder of 1 sec
 
-def handoff_BP(oldAlgos, newAlgos):
-    # oldAlgos: list of algos to get BP from
-    # newAlgos: list of algos to give BP to
-    # returns: bool; whether handoff is complete
-    
-    # exit positions and update metrics
-    # FIX: need partial handoff in case an algo can't exit a position
-    oldActive = False
-    for algo in oldAlgos:
-        if algo.active:
-            oldActive = True
-            if algo.positions:
-                algo.exit_all_positions()
-            else:
-                algo.update_metrics()
-                algo.active = False
-    return not oldActive
+

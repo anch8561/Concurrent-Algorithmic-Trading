@@ -129,7 +129,8 @@ class Algo:
         elif qty < 0:
             side = 'sell'
             longShort = 'long'
-        
+        else: return
+
         # get price and submit order
         price = self.get_limit_price(symbol, side)
         self.submit_order(symbol, qty, price, longShort, 'exit')
