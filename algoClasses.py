@@ -16,8 +16,8 @@ class Algo:
     paperOrders = {} # {orderID: {symbol, qty, limit, longShort, enterExit, algo}}
     liveOrders = {}
 
-    paperPositions = {} # {symbol: {qty, basis}}
-    livePositions = {}
+    paperPositions = {} # {symbol: {qty}}
+    livePositions = {} # NOTE: global positions don't track basis
 
     # streaming buffers
     writing = False

@@ -54,29 +54,32 @@ def stream(conn, channels):
             else:
                 print(f'Unknown order id: {orderID}')
             
-            # check event 
-            if event == 'fill':
-                # get local data
-                qty = order['qty']
-                limit = order['limit']
-                longShort = order['longShort']
-                enterExit = order['enterExit']
-                algo = order['algo']
+            # get local data
+            qty = order['qty']
+            limit = order['limit']
+            longShort = order['longShort']
+            enterExit = order['enterExit']
+            algo = order['algo']
 
+            # check event
+            if event == 'fill':
                 # get streamed data
                 fillQty = data.order.filled_qty
                 if data.order.side == 'sell': fillQty *= -1
                 fillPrice = data.order.filled_avg_price
 
-                # update positions
-                for positions in (allPositions, algo.positions):
-                    oldBasis = positions[symbol]['basis']
-                    oldQty = positions[symbol]['qty']
-                    positions[symbol]['qty'] += fillQty
-                    if positions[symbol]['qty'] == 0:
-                        positions[symbol]['basis'] = 0
-                    positions[symbol]['basis'] = ((oldBasis * oldQty) + (fillPrice * fillQty)) / (oldQty + fillQty)
-                    # FIX: need FIFO
+                # update position basis
+                if algo.positions[symbol]['qty'] == 0:
+                    algo.positions[symbol]['basis'] = 0
+                else:
+                    oldBasis = algo.positions[symbol]['basis']
+                    oldQty = algo.positions[symbol]['qty']
+                    algo.positions[symbol]['basis'] = \
+                        ((oldBasis * oldQty) + (fillPrice * fillQty)) / (oldQty + fillQty)
+                
+                # update position qty
+                allPositions[symbol]['qty'] += fillQty
+                algo.positions[symbol]['qty'] += fillQty
 
                 # update buying power
                 if enterExit == 'enter':
@@ -88,11 +91,21 @@ def stream(conn, channels):
                 # pop order
                 allOrders.pop(orderID)
                 algo.orders.pop(orderID)
+                
             elif event in ('canceled', 'expired', 'rejected'):
-                algo.cash += (data.order.price)*(data.order.qty)-(data.order.filled_avg_price)*(data.order.filled_qty)
                 print(f'{orderID}: {event}')
 
-        except Exception as e:
-            warn(f'{e}')
+                # update buying power
+                if enterExit == 'enter':
+                    algo.buyPow[longShort] += abs(qty) * limit
+                    algo.buyPow[longShort] -= abs(fillQty) * fillPrice
+                elif enterExit == 'exit':
+                    algo.buyPow[longShort] += abs(fillQty) * fillPrice
+
+                # pop order
+                allOrders.pop(orderID)
+                algo.orders.pop(orderID)
+
+        except Exception as e: warn(f'{e}')
 
     conn.run(channels)
