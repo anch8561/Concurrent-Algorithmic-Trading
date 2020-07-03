@@ -21,28 +21,23 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
     if debugging: alpacaAssets = alpacaAssets[:numDebugAssets]
     polygonTickers = alpaca.polygon.all_tickers()
 
-    # get activeSymbols
-    # NOTE: this takes a long time. Would it be faster with sort?
+    # get active symbols
+    # TODO: replace loops with sort, dict, or df
     activeSymbols = []
     for ii, asset in enumerate(alpacaAssets):
         print(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}')
+        if asset.marginable:
+            for ticker in polygonTickers:
+                if (
+                    ticker.ticker == asset.symbol and
+                    ticker.prevDay['v'] > minDayVolume and
+                    ticker.prevDay['l'] > minSharePrice
+                ):
+                    # TODO: check leverage
+                    activeSymbols.append(asset.symbol)
+                    break
 
-        # get price (if on polygon)
-        price = 0
-        for ticker in polygonTickers:
-            if (
-                ticker.ticker == asset.symbol and
-                ticker.prevDay['v'] > minDayVolume
-            ):
-                price = ticker.prevDay['l']
-                break
-
-        # check marginablility
-        # TODO: check leverage
-        if asset.marginable and price > minSharePrice:
-            activeSymbols.append(asset.symbol)
-
-    # check for inactive assets
+    # get inactive symbols
     inactiveSymbols = []
     for symbol in Algo.assets:
         if symbol not in activeSymbols:
@@ -51,9 +46,9 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
     # remove inactive assets
     for ii, symbol in enumerate(inactiveSymbols):
         print(f'Removing asset {ii+1} / {len(inactiveSymbols)}\t{symbol}')
-        remove_asset(symbol)
+        remove_asset(symbol, alpacaAssets, polygonTickers)
 
-    # add tradable assets
+    # add active assets
     for ii, symbol in enumerate(activeSymbols):
         if symbol not in Algo.assets:
             print(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
@@ -66,29 +61,41 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
             Algo.assets[symbol]['shortable'] = asset.easy_to_borrow
             if not asset.easy_to_borrow:
                 for algo in allAlgos:
-                    try:
-                        if positions[symbol] < 0:
-                            qty = positions[symbol]['qty']
-                            warn(f'{algo.name} HTB position of {qty} in {symbol}')
-                    except: pass
-
+                    qty = algo.positions[symbol]['qty']
+                    if qty < 0: warn(f'{algo.name} {qty} HTB shares of {symbol}')
         
-        # TODO: sector, industry, and metrics
+    # TODO: sector, industry, and metrics
 
     # set lastSymbolUpdate
     Algo.lastSymbolUpdate = get_date()
 
 
-def remove_asset(symbol):
+def remove_asset(symbol, alpacaAssets, polygonTickers):
     # remove from assets
     Algo.assets.pop(symbol)
 
+    # get reasons for removal
+    removalReasons = []
+    for asset in alpacaAssets:
+        if asset.symbol == symbol:
+            removalReasons.append('inactive')
+            if asset.marginable:
+                removalReasons.append('unmarginable')
+                for ticker in polygonTickers:
+                    if ticker.ticker == asset.symbol:
+                        removalReasons.append('noTicker')
+                        if ticker.prevDay['v'] > minDayVolume:
+                            removalReasons.append('lowVolume')
+                        if ticker.prevDay['l'] > minSharePrice:
+                            removalReasons.append('lowPrice')
+                        # TODO: check leverage
+                        break
+    removalReasons = ', '.join(removalReasons)
+
     # check for positions
-    # TODO: check algos
-    for positions in (Algo.livePositions, Algo.paperPositions):
-        if symbol in positions:
-            warn(f'You have {positions[symbol]} shares in {symbol} (inactive)')
-            # TODO: how to handle? (inactive on alpaca, not marginable, below price threshold)
+    for algo in allAlgos:
+        qty = algo.positions[symbol]['qty']
+        if qty: warn(f'{algo.name} {qty} shares of {symbol} ({removalReasons})')
 
     # check for orders
     for algo in allAlgos:
