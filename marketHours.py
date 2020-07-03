@@ -3,12 +3,12 @@
 # time strings are actually naive datetime strings in ISO format
 
 from alpacaAPI import alpacaPaper
+from datetime import datetime, timedelta
+from pytz import timezone
 from warn import warn
-from datetime import datetime, timedelta, timezone
 
-nyc = timezone(timedelta(hours=-4))
-
-# get calendar
+# get timezone and calendar
+nyc = timezone('America/New_York')
 calendar = alpacaPaper.get_calendar()
 todayStr = datetime.now(nyc).strftime('%Y-%m-%d')
 for ii, date in enumerate(calendar):
@@ -16,7 +16,7 @@ for ii, date in enumerate(calendar):
         i_today = ii
         break
 
-# TODO: update calendar daily
+# TODO: update timezone and calendar daily
 
 def get_time():
     # returns: nyc datetime
