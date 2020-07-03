@@ -59,16 +59,16 @@ def typical_price(self, asset):
 
 def SMA(self, asset):
     prices = asset[self.barType].iloc[-self.numBars:].close
-    return ta.trend.sma_indicator(prices, self.numBars)
+    return ta.trend.sma_indicator(prices, self.numBars)[-1]
 
 def EMA(self, asset):
     prices = asset[self.barType].iloc[-self.numBars:].close
-    return ta.trend.ema_indicator(prices, self.numBars)
+    return ta.trend.ema_indicator(prices, self.numBars)[-1]
 
 def KAMA(self, asset):
     # variable EMA from 2 to 30 bars (default)
     prices = asset[self.barType].iloc[-self.numBars:].close
-    return ta.momentum.kama(prices, self.numBars)
+    return ta.momentum.kama(prices, self.numBars)[-1]
 
 
 ## INSTANCES
