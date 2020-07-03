@@ -5,7 +5,7 @@
 
 from alpacaAPI import alpacaPaper as alpaca
 from algoClasses import Algo
-from algos import allAlgos
+from algos import allAlgos, positionsList
 from config import minSharePrice, minDayVolume
 from marketHours import get_date, get_market_date
 from warn import warn
@@ -38,7 +38,7 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
                 break
 
         # check marginablility
-        # TODO: check leverage (ask alpaca, buy and check margin)
+        # TODO: check leverage
         if asset.marginable and price > minSharePrice:
             activeSymbols.append(asset.symbol)
 
@@ -64,7 +64,14 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
         symbol = asset.symbol
         if symbol in Algo.assets:
             Algo.assets[symbol]['shortable'] = asset.easy_to_borrow
-            # TODO: warn about HTB positions
+            if not asset.easy_to_borrow:
+                for algo in allAlgos:
+                    try:
+                        if positions[symbol] < 0:
+                            qty = positions[symbol]['qty']
+                            warn(f'{algo.name} HTB position of {qty} in {symbol}')
+                    except: pass
+
         
         # TODO: sector, industry, and metrics
 
@@ -100,8 +107,6 @@ def add_asset(symbol):
     Algo.assets[symbol] = {}
 
     # add zero positions
-    positionsList = [Algo.paperPositions, Algo.livePositions]
-    positionsList += [algo.positions for algo in allAlgos]
     for positions in positionsList:
         if symbol not in positions:
             positions[symbol] = {'qty': 0, 'basis': 0}
