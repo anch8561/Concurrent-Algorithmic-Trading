@@ -99,14 +99,8 @@ def add_asset(symbol):
     # add key
     Algo.assets[symbol] = {}
 
-    # add global zero positions
+    # add zero positions
     positionsList = [Algo.paperPositions, Algo.livePositions]
-    for positions in positionsList:
-        if symbol not in positions:
-            positions[symbol] = {'qty': 0}
-
-    # add algo zero positions
-    positionsList = []
     positionsList += [algo.positions for algo in allAlgos]
     for positions in positionsList:
         if symbol not in positions:

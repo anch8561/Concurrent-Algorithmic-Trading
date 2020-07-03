@@ -69,13 +69,14 @@ def stream(conn, channels):
                 fillPrice = data.order.filled_avg_price
 
                 # update position basis
-                if algo.positions[symbol]['qty'] == 0:
-                    algo.positions[symbol]['basis'] = 0
-                else:
-                    oldBasis = algo.positions[symbol]['basis']
-                    oldQty = algo.positions[symbol]['qty']
-                    algo.positions[symbol]['basis'] = \
-                        ((oldBasis * oldQty) + (fillPrice * fillQty)) / (oldQty + fillQty)
+                for positions in (allPositions, algo.positions):
+                    oldQty = positions[symbol]['qty']
+                    if oldQty + fillQty == 0:
+                        positions[symbol]['basis'] = 0
+                    else:
+                        oldBasis = positions[symbol]['basis']
+                        positions[symbol]['basis'] = \
+                            ((oldBasis * oldQty) + (fillPrice * fillQty)) / (oldQty + fillQty)
                 
                 # update position qty
                 allPositions[symbol]['qty'] += fillQty
