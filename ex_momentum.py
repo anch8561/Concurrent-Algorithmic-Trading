@@ -1,5 +1,4 @@
 import alpaca_trade_api as tradeapi
-from alpacaAPI import alpaca, alpacaPaper, conn, connPaper
 import asyncio, sys, requests, time
 from ta.trend import macd
 import numpy as np
@@ -8,6 +7,7 @@ from pytz import timezone
 
 from alpacaAPI import alpacaPaper, connPaper
 api = alpacaPaper
+conn = connPaper
 
 from timing import get_date, get_market_date
 
@@ -23,7 +23,6 @@ default_stop = .95
 # How much of our portfolio to allocate to any one position
 risk = 0.01
 
-# NOTE: this will come from algoClasses.assets, but the function might still be useful to populate Algo.assets 
 def get_1000m_history_data(symbols):
     print('Getting historical data...')
     minute_history = {}

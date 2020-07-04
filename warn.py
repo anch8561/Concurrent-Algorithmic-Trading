@@ -1,9 +1,9 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+from pytz import timezone
 from traceback import extract_stack
 
-nyc = timezone(timedelta(hours=-4))
-
 def warn(message, fileName=None):
+    nyc = timezone('America/New_York')
     timestamp = datetime.now(nyc).strftime('%Y-%m-%d %H:%M:%S:%f')
 
     fileNames = ['warnings.log']

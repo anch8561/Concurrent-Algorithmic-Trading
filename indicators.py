@@ -1,7 +1,8 @@
-from algoClasses import Algo
-import statistics as stats
-import ta
+import g
 from warn import warn
+
+import ta
+import statistics as stats
 
 # TODO: confirm indices have correct timestamps
 
@@ -18,7 +19,7 @@ class Indicator:
         self.name += func.__name__
     
     def tick(self):
-        for asset in Algo.assets.values():
+        for asset in g.assets.values():
             try: val = self.func(self, asset)
             except: val = None
             try: asset[self.name].append(val)

@@ -1,16 +1,11 @@
-# This function updates Algo.assets.keys() with symbols that are active and
-# marginable on alpaca, available on polygon, and have normal margins (above
-# price threshold and not leveraged). It also sets the shortable flags and
-# populates Algo.assets with historical data.
-
+import g
 from alpacaAPI import alpacaPaper as alpaca
-from algoClasses import Algo
 from algos import allAlgos, positionsList
 from config import minSharePrice, minDayVolume
 from timing import get_date, get_market_date
 from warn import warn
-import pandas as pd
 
+import pandas as pd
 
 def update_tradable_assets(debugging=False, numDebugAssets=100):
 
@@ -39,7 +34,7 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
 
     # get inactive symbols
     inactiveSymbols = []
-    for symbol in Algo.assets:
+    for symbol in g.assets:
         if symbol not in activeSymbols:
             inactiveSymbols.append(symbol)
     
@@ -50,15 +45,15 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
 
     # add active assets
     for ii, symbol in enumerate(activeSymbols):
-        if symbol not in Algo.assets:
+        if symbol not in g.assets:
             print(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
             add_asset(symbol)
 
     # set shortable flag
     for asset in alpacaAssets:
         symbol = asset.symbol
-        if symbol in Algo.assets:
-            Algo.assets[symbol]['shortable'] = asset.easy_to_borrow
+        if symbol in g.assets:
+            g.assets[symbol]['shortable'] = asset.easy_to_borrow
             if not asset.easy_to_borrow:
                 for algo in allAlgos:
                     qty = algo.positions[symbol]['qty']
@@ -67,12 +62,12 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
     # TODO: sector, industry, and metrics
 
     # set lastSymbolUpdate
-    Algo.lastSymbolUpdate = get_date()
+    g.lastSymbolUpdate = get_date()
 
 
 def remove_asset(symbol, alpacaAssets, polygonTickers):
     # remove from assets
-    Algo.assets.pop(symbol)
+    g.assets.pop(symbol)
 
     # get reasons for removal
     removalReasons = []
@@ -111,7 +106,7 @@ def remove_asset(symbol, alpacaAssets, polygonTickers):
 
 def add_asset(symbol):
     # add key
-    Algo.assets[symbol] = {}
+    g.assets[symbol] = {}
 
     # add zero positions
     for positions in positionsList:
@@ -119,16 +114,16 @@ def add_asset(symbol):
             positions[symbol] = {'qty': 0, 'basis': 0}
 
     # init secBars
-    Algo.assets[symbol]['secBars'] = pd.DataFrame()
+    g.assets[symbol]['secBars'] = pd.DataFrame()
 
     # get minBars
     fromDate = get_market_date(-1)
     toDate = get_date()
-    Algo.assets[symbol]['minBars'] = \
+    g.assets[symbol]['minBars'] = \
         alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate).df
 
     # get dayBars
     fromDate = get_market_date(-100)
     toDate = get_date()
-    Algo.assets[symbol]['dayBars'] = \
+    g.assets[symbol]['dayBars'] = \
         alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df

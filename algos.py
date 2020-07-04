@@ -1,4 +1,5 @@
-from algoClasses import Algo, DayAlgo, NightAlgo
+import g
+from algoClasses import DayAlgo, NightAlgo
 from config import maxPosFrac, minTradeBuyPow
 
 # intraday
@@ -8,7 +9,7 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
     indicator = str(1) + barFreq + 'Momentum'
     # NOTE: could use multibar momentum also
     
-    for symbol, asset in Algo.assets.items():
+    for symbol, asset in g.assets.items():
         # enter position
         if self.positions[symbol]['qty'] == 0: # no position
             if all(ii >= 0 for ii in asset[indicator][-self.enterNumBars:]): # momentum up
@@ -50,7 +51,7 @@ def momentum_volume(self): # kwargs: numBars
     # sort symbols
     indicatorPrefix = str(self.numBars) + '_' + self.barFreq
     metrics = {}
-    for symbol, asset in Algo.assets.items():
+    for symbol, asset in g.assets.items():
         try: metrics[symbol] = \
             asset[indicatorPrefix + '_momentum'][-1] * \
             asset[indicatorPrefix + '_volume_num_stdevs'][-1]
@@ -81,7 +82,7 @@ def crossover(self): # kwargs: fastNumBars, fastBarFreq, fastMovAvg, slowNumBars
     fastInd = str(self.fastNumBars) + self.fastBarFreq + self.fastMovAvg.capitalize()
     slowInd = str(self.slowNumBars) + self.slowBarFreq + self.slowMovAvg.capitalize()
 
-    for symbol, asset in Algo.assets.items():
+    for symbol, asset in g.assets.items():
         # enter position
         if self.positions[symbol]['qty'] == 0: # no position
             if asset[fastInd][-1] < asset[slowInd][-1]: # oversold
@@ -121,5 +122,5 @@ def crossover(self): # kwargs: fastNumBars, fastBarFreq, fastMovAvg, slowNumBars
 allAlgos = intradayAlgos + overnightAlgos + multidayAlgos
 
 # list of lists of positions
-positionsList = [Algo.paperPositions, Algo.livePositions]
+positionsList = [g.paperPositions, g.livePositions]
 positionsList += [algo.positions for algo in allAlgos]

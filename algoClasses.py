@@ -1,30 +1,11 @@
-import alpacaAPI, json
+import alpacaAPI, g
 from config import maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice, minTradeBuyPow
-import statistics as stats
 from warn import warn
 
+import json
+import statistics as stats
+
 class Algo:
-    TTOpen = None # timedelta; time until open (open time - current time)
-    TTClose = None # timedelta; time until close (close time - current time)
-
-    assets = {} # {symbol: {easyToBorrow, secBars, minBars, dayBars, <various indicators>}}
-    # 'shortable': bool; whether easy_to_borrow on alpaca
-    # 'secBars': pd.dataframe; past 10k second bars
-    # 'minBars': pd.dataframe; past 1k minute bars
-    # 'dayBars': pd.dataframe; past 100 day bars
-
-    paperOrders = {} # {orderID: {symbol, qty, limit, longShort, enterExit, algo}}
-    liveOrders = {}
-
-    paperPositions = {} # {symbol: {qty, basis}}
-    livePositions = {}
-
-    # streaming buffers
-    writing = False
-    secBars = []
-    minBars = []
-    orderUpdates = []
-
     def __init__(self, func, **kwargs):
         self.func = func # function to determine when to enter and exit positions
 
@@ -38,8 +19,8 @@ class Algo:
         # paper / live
         self.live = False # whether using real money
         self.alpaca = alpacaAPI.alpacaPaper # always call alpaca through self.alpaca
-        self.allOrders = Algo.paperOrders # have to be careful not to break these references
-        self.allPositions = Algo.paperPositions
+        self.allOrders = g.paperOrders # have to be careful not to break these references
+        self.allPositions = g.paperPositions
 
         # state variables
         self.active = True # if algo has open positions or needs its metrics updated
@@ -83,17 +64,17 @@ class Algo:
         self.live = live
         if live:
             self.alpaca = alpacaAPI.alpacaLive
-            self.allOrders = Algo.liveOrders
-            self.allPositions = Algo.livePositions
+            self.allOrders = g.liveOrders
+            self.allPositions = g.livePositions
         else:
             self.alpaca = alpacaAPI.alpacaPaper
-            self.allOrders = Algo.paperOrders
-            self.allPositions = Algo.paperPositions
+            self.allOrders = g.paperOrders
+            self.allPositions = g.paperPositions
 
     def enter_position(self, symbol, side):
         # symbol: e.g. 'AAPL'
         
-        if side == 'sell' and not Algo.assets[symbol]['shortable']: return
+        if side == 'sell' and not g.assets[symbol]['shortable']: return
 
         # get price and qty
         price = self.get_limit_price(symbol, side)
@@ -139,7 +120,7 @@ class Algo:
         # side: 'buy' or 'sell'
 
         # get price
-        try: price = Algo.assets[symbol]['minBars'].iloc[-1].close # TODO: secBars
+        try: price = g.assets[symbol]['minBars'].iloc[-1].close # TODO: secBars
         except Exception as e:
             warn(e)
             return 0
@@ -188,7 +169,7 @@ class Algo:
         
         # check volume
         try:
-            volume = Algo.assets[symbol][barType].iloc[-1].volume
+            volume = g.assets[symbol][barType].iloc[-1].volume
         except Exception as e:
             warn(e)
             volume = 0

@@ -1,7 +1,8 @@
+import g
+from warn import warn
+
 import asyncio
 import pandas as pd
-from algoClasses import Algo
-from warn import warn
 
 def save_bar(barType, data):
     # barType: 'secBars', 'minBars', or 'dayBars'
@@ -12,7 +13,7 @@ def save_bar(barType, data):
         warn(f'unknown barType "{barType}"')
         return
 
-    # copy bars to Algo.assets (needs to be initialized first)
+    # copy bars to g.assets (needs to be initialized first)
     df = pd.DataFrame({
         'open': data.open,
         'high': data.high,
@@ -20,7 +21,7 @@ def save_bar(barType, data):
         'close': data.close,
         'volume': data.volume,
     }, index=[data.start])
-    Algo.assets[data.symbol][barType].append(df)
+    g.assets[data.symbol][barType].append(df)
 
 def stream(conn, channels):
     @conn.on(r'A')
@@ -43,14 +44,14 @@ def stream(conn, channels):
     
         try:
             # paper / live
-            if orderID in Algo.paperOrders:
-                order = Algo.paperOrders[orderID]
-                allOrders = Algo.paperOrders
-                allPositions = Algo.paperPositions[symbol]
-            elif orderID in Algo.liveOrders:
-                order = Algo.liveOrders[orderID]
-                allOrders = Algo.liveOrders
-                allPositions = Algo.livePositions[symbol]
+            if orderID in g.paperOrders:
+                order = g.paperOrders[orderID]
+                allOrders = g.paperOrders
+                allPositions = g.paperPositions[symbol]
+            elif orderID in g.liveOrders:
+                order = g.liveOrders[orderID]
+                allOrders = g.liveOrders
+                allPositions = g.livePositions[symbol]
             else:
                 print(f'Unknown order id: {orderID}')
             
