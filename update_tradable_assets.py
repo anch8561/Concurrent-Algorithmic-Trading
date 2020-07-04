@@ -7,7 +7,7 @@ from alpacaAPI import alpacaPaper as alpaca
 from algoClasses import Algo
 from algos import allAlgos, positionsList
 from config import minSharePrice, minDayVolume
-from marketHours import get_date, get_market_date
+from timing import get_date, get_market_date
 from warn import warn
 import pandas as pd
 

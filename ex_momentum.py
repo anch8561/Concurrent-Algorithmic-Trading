@@ -9,7 +9,7 @@ from pytz import timezone
 from alpacaAPI import alpacaPaper, connPaper
 api = alpacaPaper
 
-from marketHours import get_date, get_market_date
+from timing import get_date, get_market_date
 
 session = requests.session()
 

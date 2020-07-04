@@ -9,7 +9,7 @@ from config import marketCloseTransitionMinutes
 from datetime import timedelta
 from distribute_funds import distribute_funds
 from indicators import indicators
-from marketHours import get_time, get_date, get_open_time, get_close_time, is_new_week_since
+from timing import get_time, get_date, get_open_time, get_close_time, is_new_week_since
 from streaming import stream
 from threading import Thread
 from update_tradable_assets import update_tradable_assets
