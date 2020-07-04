@@ -54,10 +54,10 @@ class Algo:
     def update_metrics(self):
         return
         # TODO: check each datapoint is one market day apart
-        growth = [day['growthFrac'] for day in self.history]
-        if len(growth) >= 5: growth = growth[5:]
-        self.mean = stats.mean(growth)
-        self.stdev = stats.stdev(growth)
+        # growth = [day['growthFrac'] for day in self.history]
+        # if len(growth) >= 5: growth = growth[5:]
+        # self.mean = stats.mean(growth)
+        # self.stdev = stats.stdev(growth)
 
     def set_live(self, live):
         # live: bool; whether algo uses real money

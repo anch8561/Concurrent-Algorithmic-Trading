@@ -122,4 +122,4 @@ while True:
         print('Market is closed')
 
     # TODO: wait remainder of 1 sec
-    sleep(10)
+    sleep(60)

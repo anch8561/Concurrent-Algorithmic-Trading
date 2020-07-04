@@ -1,12 +1,14 @@
 import asyncio, websocket, json, threading, requests, logging, nest_asyncio, sys 
 import pandas as pd
 from algoClasses import Algo
-from alpacaAPI import alpaca, alpacaPaper, conn, connPaper
+from alpacaAPI import alpacaPaper, connPaper
 from warn import warn
 from time import sleep
 
 logger = logging.getLogger()
 
+alpaca = alpacaPaper
+conn = connPapaer
 
 class ScalpAlgo:
 

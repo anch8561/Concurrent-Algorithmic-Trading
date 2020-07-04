@@ -1,3 +1,6 @@
+TTOpen = None # timedelta; time until open (open time - current time)
+TTClose = None # timedelta; time until close (close time - current time)
+
 assets = {} # {symbol: {easyToBorrow, secBars, minBars, dayBars, <various indicators>}}
 # 'shortable': bool; whether easy_to_borrow on alpaca
 # 'secBars': pd.dataframe; past 10k second bars
@@ -15,6 +18,3 @@ writing = False
 secBars = []
 minBars = []
 orderUpdates = []
-
-TTOpen = None # timedelta; time until open (open time - current time)
-TTClose = None # timedelta; time until close (close time - current time)
