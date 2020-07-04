@@ -1,26 +1,33 @@
-# functions for navigating market hours, timezones, and holidays
-# all inputs and outputs are timezone-naive strings in NY timezone
-# time strings are actually naive datetime strings in ISO format
-
+import g
 from alpacaAPI import alpacaPaper
-from datetime import datetime, timedelta
-from pytz import timezone
 from warn import warn
 
-# get timezone and calendar
-nyc = timezone('America/New_York')
-calendar = alpacaPaper.get_calendar()
-todayStr = datetime.now(nyc).strftime('%Y-%m-%d')
-for ii, date in enumerate(calendar):
-    if date._raw['date'] >= todayStr: # current or next market day
-        i_today = ii
-        break
+from datetime import datetime, timedelta
+from pytz import timezone
 
-# TODO: update timezone and calendar daily
+nyc = None # timezone and daylight savings
+calendar = None # from alpaca
+i_today = None # calendar index
+lastCalendarUpdate = '0000-00-00' # date string
 
-def get_time():
-    # returns: nyc datetime
-    return datetime.now(nyc)
+def update_timing():
+    global nyc, calendar, i_today, lastCalendarUpdate
+
+    # update calendar
+    if lastCalendarUpdate < get_date():
+        nyc = timezone('America/New_York')
+        calendar = alpacaPaper.get_calendar()
+        todayStr = datetime.now(nyc).strftime('%Y-%m-%d')
+        for ii, date in enumerate(calendar):
+            if date._raw['date'] >= todayStr: # current or next market day
+                i_today = ii
+                break
+        lastCalendarUpdate = get_date()
+    
+    # update market time
+    time = datetime.now(nyc)
+    g.TTOpen = get_open_time() - time
+    g.TTClose = get_close_time() - time
 
 def get_open_time():
     # returns: nyc datetime
@@ -53,7 +60,7 @@ def get_date(offset=0):
     return date.strftime('%Y-%m-%d')
 
 def get_market_date(offset=0):
-    # offset: int, MARKET days relative to today (-1 is prev market day)
+    # offset: int, market days relative to today (-1 is prev market day)
     # returns: e.g. '2020-05-28' (YYYY-MM-DD)
     if offset > 0 and not is_market_day(): offset -= 1
     return calendar[i_today + offset].date.strftime('%Y-%m-%d')
