@@ -2,7 +2,7 @@ import alpacaAPI, g
 from config import maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice, minTradeBuyPow
 from timing import get_timestamp, get_date
 from warn import warn
-
+import os
 import json
 import pandas as pd
 import statistics as stats
@@ -360,20 +360,31 @@ class Algo:
         
         # write data
         fileName = self.name + '.data'
-        file = open(fileName, 'w')
-        json.dump(data, file)
-        file.close()
+        if os.path.exists(fileName):
+            with open(fileName, 'w') as f:
+                try:
+                    json.dump(data, f)
+                    f.close()
+                except Exception as e:
+                    print(e)
+
 
     def load_data(self):
         # read data
         fileName = self.name + '.data'
-        file = open(fileName, 'r')
-        data = json.load(file)
-        file.close()
+        if os.path.exists(fileName):
+            with open(fileName, 'r') as f:
+                try:
+                    data = json.load(f)
+                    f.close()
+                except Exception as e:
+                    print(e)
+             
+            # set data
+            for field in self.dataFields:
+                self.__setattr__(field, data[field])
 
-        # set data
-        for field in self.dataFields:
-            self.__setattr__(field, data[field])
+       
 
 class NightAlgo(Algo):
     def tick(self):
