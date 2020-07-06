@@ -1,27 +1,74 @@
 from algos import intradayAlgos, overnightAlgos, multidayAlgos
-from config import minAllocBuyPow, maxAllocFrac
+from alpacaAPI import alpacaLive, alpacaPaper
+from config import minAllocBuyPow, maxAllocFrac, minLongShortFrac, maxLongShortFrac
 from warn import warn
 
-def distribute_funds(intradayAlgos, overnightAlgos, multidayAlgos):
+import numpy as np
+import scipy.optimize as opt
 
-    # calculate weights based on performance
-    # calculate fractions based on weights and min / max allocations
-    # distribute money according to fractions
+buyPow = 200000 # FIX: for testing
+regTBuyPow = 100000
 
-    for algo in algos: algo.update_metrics()
+def distribute_funds():
+    # get performance weights
+    w = []
+    for algos in (intradayAlgos, overnightAlgos, multidayAlgos):
+        for algo in algos:
+            metrics = algo.get_metrics()
+            w.append(metrics['mean']['long'])
+            w.append(metrics['mean']['short'])
+        
+    w = np.array(w)
 
-    # TODO: calculate allocFrac
+    # get weight region lengths
+    n = len(w)
+    n_intraday = len(intradayAlgos) * 2
+    n_overnight = len(overnightAlgos) * 2
+    n_multiday = len(multidayAlgos) * 2
 
-    for alpaca in (alpacaLive, alpacaPaper):
-        for algoType in ('overnight', 'intraday'):
-            pass
-    # consider overnight, live / paper, fees
+    # set opt func
+    func = lambda x: - x * w
 
-    # set live
-        # cancel orders once
-        # close positions until closed
-        # then algo.set_live()
+    # set initial guess
+    x0 = [0] * n
 
+    # set allcoation bounds
+    bounds = opt.Bounds(
+        lb = [0] * n,
+        ub = [maxAllocFrac] * n
+    )
+    
+    # set allocation constraints
+    constraints = opt.LinearConstraint(
+        A = [
+            [1] * n, # sum <= 1
+
+            [1, -1] * (n/2), # long == short
+
+            # overnight + multiday <= regT
+            [0] * n_intraday + [1] * (n_overnight + n_multiday),
+
+            # intraday - overnight <= daytrading - regT
+            [1] * n_intraday + [-1] * n_overnight + [0] * n_multiday
+        ],
+        lb = [
+            0, # sum <= 1
+            minLongShortFrac * 2 - 1, # long == short
+            0, # overnight + multiday <= regT
+            0 # intraday - overnight <= daytrading - regT
+        ],
+        ub = [
+            1, # sum <= 1
+            maxLongShortFrac * 2 - 1, # long == short
+            regTBuyPow, # overnight + multiday <= regT
+            buyPow - regTBuyPow # intraday - overnight <= daytrading - regT
+        ]
+    )
+
+    # solve
+    x = opt.minimize(func, x0, 
+        bounds = bounds,
+        constraints = constraints)
 
 def get_overnight_fee(self, debt):
         # accrues daily (including weekends) and posts at end of month
@@ -42,7 +89,6 @@ def get_short_fee(self, debt):
     minFee = debt * 30/1e-4 / 360
     maxFee = debt * 300/1e4 / 360
     return minFee, maxFee
-
 
 def update_margins():
     # NOTE: this function might not be needed

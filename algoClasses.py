@@ -104,7 +104,7 @@ class Algo:
 
         self.history = self.history.append(snapshot)
 
-    def update_metrics(self):
+    def get_metrics(self):
         # get dates
         levelVals = self.history.index.get_level_values('date')
         dates = []
@@ -134,10 +134,13 @@ class Algo:
                         growth[longShort][ii] += (1 + growth[longShort][ii]) * \
                             (stopEquity[longShort] - startEquity[longShort]) / startEquity[longShort]
         
-        # update mean and stdev
+        # calculate mean and stdev
+        metrics = {'mean': {}, 'stdev': {}}
         for longShort in ('long', 'short'):
-            self.mean[longShort] = stats.mean(growth[longShort])
-            self.stdev[longShort] = stats.stdev(growth[longShort])
+            metrics['mean'][longShort] = stats.mean(growth[longShort])
+            metrics['stdev'][longShort] = stats.stdev(growth[longShort])
+        
+        return metrics
 
     def set_live(self, live):
         # live: bool; whether algo uses real money
