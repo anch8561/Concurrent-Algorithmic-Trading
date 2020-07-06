@@ -49,6 +49,21 @@ class Algo:
             'history'
         ]
 
+        # load data
+        self.load_data()
+
+    def start(self):
+        self.update_equity()
+        self.update_history('start')
+        self.save_data()
+        self.active = True
+    
+    def stop(self):
+        self.update_equity()
+        self.update_history('stop')
+        self.save_data()
+        self.active = False
+
     def update_equity(self):
         # check orders
         if len(self.orders):
@@ -116,7 +131,7 @@ class Algo:
                         'short': row.shortEquity
                     }
                     for longShort in ('long', 'short'):
-                        growth[longShort][ii] += growth[longShort] + (1 + growth[longShort]) * \
+                        growth[longShort][ii] += (1 + growth[longShort][ii]) * \
                             (stopEquity[longShort] - startEquity[longShort]) / startEquity[longShort]
         
         # update mean and stdev
@@ -190,7 +205,7 @@ class Algo:
     def get_limit_price(self, symbol, side):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
-        
+
         price = self.get_price(symbol)
 
         if side == 'buy':

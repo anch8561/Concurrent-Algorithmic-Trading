@@ -31,8 +31,7 @@ def handoff_BP(oldAlgos, newAlgos):
             if any(algo.positions[symbol]['qty'] for symbol in algo.positions):
                 algo.exit_all_positions()
             else:
-                algo.update_metrics()
-                algo.active = False
+                algo.stop()
     return not oldActive
 
 # TODO: read date from file or prompt to coninue
@@ -97,7 +96,7 @@ while True:
         print('Ticking algos')
         if state == 'night' and not closingSoon:
             if handoff_BP(overnightAlgos, intradayAlgos): # true when done
-                for algo in intradayAlgos: algo.active = True
+                for algo in intradayAlgos: algo.start()
                 state = 'day'
                 print('Intraday algos have buying power')
             else:
@@ -109,7 +108,7 @@ while True:
 
         elif state == 'day' and closingSoon:
             if handoff_BP(intradayAlgos, overnightAlgos): # true when done
-                for algo in overnightAlgos: algo.active = True
+                for algo in overnightAlgos: algo.start()
                 state = 'night'
                 print('Overnight algos have buying power')
             else:
