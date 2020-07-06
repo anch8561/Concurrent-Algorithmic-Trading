@@ -7,6 +7,7 @@ maxPosFrac = 0.01
 
 minSharePrice = 20
 minDayVolume = 200000
+leverageStrings = ('leveraged', '1.5x', '2x', '3x')
 
 minTradeBuyPow = 100
 minLongPrice = 3

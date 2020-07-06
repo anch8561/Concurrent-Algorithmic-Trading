@@ -1,7 +1,7 @@
 import g
 from alpacaAPI import alpacaPaper as alpaca
 from algos import allAlgos, positionsList
-from config import minSharePrice, minDayVolume
+from config import minSharePrice, minDayVolume, leverageStrings
 from timing import get_date, get_market_date
 from warn import warn
 
@@ -21,14 +21,16 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
     activeSymbols = []
     for ii, asset in enumerate(alpacaAssets):
         print(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}')
-        if asset.marginable:
+        if (
+            asset.marginable and
+            not any(x in asset.name.lower() for x in leverageStrings)
+        ):
             for ticker in polygonTickers:
                 if (
                     ticker.ticker == asset.symbol and
                     ticker.prevDay['v'] > minDayVolume and
                     ticker.prevDay['l'] > minSharePrice
                 ):
-                    # TODO: check leverage
                     activeSymbols.append(asset.symbol)
                     break
 
