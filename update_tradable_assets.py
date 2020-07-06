@@ -17,7 +17,6 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
     polygonTickers = alpaca.polygon.all_tickers()
 
     # get active symbols
-    # TODO: replace loops with sort, dict, or df
     activeSymbols = []
     for ii, asset in enumerate(alpacaAssets):
         print(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}')
@@ -51,11 +50,11 @@ def update_tradable_assets(debugging=False, numDebugAssets=100):
             print(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
             add_asset(symbol)
 
-    # set shortable flag
+    # set easyToBorrow flag
     for asset in alpacaAssets:
         symbol = asset.symbol
         if symbol in g.assets:
-            g.assets[symbol]['shortable'] = asset.easy_to_borrow
+            g.assets[symbol]['easyToBorrow'] = asset.easy_to_borrow
             if not asset.easy_to_borrow:
                 for algo in allAlgos:
                     qty = algo.positions[symbol]['qty']

@@ -1,8 +1,10 @@
 import alpacaAPI, g
 from config import maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice, minTradeBuyPow
+from timing import get_timestamp, get_date
 from warn import warn
 
 import json
+import pandas as pd
 import statistics as stats
 
 class Algo:
@@ -24,20 +26,16 @@ class Algo:
 
         # state variables
         self.active = True # if algo has open positions or needs its metrics updated
-        self.buyPow = {'long': 0, 'short': 0}
-        self.equity = {'long': 0, 'short': 0}
+        self.buyPow = {'long': 0, 'short': 0} # updated continuously
+        self.equity = {'long': 0, 'short': 0} # updated daily
         self.positions = {} # {symbol: {qty, basis}}
         self.orders = {} # {orderID: {symbol, qty, limit, longShort}}
         # qty is positive for buy/long and negative for sell/short
 
         # risk and performance metrics
-        self.history = [] # [{time, prevTime, equity, prevEquity, cashFlow, growthFrac}]
-        # change in equity minus cash allocations over previous equity
-        # extra fields are kept for error proofing
-        self.longMean = 0 # average daily growth
-        self.longStdev = 0 # sample standard deviation of daily growth
-        self.shortMean = 0
-        self.shortStdev = 0
+        self.history = pd.DataFrame()
+        self.mean = {'long': 0, 'short': 0} # average daily growth
+        self.stdev = {'long': 0, 'short': 0} # sample standard deviation of daily growth
         self.allocFrac = 0
         self.longShortFrac = 0.5 # float; 0 is all shorts; 1 is all longs
 
@@ -51,13 +49,80 @@ class Algo:
             'history'
         ]
 
+    def update_equity(self):
+        # check orders
+        if len(self.orders):
+            warn(f'{self.name} cannot update equity with open orders')
+            return
+
+        # copy buying power
+        self.Equity = self.buyPow.copy()
+
+        # check positions
+        for position in self.positions:
+            qty = position['qty']
+            if qty:
+                # warn about position
+                symbol = position['symbol']
+                warn(f'{self.name} still holding {qty} shares of {symbol}')
+
+                # get position value
+                price = self.get_price(symbol)
+                longShort = 'long' if qty > 0 else 'short'
+                self.equity[longShort] += price * abs(qty)
+
+    def update_history(self, event):
+        # event: 'start' or 'stop'
+
+        index = pd.MultiIndex.from_arrays(
+            [[get_date()], [get_timestamp()]],
+            names=['date', 'timestamp'])
+        
+        snapshot = pd.DataFrame(dict(
+            date = get_date(),
+            timestamp = get_timestamp(),
+            event = event,
+            live = self.live,
+            longEquity = self.equity['long'],
+            shortEquity = self.equity['short']
+        ), index)
+
+        self.history = self.history.append(snapshot)
+
     def update_metrics(self):
-        return
-        # TODO: check each datapoint is one market day apart
-        # growth = [day['growthFrac'] for day in self.history]
-        # if len(growth) >= 5: growth = growth[5:]
-        # self.mean = stats.mean(growth)
-        # self.stdev = stats.stdev(growth)
+        # get dates
+        levelVals = self.history.index.get_level_values('date')
+        dates = []
+        for date in reversed(levelVals):
+            if date not in dates:
+                dates.append(date)
+            if len(dates) == 5: break
+
+        # get equity growth
+        growth = {'long': [], 'short': []}
+        for ii, date in enumerate(dates):
+            day = self.history.loc[date]
+            growth['long'][ii] = 0
+            growth['short'][ii] = 0
+            for _, row in day.iterrows():
+                if row.event == 'start':
+                    startEquity = {
+                        'long': row.longEquity,
+                        'short': row.shortEquity
+                    }
+                elif row.event == 'stop':
+                    stopEquity = {
+                        'long': row.longEquity,
+                        'short': row.shortEquity
+                    }
+                    for longShort in ('long', 'short'):
+                        growth[longShort][ii] += growth[longShort] + (1 + growth[longShort]) * \
+                            (stopEquity[longShort] - startEquity[longShort]) / startEquity[longShort]
+        
+        # update mean and stdev
+        for longShort in ('long', 'short'):
+            self.mean[longShort] = stats.mean(growth[longShort])
+            self.stdev[longShort] = stats.stdev(growth[longShort])
 
     def set_live(self, live):
         # live: bool; whether algo uses real money
@@ -74,7 +139,7 @@ class Algo:
     def enter_position(self, symbol, side):
         # symbol: e.g. 'AAPL'
         
-        if side == 'sell' and not g.assets[symbol]['shortable']: return
+        if side == 'sell' and not g.assets[symbol]['easyToBorrow']: return
 
         # get price and qty
         price = self.get_limit_price(symbol, side)
@@ -115,17 +180,19 @@ class Algo:
             if position['qty']:
                 self.exit_position(symbol)
 
-    def get_limit_price(self, symbol, side):
-        # symbol: e.g. 'AAPL'
-        # side: 'buy' or 'sell'
-
-        # get price
-        try: price = g.assets[symbol]['minBars'].iloc[-1].close # TODO: secBars
+    def get_price(self, symbol):
+        try:
+            return g.assets[symbol]['minBars'].iloc[-1].close # TODO: secBars
         except Exception as e:
             warn(e)
             return 0
 
-        # add limit
+    def get_limit_price(self, symbol, side):
+        # symbol: e.g. 'AAPL'
+        # side: 'buy' or 'sell'
+        
+        price = self.get_price(symbol)
+
         if side == 'buy':
             price *= 1 + limitPriceFrac
         elif side == 'sell':
@@ -201,9 +268,8 @@ class Algo:
         for orderID, order in self.orders.items():
             if order['symbol'] == symbol:
                 if order['qty'] * qty < 0: # opposite side
-                    warn(f'{self.name} opposing orders')
-                    # TODO: log first order info
                     self.cancel_order(orderID)
+                    print(f'{self.name}\t{symbol}\tcancelling opposing order {orderID}')
                 else: # same side
                     print(f'{self.name}\t{symbol}\talready placed order for {order["qty"]}')
                     return 0
@@ -233,8 +299,7 @@ class Algo:
         if qty > 0 and allPosQty == 0: # buying from zero position
             for orderID, order in self.allOrders.items():
                 if order['symbol'] == symbol and order['qty'] < 0: # pending short
-                    print(f'{self.name} opposing global order of {order["qty"]}')
-                    # TODO: log first order info
+                    print(f'{self.name}\t{symbol}\topposing global order {orderID}')
                     return
 
         # get side

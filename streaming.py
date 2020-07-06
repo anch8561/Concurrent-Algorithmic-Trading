@@ -21,7 +21,8 @@ def save_bar(barType, data):
         'close': data.close,
         'volume': data.volume,
     }, index=[data.start])
-    g.assets[data.symbol][barType].append(df)
+    g.assets[data.symbol][barType] = \
+        g.assets[data.symbol][barType].append(df)
 
 def stream(conn, channels):
     @conn.on(r'A')
