@@ -72,21 +72,29 @@ def remove_asset(symbol, alpacaAssets, polygonTickers):
     g.assets.pop(symbol)
 
     # get reasons for removal
-    removalReasons = []
+    removalReasons = [
+        'inactive',
+        'unmarginable',
+        'leveraged',
+        'noTicker',
+        'lowVolume',
+        'lowPrice'
+    ]
     for asset in alpacaAssets:
         if asset.symbol == symbol:
-            removalReasons.append('inactive')
+            removalReasons.remove('inactive')
             if asset.marginable:
-                removalReasons.append('unmarginable')
-                for ticker in polygonTickers:
-                    if ticker.ticker == asset.symbol:
-                        removalReasons.append('noTicker')
-                        if ticker.prevDay['v'] > minDayVolume:
-                            removalReasons.append('lowVolume')
-                        if ticker.prevDay['l'] > minSharePrice:
-                            removalReasons.append('lowPrice')
-                        # TODO: check leverage
-                        break
+                removalReasons.remove('unmarginable')
+            if not any(x in asset.name.lower() for x in leverageStrings):
+                removalReasons.remove('leveraged')
+            for ticker in polygonTickers:
+                if ticker.ticker == asset.symbol:
+                    removalReasons.remove('noTicker')
+                    if ticker.prevDay['v'] > minDayVolume:
+                        removalReasons.remove('lowVolume')
+                    if ticker.prevDay['l'] > minSharePrice:
+                        removalReasons.remove('lowPrice')
+                    break
     removalReasons = ', '.join(removalReasons)
 
     # check for positions
