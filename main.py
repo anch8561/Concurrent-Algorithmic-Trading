@@ -40,6 +40,8 @@ lastRebalanceDate = "0001-01-01"
 state = 'night' # day, night
 # TODO: load positions and check state
 
+
+update_timing()
 # get assets
 update_tradable_assets(True, 100)
 
