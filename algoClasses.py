@@ -74,7 +74,7 @@ class Algo:
         self.Equity = self.buyPow.copy()
 
         # check positions
-        for position in self.positions:
+        for symbol, position in self.positions.items():
             qty = position['qty']
             if qty:
                 # warn about position
