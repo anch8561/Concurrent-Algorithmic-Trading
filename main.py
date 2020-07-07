@@ -1,5 +1,5 @@
 import g
-from algos import intradayAlgos, overnightAlgos, multidayAlgos
+from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 from alpacaAPI import connLive, connPaper
 from config import marketCloseTransitionMinutes
 from distribute_funds import distribute_funds
@@ -13,6 +13,7 @@ from threading import Thread
 from time import sleep
 
 # FIX: account reset
+print('Resetting account')
 from alpacaAPI import alpacaPaper
 alpacaPaper.cancel_all_orders()
 alpacaPaper.close_all_positions()
@@ -26,35 +27,24 @@ def handoff_BP(oldAlgos, newAlgos):
     # FIX: need partial handoff in case an algo can't exit a position
     oldActive = False
     for algo in oldAlgos:
-        if algo.active:
+        if (
+            algo.active and
+            any(algo.positions[symbol]['qty'] for symbol in algo.positions)
+        ):
             oldActive = True
-            if any(algo.positions[symbol]['qty'] for symbol in algo.positions):
-                algo.exit_all_positions()
-            else:
-                algo.stop()
+            algo.exit_all_positions()
+        else:
+            algo.stop()
     return not oldActive
-
-# TODO: read date from file or prompt to coninue
-lastRebalanceDate = "0001-01-01"
-
-state = 'night' # day, night
-# TODO: load positions and check state
 
 # get assets
 update_timing()
 update_tradable_assets(True, 100)
 
 # allocate buying power
-for algo in overnightAlgos:
+for algo in allAlgos:
     algo.buyPow['long'] = 10000
     algo.buyPow['short'] = 10000
-    algo.equity['long'] = 10000
-    algo.equity['short'] = 10000
-for algo in intradayAlgos:
-    algo.buyPow['long'] = 10000
-    algo.buyPow['short'] = 10000
-    algo.equity['long'] = 10000
-    algo.equity['short'] = 10000
 
 
 # stream alpaca
@@ -64,13 +54,25 @@ for symbol in g.assets:
 Thread(target=stream, args=(connPaper, channels)).start()
 print(f'Streaming {len(g.assets)} tickers')
 
+lastAllocDate = "0001-01-01"
+# TODO: read date from file or prompt to coninue
+
+# start algos
+for algo in multidayAlgos: algo.start()
+state = 'night' # day, night
+if state == 'night':
+    for algo in overnightAlgos: algo.start()
+elif state == 'day':
+    for algo in intradayAlgos: algo.start()
+
+
 # main loop
 print('Entering main loop')
 while True:
     update_timing()
 
     # update buying power
-    # if is_new_week_since(lastRebalanceDate):
+    # if is_new_week_since(lastAllocDate):
     #     distribute_funds()
 
     # update symbols
@@ -122,4 +124,4 @@ while True:
         print('Market is closed')
 
     # TODO: wait remainder of 1 sec
-    sleep(60)
+    sleep(10)

@@ -6,7 +6,7 @@ from config import maxPosFrac, minTradeBuyPow
 intradayAlgos = []
 
 def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
-    indicator = str(1) + barFreq + 'Momentum'
+    indicator = str(1) + '_' + barFreq + '_momentum'
     # NOTE: could use multibar momentum also
     
     for symbol, asset in g.assets.items():

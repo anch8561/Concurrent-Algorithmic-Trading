@@ -4,7 +4,7 @@ from traceback import extract_stack
 
 def warn(message, fileName=None):
     nyc = timezone('America/New_York')
-    timestamp = datetime.now(nyc).strftime('%Y-%m-%d %H:%M:%S:%f')
+    timestamp = datetime.now(nyc).strftime('%Y-%m-%d %H:%M:%S.%f')
 
     fileNames = ['warnings.log']
     if fileName is None: fileNames.append('warnings.log')
@@ -12,15 +12,13 @@ def warn(message, fileName=None):
     stack = extract_stack().format()
     stack.pop() # remove warn()
 
-    # print to terminal
-    print('WARNING:', message)
-    for item in stack:
-        print(item, end='')
+    # print message to terminal
+    print(timestamp + ' WARNING:', message)
 
-    # write to files
+    # write message and stack to files
     for fileName in fileNames:
         file = open(fileName, 'a')
-        file.write(timestamp + ': WARNING: ' + message + '\n')
+        file.write(timestamp + ' WARNING: ' + message + '\n')
         for item in stack:
             file.write(item)
         file.write('\n')

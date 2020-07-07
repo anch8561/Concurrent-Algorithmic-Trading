@@ -64,7 +64,7 @@ def distribute_funds():
     x = opt.minimize(func, x0,
         bounds = bounds,
         constraints = constraints)
-    
+
     # distribute buying power
     for ii, algo in enumerate(allAlgos):
         algo.buyPow['long'] = x[ii*2] * buyPow

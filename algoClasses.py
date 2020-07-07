@@ -71,15 +71,14 @@ class Algo:
             return
 
         # copy buying power
-        self.Equity = self.buyPow.copy()
+        self.equity = self.buyPow.copy()
 
         # check positions
-        for position in self.positions:
+        for symbol, position in self.positions.items():
             qty = position['qty']
             if qty:
                 # warn about position
-                symbol = position['symbol']
-                warn(f'{self.name} still holding {qty} shares of {symbol}')
+                warn(f'{self.name} holding {qty} shares of {symbol}')
 
                 # get position value
                 price = self.get_price(symbol)
@@ -119,13 +118,14 @@ class Algo:
             day = self.history.loc[date]
             growth['long'][ii] = 0
             growth['short'][ii] = 0
+            startEquity = None
             for _, row in day.iterrows():
                 if row.event == 'start':
                     startEquity = {
                         'long': row.longEquity,
                         'short': row.shortEquity
                     }
-                elif row.event == 'stop':
+                elif row.event == 'stop' and startEquity:
                     stopEquity = {
                         'long': row.longEquity,
                         'short': row.shortEquity
@@ -245,7 +245,7 @@ class Algo:
 
         # set quantity
         qty = int(maxPosFrac * equity / price)
-        print(f'{self.name}\t{symbol}\tqty: {qty}')
+        if qty: print(f'{self.name}\t{symbol}\tqty: {qty}')
 
         # check buying power
         if qty * price > buyPow:

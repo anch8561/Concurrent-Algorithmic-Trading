@@ -74,24 +74,29 @@ def KAMA(self, asset):
 
 ## INSTANCES
 indicators = []
+
+# momentum and volume
 for barFreq in ('min', 'day'):
     # 1 bar
     indicators += [
         Indicator(momentum, 1, barFreq),
         Indicator(volume, 1, barFreq)
     ]
-    
+
     # multibar
     for numBars in (3, 5, 10, 20):
         indicators += [
-            # momentum and volume
             Indicator(momentum, numBars, barFreq),
             Indicator(volume, numBars, barFreq),
             Indicator(volume_stdev, numBars, barFreq),
-            Indicator(volume_num_stdevs, numBars, barFreq),
-
-            # moving averages
-            Indicator(SMA, numBars, barFreq),
-            Indicator(EMA, numBars, barFreq),
-            Indicator(KAMA, numBars, barFreq)
+            Indicator(volume_num_stdevs, numBars, barFreq)
         ]
+
+# moving averages
+barFreq = 'day'
+for numBars in (3, 5, 10, 20):
+    indicators += [
+        Indicator(SMA, numBars, barFreq),
+        Indicator(EMA, numBars, barFreq),
+        Indicator(KAMA, numBars, barFreq)
+    ]

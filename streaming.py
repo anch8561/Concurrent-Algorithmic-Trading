@@ -39,12 +39,13 @@ def stream(conn, channels):
 
     @conn.on(r'trade_updates')
     async def handle_trade_update(conn, channel, data):
-        event = data.event
-        orderID = data.order['id']
-        symbol = data.order['symbol']
-    
         try:
-            # paper / live
+            event = data.event
+            orderID = data.order['id']
+            symbol = data.order['symbol']
+        except Exception as e: warn(f'{e}')
+    
+        try: # paper / live
             if orderID in g.paperOrders:
                 order = g.paperOrders[orderID]
                 allOrders = g.paperOrders
@@ -55,22 +56,26 @@ def stream(conn, channels):
                 allPositions = g.livePositions[symbol]
             else:
                 print(f'Unknown order id: {orderID}')
+                return
+        except Exception as e: warn(f'{e}')
             
-            # get local data
+        try: # get local data
             qty = order['qty']
             limit = order['limit']
             longShort = order['longShort']
             enterExit = order['enterExit']
             algo = order['algo']
+        except Exception as e: warn(f'{e}')
 
-            # check event
-            if event == 'fill':
-                # get streamed data
-                fillQty = data.order.filled_qty
-                if data.order.side == 'sell': fillQty *= -1
-                fillPrice = data.order.filled_avg_price
+        # check event
+        if event == 'fill':
+            try: # get streamed data
+                fillQty = data.order['filled_qty']
+                if data.order['side'] == 'sell': fillQty *= -1
+                fillPrice = data.order['filled_avg_price']
+            except Exception as e: warn(f'{e}')
 
-                # update position basis
+            try: # update position basis
                 for positions in (allPositions, algo.positions):
                     oldQty = positions[symbol]['qty']
                     if oldQty + fillQty == 0:
@@ -79,36 +84,40 @@ def stream(conn, channels):
                         oldBasis = positions[symbol]['basis']
                         positions[symbol]['basis'] = \
                             ((oldBasis * oldQty) + (fillPrice * fillQty)) / (oldQty + fillQty)
-                
-                # update position qty
+            except Exception as e: warn(f'{e}')
+            
+            try: # update position qty
                 allPositions[symbol]['qty'] += fillQty
                 algo.positions[symbol]['qty'] += fillQty
+            except Exception as e: warn(f'{e}')
 
-                # update buying power
+            try: # update buying power
                 if enterExit == 'enter':
                     algo.buyPow[longShort] += abs(qty) * limit
                     algo.buyPow[longShort] -= abs(fillQty) * fillPrice
                 elif enterExit == 'exit':
                     algo.buyPow[longShort] += abs(fillQty) * fillPrice
+            except Exception as e: warn(f'{e}')
 
-                # pop order
+            try: # pop order
                 allOrders.pop(orderID)
                 algo.orders.pop(orderID)
-                
-            elif event in ('canceled', 'expired', 'rejected'):
-                print(f'{orderID}: {event}')
+            except Exception as e: warn(f'{e}')
+            
+        elif event in ('canceled', 'expired', 'rejected'):
+            print(f'{orderID}: {event}')
 
-                # update buying power
+            try: # update buying power
                 if enterExit == 'enter':
                     algo.buyPow[longShort] += abs(qty) * limit
                     algo.buyPow[longShort] -= abs(fillQty) * fillPrice
                 elif enterExit == 'exit':
                     algo.buyPow[longShort] += abs(fillQty) * fillPrice
+            except Exception as e: warn(f'{e}')
 
-                # pop order
+            try: # pop order
                 allOrders.pop(orderID)
                 algo.orders.pop(orderID)
-
-        except Exception as e: warn(f'{e}')
+            except Exception as e: warn(f'{e}')
 
     conn.run(channels)
