@@ -1,5 +1,5 @@
 import alpacaAPI, g
-from config import maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice, minTradeBuyPow
+from config import algoPath, maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice, minTradeBuyPow
 from timing import get_timestamp, get_date
 from warn import warn
 import os
@@ -245,12 +245,12 @@ class Algo:
 
         # set quantity
         qty = int(maxPosFrac * equity / price)
-        if qty: print(f'{self.name}\t{symbol}\tqty: {qty}')
+        # if qty: print(f'{self.name}\t{symbol}\tqty: {qty}')
 
         # check buying power
         if qty * price > buyPow:
             qty = int(buyPow / price)
-            print(f'{self.name}\t{symbol}\tbuyPow qty limit: {qty}')
+            # print(f'{self.name}\t{symbol}\tbuyPow qty limit: {qty}')
         
         # check volume
         try:
@@ -260,13 +260,14 @@ class Algo:
             volume = 0
         if qty > volume * volumeMult:
             qty = volume * volumeMult
-            print(f'{self.name}\t{symbol}\tvolume qty limit: {qty}')
+            # print(f'{self.name}\t{symbol}\tvolume qty limit: {qty}')
 
         # check zero
         if qty == 0: return 0
-        
+
         # set sell quantity negative
-        if side == 'sell': qty *= -1
+        # FIX: sell qty prints positive above this line
+        if side == 'sell': qty *= -1 
 
         # check for existing position
         if symbol in self.positions:
@@ -303,6 +304,7 @@ class Algo:
         # limitPrice: float or None for configured price collar
 
         if qty == 0: return
+        print(f'{self.name}\t{symbol}\tordering {qty} shares')
 
         # check allPositions for zero crossing
         if symbol in self.allPositions:
@@ -362,18 +364,17 @@ class Algo:
             data[field] = self.__getattribute__(field)
         
         # write data
-        fileName = self.name + '.data'
-        if os.path.exists(fileName):
-            with open(fileName, 'w') as f:
-                try:
-                    json.dump(data, f)
-                    f.close()
-                except Exception as e:
-                    print(e)
+        fileName = algoPath + self.name + '.data'
+        with open(fileName, 'w') as f:
+            try:
+                json.dump(data, f)
+                f.close()
+            except Exception as e:
+                print(e)
 
     def load_data(self):
         # read data
-        fileName = self.name + '.data'
+        fileName = algoPath + self.name + '.data'
         if os.path.exists(fileName):
             with open(fileName, 'r') as f:
                 try:

@@ -43,21 +43,21 @@ def stream(conn, channels):
             event = data.event
             orderID = data.order['id']
             symbol = data.order['symbol']
-        except Exception as e: warn(f'{e}')
+        except Exception as e: warn(f'{e}', f'{data}')
     
         try: # paper / live
             if orderID in g.paperOrders:
                 order = g.paperOrders[orderID]
                 allOrders = g.paperOrders
-                allPositions = g.paperPositions[symbol]
+                allPositions = g.paperPositions
             elif orderID in g.liveOrders:
                 order = g.liveOrders[orderID]
                 allOrders = g.liveOrders
-                allPositions = g.livePositions[symbol]
+                allPositions = g.livePositions
             else:
                 print(f'Unknown order id: {orderID}')
                 return
-        except Exception as e: warn(f'{e}')
+        except Exception as e: warn(f'{e}', f'{data}')
             
         try: # get local data
             qty = order['qty']
@@ -65,15 +65,15 @@ def stream(conn, channels):
             longShort = order['longShort']
             enterExit = order['enterExit']
             algo = order['algo']
-        except Exception as e: warn(f'{e}')
+        except Exception as e: warn(f'{e}', f'{data}')
 
         # check event
         if event == 'fill':
             try: # get streamed data
-                fillQty = data.order['filled_qty']
+                fillQty = int(data.order['filled_qty'])
                 if data.order['side'] == 'sell': fillQty *= -1
-                fillPrice = data.order['filled_avg_price']
-            except Exception as e: warn(f'{e}')
+                fillPrice = float(data.order['filled_avg_price'])
+            except Exception as e: warn(f'{e}', f'{data}')
 
             try: # update position basis
                 for positions in (allPositions, algo.positions):
@@ -84,12 +84,12 @@ def stream(conn, channels):
                         oldBasis = positions[symbol]['basis']
                         positions[symbol]['basis'] = \
                             ((oldBasis * oldQty) + (fillPrice * fillQty)) / (oldQty + fillQty)
-            except Exception as e: warn(f'{e}')
+            except Exception as e: warn(f'{e}\n{data}\n{data}')
             
             try: # update position qty
                 allPositions[symbol]['qty'] += fillQty
                 algo.positions[symbol]['qty'] += fillQty
-            except Exception as e: warn(f'{e}')
+            except Exception as e: warn(f'{e}', f'{data}')
 
             try: # update buying power
                 if enterExit == 'enter':
@@ -97,12 +97,12 @@ def stream(conn, channels):
                     algo.buyPow[longShort] -= abs(fillQty) * fillPrice
                 elif enterExit == 'exit':
                     algo.buyPow[longShort] += abs(fillQty) * fillPrice
-            except Exception as e: warn(f'{e}')
+            except Exception as e: warn(f'{e}', f'{data}')
 
             try: # pop order
                 allOrders.pop(orderID)
                 algo.orders.pop(orderID)
-            except Exception as e: warn(f'{e}')
+            except Exception as e: warn(f'{e}', f'{data}')
             
         elif event in ('canceled', 'expired', 'rejected'):
             print(f'{orderID}: {event}')
@@ -113,11 +113,11 @@ def stream(conn, channels):
                     algo.buyPow[longShort] -= abs(fillQty) * fillPrice
                 elif enterExit == 'exit':
                     algo.buyPow[longShort] += abs(fillQty) * fillPrice
-            except Exception as e: warn(f'{e}')
+            except Exception as e: warn(f'{e}', f'{data}')
 
             try: # pop order
                 allOrders.pop(orderID)
                 algo.orders.pop(orderID)
-            except Exception as e: warn(f'{e}')
+            except Exception as e: warn(f'{e}', f'{data}')
 
     conn.run(channels)

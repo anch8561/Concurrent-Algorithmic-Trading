@@ -1,6 +1,6 @@
 import g
 from alpacaAPI import alpacaPaper as alpaca
-from algos import allAlgos, positionsList
+from algos import allAlgos
 from config import minSharePrice, minDayVolume, leverageStrings
 from timing import get_date, get_market_date
 from warn import warn
@@ -112,6 +112,10 @@ def remove_asset(symbol, alpacaAssets, polygonTickers):
             algo.allOrders.pop(orderID)
             algo.orders.pop(orderID)
 
+
+# list of lists of positions
+positionsList = [g.paperPositions, g.livePositions]
+positionsList += [algo.positions for algo in allAlgos]
 
 def add_asset(symbol):
     # add key

@@ -117,10 +117,5 @@ def crossover(self): # kwargs: fastNumBars, fastBarFreq, fastMovAvg, slowNumBars
 #                         slowMovAvg = movAvg)
 #                 ]
 
-
 # all algos list
 allAlgos = intradayAlgos + overnightAlgos + multidayAlgos
-
-# list of lists of positions
-positionsList = [g.paperPositions, g.livePositions]
-positionsList += [algo.positions for algo in allAlgos]

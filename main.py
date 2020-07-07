@@ -124,4 +124,5 @@ while True:
         print('Market is closed')
 
     # TODO: wait remainder of 1 sec
+    print('Waiting for bars')
     sleep(10)
