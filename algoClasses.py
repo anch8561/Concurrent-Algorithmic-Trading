@@ -104,14 +104,14 @@ class Algo:
 
         self.history = self.history.append(snapshot)
 
-    def get_metrics(self):
+    def get_metrics(self, numDays):
         # get dates
         levelVals = self.history.index.get_level_values('date')
         dates = []
         for date in reversed(levelVals):
             if date not in dates:
                 dates.append(date)
-            if len(dates) == 5: break
+            if len(dates) == numDays: break
 
         # get equity growth
         growth = {'long': [], 'short': []}
@@ -371,7 +371,6 @@ class Algo:
                 except Exception as e:
                     print(e)
 
-
     def load_data(self):
         # read data
         fileName = self.name + '.data'
@@ -385,9 +384,7 @@ class Algo:
              
             # set data
             for field in self.dataFields:
-                self.__setattr__(field, data[field])
-
-       
+                self.__setattr__(field, data[field])  
 
 class NightAlgo(Algo):
     def tick(self):
