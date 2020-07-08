@@ -1,4 +1,4 @@
-algoPath = './algos/'
+algoPath = 'algos/'
 
 minAllocBuyPow = 10000
 maxAllocFrac = 0.1

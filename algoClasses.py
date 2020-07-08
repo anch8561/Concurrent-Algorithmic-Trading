@@ -2,10 +2,14 @@ import alpacaAPI, g
 from config import algoPath, maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice, minTradeBuyPow
 from timing import get_timestamp, get_date
 from warn import warn
-import os
-import json
+
+import json, os
 import pandas as pd
 import statistics as stats
+
+# create algoPath if needed
+try: os.mkdir(algoPath)
+except: pass
 
 class Algo:
     def __init__(self, func, **kwargs):
@@ -359,36 +363,35 @@ class Algo:
         self.allOrders.pop(orderID)
 
     def save_data(self):
-        # get data
-        data = {}
-        for field in self.dataFields:
-            data[field] = self.__getattribute__(field)
+        try: # get data
+            data = {}
+            for field in self.dataFields:
+                data[field] = self.__getattribute__(field)
+        except Exception as e: warn(e)
         
-        # write data
-        fileName = algoPath + self.name + '.data'
-        with open(fileName, 'w') as f:
-            try:
+        try: # write data
+            fileName = algoPath + self.name + '.data'
+            with open(fileName, 'w') as f:
                 json.dump(data, f)
-                f.close()
-            except Exception as e: warn(e)
+        except Exception as e: warn(e)
 
     def load_data(self):
-        # read data
-        fileName = algoPath + self.name + '.data'
-        if os.path.exists(fileName):
+        try: # read data
+            fileName = algoPath + self.name + '.data'
             with open(fileName, 'r') as f:
-                try:
-                    data = json.load(f)
-                    f.close()
-                except Exception as e: warn(e)
+                data = json.load(f)
+        except Exception as e:
+            warn(e)
+            return
              
-            # set data
+        try: # set data
             for field in self.dataFields:
-                self.__setattr__(field, data[field])  
+                self.__setattr__(field, data[field])
+        except Exception as e: warn(e)
 
 class NightAlgo(Algo):
     def tick(self):
-        if sum(self.buyPow.values()) > 2 * minTradeBuyPow:
+        if sum(self.buyPow.values()) > minTradeBuyPow * 2:
             self.func(self)
 
 class DayAlgo(Algo):

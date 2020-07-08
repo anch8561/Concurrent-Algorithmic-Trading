@@ -65,7 +65,6 @@ if state == 'night':
 elif state == 'day':
     for algo in intradayAlgos: algo.start()
 
-
 # main loop
 print('Entering main loop')
 while True:
