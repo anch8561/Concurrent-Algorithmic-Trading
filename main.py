@@ -37,25 +37,12 @@ def handoff_BP(oldAlgos, newAlgos):
             algo.stop()
     return not oldActive
 
-# get assets
-update_timing()
-update_tradable_assets(True, 100)
-
-# allocate buying power
-for algo in allAlgos:
-    algo.buyPow['long'] = 10000
-    algo.buyPow['short'] = 10000
-
-
 # stream alpaca
 channels = ['account_updates', 'trade_updates']
 for symbol in g.assets:
     channels += [f'AM.{symbol}'] # TODO: second bars
 Thread(target=stream, args=(connPaper, channels)).start()
 print(f'Streaming {len(g.assets)} tickers')
-
-lastAllocDate = "0001-01-01"
-# TODO: read date from file or prompt to coninue
 
 # start algos
 for algo in multidayAlgos: algo.start()
@@ -66,21 +53,24 @@ elif state == 'day':
     for algo in intradayAlgos: algo.start()
 
 # main loop
+lastAllocUpdate = None
+lastSymbolUpdate = None
 print('Entering main loop')
 while True:
     update_timing()
 
     # update buying power
-    # if is_new_week_since(lastAllocDate):
+    # if lastAllocUpdate != get_date():
     #     distribute_funds()
+    #     lastAllocUpdate = get_date()
 
     # update symbols
-    # if (
-    #     lastSymbolUpdate != get_date() and # weren't updated today
-    #     g.TTOpen < timedelta(hours=1) # < 1 hour until market open
-    # ):
-    #     update_tradable_assets()
-    #     lastSymbolUpdate = get_date()
+    if (
+        lastSymbolUpdate != get_date() and # weren't updated today
+        g.TTOpen < timedelta(hours=1) # < 1 hour until market open
+    ):
+        update_tradable_assets()
+        lastSymbolUpdate = get_date()
 
     if ( # market is open
         g.TTOpen < timedelta(0) and

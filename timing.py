@@ -29,7 +29,7 @@ def update_timing():
     g.TTOpen = get_open_time() - time
     g.TTClose = get_close_time() - time
 
-def get_timestamp(): return datetime.now(nyc).strftime('%Y-%m-%d %H:%M:%S.%f')
+def get_time(): return datetime.now(nyc).strftime('%H:%M:%S.%f')
 
 def get_open_time():
     # returns: nyc datetime

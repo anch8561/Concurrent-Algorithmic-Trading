@@ -16,7 +16,6 @@ def distribute_funds():
         metrics = algo.get_metrics(allocMetricDays)
         w.append(metrics['mean']['long'])
         w.append(metrics['mean']['short'])
-        
     w = np.array(w)
 
     # get weight region lengths

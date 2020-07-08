@@ -1,10 +1,9 @@
 import alpacaAPI, g
 from config import algoPath, maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice, minTradeBuyPow
-from timing import get_timestamp, get_date
+from timing import get_time, get_date
 from warn import warn
 
 import json, os
-import pandas as pd
 import statistics as stats
 
 # create algoPath if needed
@@ -37,7 +36,7 @@ class Algo:
         # qty is positive for buy/long and negative for sell/short
 
         # risk and performance metrics
-        self.history = pd.DataFrame()
+        self.history = {} # {date: {time: event, equity}}
         self.mean = {'long': 0, 'short': 0} # average daily growth
         self.stdev = {'long': 0, 'short': 0} # sample standard deviation of daily growth
         self.allocFrac = 0
@@ -91,60 +90,41 @@ class Algo:
 
     def update_history(self, event):
         # event: 'start' or 'stop'
-
-        index = pd.MultiIndex.from_arrays(
-            [[get_date()], [get_timestamp()]],
-            names=['date', 'timestamp'])
-        
-        snapshot = pd.DataFrame(dict(
-            date = get_date(),
-            timestamp = get_timestamp(),
-            event = event,
-            live = self.live,
-            longEquity = self.equity['long'],
-            shortEquity = self.equity['short']
-        ), index)
-
-        self.history = self.history.append(snapshot)
+        date = get_date()
+        if date not in self.history:
+            self.history[date] = {}
+        self.history[date][get_time()] = {
+            'event': event,
+            'equity': self.equity
+        }
 
     def get_metrics(self, numDays):
-        # get dates
-        levelVals = self.history.index.get_level_values('date')
-        dates = []
-        for date in reversed(levelVals):
-            if date not in dates:
-                dates.append(date)
-            if len(dates) == numDays: break
-
-        # get equity growth
-        growth = {'long': [], 'short': []}
-        for ii, date in enumerate(dates):
-            day = self.history.loc[date]
-            growth['long'][ii] = 0
-            growth['short'][ii] = 0
-            startEquity = None
-            for _, row in day.iterrows():
-                if row.event == 'start':
-                    startEquity = {
-                        'long': row.longEquity,
-                        'short': row.shortEquity
-                    }
-                elif row.event == 'stop' and startEquity:
-                    stopEquity = {
-                        'long': row.longEquity,
-                        'short': row.shortEquity
-                    }
-                    for longShort in ('long', 'short'):
-                        growth[longShort][ii] += (1 + growth[longShort][ii]) * \
-                            (stopEquity[longShort] - startEquity[longShort]) / startEquity[longShort]
+        try: # calculate growth
+            growth = {'long': [], 'short': []}
+            dates = sorted(self.history, reverse=True)
+            for ii, date in enumerate(dates[:numDays]):
+                day = self.history[date]
+                growth['long'][ii] = 0
+                growth['short'][ii] = 0
+                startEquity = {}
+                for entry in day:
+                    if entry['event'] == 'start':
+                        startEquity = entry['equity']
+                    elif entry['event'] == 'stop' and startEquity:
+                        stopEquity = entry['equity']
+                        for longShort in ('long', 'short'):
+                            growth[longShort][ii] += (1 + growth[longShort][ii]) * \
+                                (stopEquity[longShort] - startEquity[longShort]) / startEquity[longShort]
+                        startEquity = {}
+        except Exception as e: warn(e)
         
-        # calculate mean and stdev
-        metrics = {'mean': {}, 'stdev': {}}
-        for longShort in ('long', 'short'):
-            metrics['mean'][longShort] = stats.mean(growth[longShort])
-            metrics['stdev'][longShort] = stats.stdev(growth[longShort])
-        
-        return metrics
+        try: # calculate mean and stdev
+            metrics = {'mean': {}, 'stdev': {}}
+            for longShort in ('long', 'short'):
+                metrics['mean'][longShort] = stats.mean(growth[longShort])
+                metrics['stdev'][longShort] = stats.stdev(growth[longShort])
+            return metrics
+        except Exception as e: warn(e)
 
     def set_live(self, live):
         # live: bool; whether algo uses real money
