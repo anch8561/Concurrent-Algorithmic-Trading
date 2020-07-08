@@ -6,7 +6,7 @@ from config import maxPosFrac, minTradeBuyPow
 intradayAlgos = []
 
 def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
-    indicator = str(1) + '_' + barFreq + '_momentum'
+    indicator = str(1) + '_' + self.barFreq + '_momentum'
     # NOTE: could use multibar momentum also
     
     for symbol, asset in g.assets.items():
@@ -29,7 +29,6 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
         ):
             self.exit_position(symbol)
 
-barFreq = 'min'
 for exitNumBars in (1, 2, 3, 5):
     for enterNumBars in (1, 2, 3, 5):
         if enterNumBars >= exitNumBars:
@@ -38,7 +37,7 @@ for exitNumBars in (1, 2, 3, 5):
                     momentum,
                     enterNumBars = enterNumBars,
                     exitNumBars = exitNumBars,
-                    barFreq = barFreq
+                    barFreq = 'min'
                 )
             ]
 
@@ -70,17 +69,16 @@ def momentum_volume(self): # kwargs: numBars
         if metrics[symbol] > 0: break
         self.enter_position(symbol, 'sell')
 
-barFreq = 'day'
 for numBars in (3, 5, 10):
     overnightAlgos.append(
-        NightAlgo(momentum_volume, numBars=numBars, barFreq=barFreq))
+        NightAlgo(momentum_volume, numBars=numBars, barFreq='day'))
 
 # multiday
 multidayAlgos = []
 
 def crossover(self): # kwargs: fastNumBars, fastBarFreq, fastMovAvg, slowNumBars, slowBarFreq, slowMovAvg
-    fastInd = str(self.fastNumBars) + self.fastBarFreq + self.fastMovAvg.capitalize()
-    slowInd = str(self.slowNumBars) + self.slowBarFreq + self.slowMovAvg.capitalize()
+    fastInd = str(self.fastNumBars) + '_' + self.fastBarFreq + '_' + self.fastMovAvg
+    slowInd = str(self.slowNumBars) + '_' + self.slowBarFreq + '_' + self.slowMovAvg
 
     for symbol, asset in g.assets.items():
         # enter position
@@ -102,20 +100,20 @@ def crossover(self): # kwargs: fastNumBars, fastBarFreq, fastMovAvg, slowNumBars
         ):
             self.exit_position(symbol)
 
-# for movAvg in ('SMA', 'EMA', 'KAMA'):
-#     for slowNumBars in (5, 10, 20):
-#         for fastNumBars in (3, 5, 10):
-#             if slowNumBars > fastNumBars:
-#                 multidayAlgos += [
-#                     DayAlgo(
-#                         crossover,
-#                         fastNumBars = fastNumBars,
-#                         fastBarFreq = 'day',
-#                         fastMovAvg = movAvg,
-#                         slowNumBars = slowNumBars,
-#                         slowBarFreq = 'day',
-#                         slowMovAvg = movAvg)
-#                 ]
+for movAvg in ('SMA', 'EMA', 'KAMA'):
+    for slowNumBars in (5, 10, 20):
+        for fastNumBars in (3, 5, 10):
+            if slowNumBars > fastNumBars:
+                multidayAlgos += [
+                    DayAlgo(
+                        crossover,
+                        fastNumBars = fastNumBars,
+                        fastBarFreq = 'day',
+                        fastMovAvg = movAvg,
+                        slowNumBars = slowNumBars,
+                        slowBarFreq = 'day',
+                        slowMovAvg = movAvg)
+                ]
 
 # all algos list
 allAlgos = intradayAlgos + overnightAlgos + multidayAlgos

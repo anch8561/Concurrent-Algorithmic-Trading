@@ -56,12 +56,14 @@ class Algo:
         self.load_data()
 
     def start(self):
+        self.cancel_all_orders()
         self.update_equity()
         self.update_history('start')
         self.save_data()
         self.active = True
     
     def stop(self):
+        self.cancel_all_orders()
         self.update_equity()
         self.update_history('stop')
         self.save_data()
@@ -99,7 +101,7 @@ class Algo:
         }
 
     def get_metrics(self, numDays):
-        try: # calculate growth
+        try: # calculate growth # FIX: overnight algos start and stop on different days
             growth = {'long': [], 'short': []}
             dates = sorted(self.history, reverse=True)
             for ii, date in enumerate(dates[:numDays]):
@@ -340,6 +342,10 @@ class Algo:
         self.alpaca.cancel_order(orderID)
         self.orders.pop(orderID)
         self.allOrders.pop(orderID)
+
+    def cancel_all_orders(self):
+        for orderID in self.orders:
+            self.cancel_order(orderID)
 
     def save_data(self):
         try: # get data

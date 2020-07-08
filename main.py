@@ -7,6 +7,7 @@ from indicators import indicators
 from streaming import stream
 from timing import update_timing, get_date, is_new_week_since
 from update_tradable_assets import update_tradable_assets
+from warn import warn
 
 from datetime import timedelta
 from threading import Thread
@@ -37,16 +38,14 @@ def handoff_BP(oldAlgos, newAlgos):
             algo.stop()
     return not oldActive
 
-# stream alpaca
-channels = ['account_updates', 'trade_updates']
-for symbol in g.assets:
-    channels += [f'AM.{symbol}'] # TODO: second bars
-Thread(target=stream, args=(connPaper, channels)).start()
-print(f'Streaming {len(g.assets)} tickers')
+# allocate buying power
+for algo in allAlgos:
+    algo.buyPow['long'] = 5000
+    algo.buyPow['short'] = 5000
 
 # start algos
 for algo in multidayAlgos: algo.start()
-state = 'night' # day, night
+state = 'day' # day, night
 if state == 'night':
     for algo in overnightAlgos: algo.start()
 elif state == 'day':
@@ -56,21 +55,38 @@ elif state == 'day':
 lastAllocUpdate = None
 lastSymbolUpdate = None
 print('Entering main loop')
-while True:
+numLoops = 0
+while numLoops < 60:
+    numLoops += 1
     update_timing()
 
     # update buying power
-    if lastAllocUpdate != get_date():
-        distribute_funds()
-        lastAllocUpdate = get_date()
+    # if lastAllocUpdate != get_date():
+    #     distribute_funds()
+    #     lastAllocUpdate = get_date()
 
     # update symbols
     if (
         lastSymbolUpdate != get_date() and # weren't updated today
         g.TTOpen < timedelta(hours=1) # < 1 hour until market open
     ):
+        # update symbols
         update_tradable_assets(100)
         lastSymbolUpdate = get_date()
+
+        # stop previous stream thread
+        try: streamThread.stop()
+        except Exception as e: warn(e)
+
+        # update channels
+        channels = ['account_updates', 'trade_updates']
+        for symbol in g.assets:
+            channels += [f'AM.{symbol}'] # TODO: second bars
+        
+        # start new stream thread
+        streamThread = Thread(target=stream, args=(connPaper, channels))
+        streamThread.start()
+        print(f'Streaming {len(g.assets)} tickers')
 
     if ( # market is open
         g.TTOpen < timedelta(0) and
@@ -112,6 +128,9 @@ while True:
     else:
         print('Market is closed')
 
-    # TODO: wait remainder of 1 sec
+    # TODO: wait for new bars
     print('Waiting for bars')
     sleep(10)
+
+for algo in allAlgos:
+    if algo.active: algo.stop()

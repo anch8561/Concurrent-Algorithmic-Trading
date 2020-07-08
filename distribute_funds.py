@@ -19,9 +19,12 @@ def distribute_funds():
                 metrics = algo.get_metrics(allocMetricDays)
                 w.append(metrics['mean']['long'])
                 w.append(metrics['mean']['short'])
+                print(f'{algo.name}')
+                print(f"\tlong:  {metrics['mean']['long']}\t+/- {metrics['stdev']['long']}")
+                print(f"\tshort: {metrics['mean']['short']}\t+/- {metrics['stdev']['short']}")
             except:
                 warn(f'{algo.name} missing performance data')
-                w += [0, 0]
+                w += [0, 0] # FIX: new algos never get money
         w = np.array(w)
     except Exception as e: warn(e)
 
