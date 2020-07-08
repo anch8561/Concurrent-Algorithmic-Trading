@@ -3,16 +3,14 @@ verbose = False
 TTOpen = None # timedelta; time until open (open time - current time)
 TTClose = None # timedelta; time until close (close time - current time)
 
-assets = {} # {symbol: {easyToBorrow, secBars, minBars, dayBars, <various indicators>}}
-# 'easyToBorrow': bool; whether easy_to_borrow on alpaca
+assets = {} # {symbol: {secBars, minBars, dayBars, <various indicators>}}
 # 'secBars': pd.dataframe; past 10k second bars
 # 'minBars': pd.dataframe; past 1k minute bars
 # 'dayBars': pd.dataframe; past 100 day bars
 # indicators: messy lists
 
 # TODO: reorganize assets
-# assets = {} # {symbol: {easyToBorrow, sec, min, day}}
-# # 'easyToBorrow': bool; whether easy_to_borrow on alpaca
+# assets = {} # {symbol: {sec, min, day}}
 # # 'sec': pd.dataframe; past 10k second bars and indicators
 # # 'min': pd.dataframe; past 1k minute bars and indicators
 # # 'day': pd.dataframe; past 100 day bars and indicators

@@ -141,8 +141,6 @@ class Algo:
 
     def enter_position(self, symbol, side):
         # symbol: e.g. 'AAPL'
-        
-        if side == 'sell' and not g.assets[symbol]['easyToBorrow']: return
 
         # get price and qty
         price = self.get_limit_price(symbol, side)

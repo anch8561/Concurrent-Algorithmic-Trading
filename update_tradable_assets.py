@@ -22,6 +22,7 @@ def update_tradable_assets(numAssets=None):
         print(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}')
         if (
             asset.marginable and
+            asset.shortable and
             not any(x in asset.name.lower() for x in leverageStrings)
         ):
             for ticker in polygonTickers:
@@ -50,21 +51,6 @@ def update_tradable_assets(numAssets=None):
             print(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
             add_asset(symbol)
 
-    # set easyToBorrow flag
-    for asset in alpacaAssets:
-        symbol = asset.symbol
-        if symbol in g.assets:
-            g.assets[symbol]['easyToBorrow'] = asset.easy_to_borrow
-            if not asset.easy_to_borrow:
-                for algo in allAlgos:
-                    qty = algo.positions[symbol]['qty']
-                    if qty < 0: warn(f'{algo.name} {qty} HTB shares of {symbol}')
-        
-    # TODO: sector, industry, and metrics
-
-    # set lastSymbolUpdate
-    g.lastSymbolUpdate = get_date()
-
 
 def remove_asset(symbol, alpacaAssets, polygonTickers):
     # remove from assets
@@ -74,6 +60,7 @@ def remove_asset(symbol, alpacaAssets, polygonTickers):
     removalReasons = [
         'inactive',
         'unmarginable',
+        'unshortable',
         'leveraged',
         'noTicker',
         'lowVolume',
@@ -84,6 +71,8 @@ def remove_asset(symbol, alpacaAssets, polygonTickers):
             removalReasons.remove('inactive')
             if asset.marginable:
                 removalReasons.remove('unmarginable')
+            if asset.shortable:
+                removalReasons.remove('unshortable')
             if not any(x in asset.name.lower() for x in leverageStrings):
                 removalReasons.remove('leveraged')
             for ticker in polygonTickers:
