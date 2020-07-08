@@ -10,64 +10,77 @@ buyPow = 200000 # FIX: for testing
 regTBuyPow = 100000
 
 def distribute_funds():
-    # get performance weights
-    w = []
-    for algo in allAlgos:
-        metrics = algo.get_metrics(allocMetricDays)
-        w.append(metrics['mean']['long'])
-        w.append(metrics['mean']['short'])
-    w = np.array(w)
+    print('Allocating buying power')
 
-    # get weight region lengths
-    n = len(w)
-    n_intraday = len(intradayAlgos) * 2
-    n_overnight = len(overnightAlgos) * 2
-    n_multiday = len(multidayAlgos) * 2
+    try: # get performance weights
+        w = []
+        for algo in allAlgos:
+            try:
+                metrics = algo.get_metrics(allocMetricDays)
+                w.append(metrics['mean']['long'])
+                w.append(metrics['mean']['short'])
+            except:
+                warn(f'{algo.name} missing performance data')
+                w += [0, 0]
+        w = np.array(w)
+    except Exception as e: warn(e)
 
-    # set opt func
-    func = lambda x: - x * w
+    try: # get weight region lengths
+        n_all = len(allAlgos) * 2
+        n_intraday = len(intradayAlgos) * 2
+        n_overnight = len(overnightAlgos) * 2
+        n_multiday = len(multidayAlgos) * 2
+    except Exception as e: warn(e)
 
-    # set initial guess
-    x0 = [0] * n
+    try: # set objective function and initial guess
+        func = lambda x: - np.dot(x, w)
+        x0 = [0] * n_all
+    except Exception as e: warn(e)
 
-    # set allcoation bounds
-    bounds = opt.Bounds(
-        lb = [0] * n,
-        ub = [maxAllocFrac] * n
-    )
+    try: # set allcoation bounds
+        bounds = opt.Bounds(
+            lb = [0] * n_all,
+            ub = [maxAllocFrac] * n_all
+        )
+    except Exception as e: warn(e)
     
-    # set allocation constraints
-    constraints = opt.LinearConstraint(
-        A = [
-            [1, -1] * (n/2), # longShortFrac bounds
+    try: # set allocation constraints
+        constraints = opt.LinearConstraint(
+            A = [
+                [1, -1] * int(n_all / 2), # longShortFrac bounds
 
-            # overnight + multiday <= regT
-            [0] * n_intraday + [1] * (n_overnight + n_multiday),
+                # overnight + multiday <= regT
+                [0] * n_intraday + [1] * (n_overnight + n_multiday),
 
-            # intraday + multiday <= daytrading
-            [1] * n_intraday + [0] * n_overnight + [1] * n_multiday
-        ],
-        lb = [
-            minLongShortFrac * 2 - 1, # longShortFrac bounds
-            0, # overnight + multiday <= regT
-            0 # intraday + multiday <= daytrading
-        ],
-        ub = [
-            maxLongShortFrac * 2 - 1, # longShortFrac bounds
-            regTBuyPow / buyPow, # overnight + multiday <= regT
-            1 # intraday + multiday <= daytrading
-        ]
-    )
+                # intraday + multiday <= daytrading
+                [1] * n_intraday + [0] * n_overnight + [1] * n_multiday
+            ],
+            lb = [
+                minLongShortFrac * 2 - 1, # longShortFrac bounds
+                0, # overnight + multiday <= regT
+                0 # intraday + multiday <= daytrading
+            ],
+            ub = [
+                maxLongShortFrac * 2 - 1, # longShortFrac bounds
+                regTBuyPow / buyPow, # overnight + multiday <= regT
+                1 # intraday + multiday <= daytrading
+            ]
+        )
+    except Exception as e: warn(e)
 
-    # calculate allocation
-    x = opt.minimize(func, x0,
-        bounds = bounds,
-        constraints = constraints)
+    try: # calculate allocation
+        results = opt.minimize(func, x0,
+            bounds = bounds,
+            constraints = constraints)
+        allocFrac = results.x
+    except Exception as e: warn(e)
 
-    # distribute buying power
+    # try: # distribute buying power
     for ii, algo in enumerate(allAlgos):
-        algo.buyPow['long'] = x[ii*2] * buyPow
-        algo.buyPow['short'] = x[ii*2+1] * buyPow
+        algo.buyPow['long'] = int(allocFrac[ii*2] * buyPow)
+        algo.buyPow['short'] = int(allocFrac[ii*2+1] * buyPow)
+        print(f'{algo.name}\n\t{algo.buyPow}')
+    # except Exception as e: warn(e)
 
 def get_overnight_fee(self, debt):
         # accrues daily (including weekends) and posts at end of month

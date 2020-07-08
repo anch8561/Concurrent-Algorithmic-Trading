@@ -21,15 +21,14 @@ def warn(message, extraInfo=None, fileName=None):
     stack.pop() # remove warn()
 
     # print message to terminal
-    print('WARNING: ' + timestamp)
-    print(message)
+    print('WARNING: ' + message)
+    print(timestamp)
     print(stack[-1])
 
     # write message and stack to files
     for fileName in fileNames:
         with open(fileName, 'a') as f:
-            f.write('WARNING: ' + timestamp + '\n')
-            f.write(message + '\n')
+            f.write(timestamp + ' WARNING: ' + message + '\n')
             if extraInfo: f.write(extraInfo + '\n')
             for item in stack:
                 f.write(item)

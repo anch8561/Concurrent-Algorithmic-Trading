@@ -60,16 +60,16 @@ while True:
     update_timing()
 
     # update buying power
-    # if lastAllocUpdate != get_date():
-    #     distribute_funds()
-    #     lastAllocUpdate = get_date()
+    if lastAllocUpdate != get_date():
+        distribute_funds()
+        lastAllocUpdate = get_date()
 
     # update symbols
     if (
         lastSymbolUpdate != get_date() and # weren't updated today
         g.TTOpen < timedelta(hours=1) # < 1 hour until market open
     ):
-        update_tradable_assets()
+        update_tradable_assets(100)
         lastSymbolUpdate = get_date()
 
     if ( # market is open

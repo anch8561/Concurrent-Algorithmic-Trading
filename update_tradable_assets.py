@@ -7,13 +7,13 @@ from warn import warn
 
 import pandas as pd
 
-def update_tradable_assets(debugging=False, numDebugAssets=100):
+def update_tradable_assets(numAssets=None):
 
     print('Updating tradable assets')
 
     # get alpaca assets and polygon tickers
     alpacaAssets = alpaca.list_assets('active', 'us_equity')
-    if debugging: alpacaAssets = alpacaAssets[:numDebugAssets]
+    if numAssets: alpacaAssets = alpacaAssets[:numAssets]
     polygonTickers = alpaca.polygon.all_tickers()
 
     # get active symbols

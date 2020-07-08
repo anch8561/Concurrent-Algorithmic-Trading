@@ -103,11 +103,10 @@ class Algo:
             growth = {'long': [], 'short': []}
             dates = sorted(self.history, reverse=True)
             for ii, date in enumerate(dates[:numDays]):
-                day = self.history[date]
-                growth['long'][ii] = 0
-                growth['short'][ii] = 0
+                growth['long'].append(0)
+                growth['short'].append(0)
                 startEquity = {}
-                for entry in day:
+                for entry in self.history[date].values():
                     if entry['event'] == 'start':
                         startEquity = entry['equity']
                     elif entry['event'] == 'stop' and startEquity:
@@ -116,7 +115,7 @@ class Algo:
                             growth[longShort][ii] += (1 + growth[longShort][ii]) * \
                                 (stopEquity[longShort] - startEquity[longShort]) / startEquity[longShort]
                         startEquity = {}
-        except Exception as e: warn(e)
+        except Exception as e: warn(f'{self.name}\n{e}')
         
         try: # calculate mean and stdev
             metrics = {'mean': {}, 'stdev': {}}
@@ -124,7 +123,7 @@ class Algo:
                 metrics['mean'][longShort] = stats.mean(growth[longShort])
                 metrics['stdev'][longShort] = stats.stdev(growth[longShort])
             return metrics
-        except Exception as e: warn(e)
+        except Exception as e: warn(f'{self.name}\n{e}')
 
     def set_live(self, live):
         # live: bool; whether algo uses real money
