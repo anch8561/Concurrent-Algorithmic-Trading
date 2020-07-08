@@ -1,6 +1,7 @@
+verbose = False
+
 TTOpen = None # timedelta; time until open (open time - current time)
 TTClose = None # timedelta; time until close (close time - current time)
-
 
 assets = {} # {symbol: {easyToBorrow, secBars, minBars, dayBars, <various indicators>}}
 # 'easyToBorrow': bool; whether easy_to_borrow on alpaca
