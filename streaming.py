@@ -20,6 +20,7 @@ def save_bar(barType, data):
         'low': data.low,
         'close': data.close,
         'volume': data.volume,
+        'processed': False
     }, index=[data.start])
     g.assets[data.symbol][barType] = \
         g.assets[data.symbol][barType].append(df)

@@ -123,6 +123,7 @@ def add_asset(symbol):
     toDate = get_date()
     g.assets[symbol]['minBars'] = \
         alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate).df
+    g.assets[symbol]['minBars']['processed'] = False
 
     # get dayBars
     fromDate = get_market_date(-100)

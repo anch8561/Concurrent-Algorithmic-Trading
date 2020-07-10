@@ -52,7 +52,6 @@ elif state == 'day':
     for algo in intradayAlgos: algo.start()
 
 # main loop
-lastAllocUpdate = None
 lastSymbolUpdate = None
 print('Entering main loop')
 numLoops = 0
@@ -87,11 +86,15 @@ while numLoops < 60:
         streamThread = Thread(target=stream, args=(connPaper, channels))
         streamThread.start()
         print(f'Streaming {len(g.assets)} tickers')
-
+    
     if ( # market is open
+        all(asset['minBars']['processed'].iloc[-1] == False for asset in g.assets.values()) and
         g.TTOpen < timedelta(0) and
-        g.TTClose > timedelta(0)
+        g.TTClose > timedelta(0) 
     ):
+        for asset in g.assets.values():
+            asset['minBars']['processed'].iloc[-1] == True 
+        
         closingSoon = g.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
 
         # update indicators
@@ -127,10 +130,12 @@ while numLoops < 60:
             for algo in multidayAlgos: algo.tick()
     else:
         print('Market is closed')
+    
+
 
     # TODO: wait for new bars
     print('Waiting for bars')
-    sleep(10)
+
 
 for algo in allAlgos:
     if algo.active: algo.stop()
