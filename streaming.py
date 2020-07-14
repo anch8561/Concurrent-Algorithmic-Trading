@@ -34,6 +34,8 @@ def process_bar(barFreq, data):
     except Exception as e: warn(e, data)
 
 def process_trade(data):
+    g.processingTrade = True
+    
     try: # get trade info
         event = data.event
         orderID = data.order['id']
@@ -114,6 +116,8 @@ def process_trade(data):
             allOrders.pop(orderID)
             algo.orders.pop(orderID)
         except Exception as e: warn(f'{e}', f'{data}')
+
+        g.processingTrade = False
 
 def process_all_trades():
     for trade in trades:

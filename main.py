@@ -108,6 +108,7 @@ while True:
 
             # block trade updates
             g.tickingAlgos = True
+            while g.processingTrade: pass
 
             # tick algos
             if state == 'night' and not closingSoon:
