@@ -1,17 +1,20 @@
 from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 from alpacaAPI import alpacaLive, alpacaPaper
-from config import minAllocBuyPow, maxAllocFrac, minLongShortFrac, maxLongShortFrac, allocMetricDays
+from config import verbose, minAllocBuyPow, maxAllocFrac, minLongShortFrac, maxLongShortFrac, allocMetricDays
 from warn import warn
 
 import numpy as np
 import scipy.optimize as opt
 
-account = alpacaPaper.get_account() # FIX: paper
-buyPow = float(account.daytrading_buying_power)
-regTBuyPow = float(account.regt_buying_power)
-
 def distribute_funds():
     print('Allocating buying power')
+
+    # get buying power
+    account = alpacaPaper.get_account() # FIX: paper
+    buyPow = float(account.daytrading_buying_power)
+    regTBuyPow = float(account.regt_buying_power)
+    print(f'Daytrading buying power: {buyPow}')
+    print(f'Overnight buying power:  {regTBuyPow}')
 
     try: # get performance weights
         w = []
@@ -34,9 +37,10 @@ def distribute_funds():
                 warn(f'{algo.name} missing performance data')
 
             try:
-                print(f'{algo.name}')
-                print(f"\tlong growth:  {metrics['mean']['long']}\t+/- {metrics['stdev']['long']}")
-                print(f"\tshort growth: {metrics['mean']['short']}\t+/- {metrics['stdev']['short']}")
+                if verbose:
+                    print(f'{algo.name}')
+                    print(f"\tlong growth:  {metrics['mean']['long']}\t+/- {metrics['stdev']['long']}")
+                    print(f"\tshort growth: {metrics['mean']['short']}\t+/- {metrics['stdev']['short']}")
             except:
                 warn(f'{algo.name} missing risk data')
         w = np.array(w)

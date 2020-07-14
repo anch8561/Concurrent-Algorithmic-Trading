@@ -1,5 +1,7 @@
 algoPath = 'algos/'
 
+verbose = True
+
 minAllocBuyPow = 10000
 maxAllocFrac = 0.1
 
