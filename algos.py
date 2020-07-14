@@ -9,22 +9,22 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
     indicator = str(1) + '_' + self.barFreq + '_momentum'
     # NOTE: could use multibar momentum also
     
-    for symbol, asset in g.assets.items():
+    for symbol, bars in g.assets[self.barFreq].items():
         # enter position
         if self.positions[symbol]['qty'] == 0: # no position
-            if all(ii >= 0 for ii in asset[indicator][-self.enterNumBars:]): # momentum up
+            if all(ii >= 0 for ii in bars[indicator][-self.enterNumBars:]): # momentum up
                 self.enter_position(symbol, 'buy')
-            elif all(ii <= 0 for ii in asset[indicator][-self.enterNumBars:]): # momentum down
+            elif all(ii <= 0 for ii in bars[indicator][-self.enterNumBars:]): # momentum down
                 self.enter_position(symbol, 'sell')
         
         # exit position
         if (
             (
                 self.positions[symbol]['qty'] > 0 and # long
-                all(ii <= 0 for ii in asset[indicator][-self.exitNumBars:]) # momentum down
+                all(ii <= 0 for ii in bars[indicator][-self.exitNumBars:]) # momentum down
             ) or (
                 self.positions[symbol]['qty'] < 0 and # short
-                all(ii >= 0 for ii in asset[indicator][-self.exitNumBars:]) # momentum up
+                all(ii >= 0 for ii in bars[indicator][-self.exitNumBars:]) # momentum up
             )
         ):
             self.exit_position(symbol)
@@ -50,10 +50,10 @@ def momentum_volume(self): # kwargs: numBars
     # sort symbols
     indicatorPrefix = str(self.numBars) + '_' + self.barFreq
     metrics = {}
-    for symbol, asset in g.assets.items():
+    for symbol, bars in g.assets[self.barFreq].items():
         try: metrics[symbol] = \
-            asset[indicatorPrefix + '_momentum'][-1] * \
-            asset[indicatorPrefix + '_volume_num_stdevs'][-1]
+            bars[indicatorPrefix + '_momentum'][-1] * \
+            bars[indicatorPrefix + '_volume_num_stdevs'][-1]
         except: pass
     sortedSymbols = sorted(metrics, key=lambda symbol: metrics[symbol])
 
@@ -76,26 +76,26 @@ for numBars in (3, 5, 10):
 # multiday
 multidayAlgos = []
 
-def crossover(self): # kwargs: fastNumBars, fastBarFreq, fastMovAvg, slowNumBars, slowBarFreq, slowMovAvg
-    fastInd = str(self.fastNumBars) + '_' + self.fastBarFreq + '_' + self.fastMovAvg
-    slowInd = str(self.slowNumBars) + '_' + self.slowBarFreq + '_' + self.slowMovAvg
+def crossover(self): # kwargs: barFreq, fastNumBars, fastMovAvg, slowNumBars, slowMovAvg
+    fastInd = str(self.fastNumBars) + '_' + self.barFreq + '_' + self.fastMovAvg
+    slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_' + self.slowMovAvg
 
-    for symbol, asset in g.assets.items():
+    for symbol, bars in g.assets[self.barFreq].items():
         # enter position
         if self.positions[symbol]['qty'] == 0: # no position
-            if asset[fastInd][-1] < asset[slowInd][-1]: # oversold
+            if bars[fastInd][-1] < bars[slowInd][-1]: # oversold
                 self.enter_position(symbol, 'buy')
-            elif asset[fastInd][-1] > asset[slowInd][-1]: # overbought
+            elif bars[fastInd][-1] > bars[slowInd][-1]: # overbought
                 self.enter_position(symbol, 'sell')
         
         # exit position
         if (
             (
                 self.positions[symbol]['qty'] > 0 and # long
-                asset[fastInd][-1] > asset[slowInd][-1] # overbought
+                bars[fastInd][-1] > bars[slowInd][-1] # overbought
             ) or (
                 self.positions[symbol]['qty'] < 0 and # short
-                asset[fastInd][-1] < asset[slowInd][-1] # oversold
+                bars[fastInd][-1] < bars[slowInd][-1] # oversold
             )
         ):
             self.exit_position(symbol)
@@ -107,11 +107,10 @@ for movAvg in ('SMA', 'EMA', 'KAMA'):
                 multidayAlgos += [
                     DayAlgo(
                         crossover,
+                        barFreq = 'day',
                         fastNumBars = fastNumBars,
-                        fastBarFreq = 'day',
                         fastMovAvg = movAvg,
                         slowNumBars = slowNumBars,
-                        slowBarFreq = 'day',
                         slowMovAvg = movAvg)
                 ]
 

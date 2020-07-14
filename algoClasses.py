@@ -1,5 +1,5 @@
 import alpacaAPI, g
-from config import algoPath, maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice, minTradeBuyPow
+from config import algoPath, verbose, maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice, minTradeBuyPow
 from timing import get_time, get_date
 from warn import warn
 
@@ -186,7 +186,7 @@ class Algo:
 
     def get_price(self, symbol):
         try:
-            return g.assets[symbol]['min'].iloc[-1].close # TODO: secBars
+            return g.assets['min'][symbol].close.iloc[-1] # TODO: secBars
         except Exception as e:
             warn(e)
             return 0
@@ -223,30 +223,30 @@ class Algo:
 
         # check price
         if side == 'buy' and price < minLongPrice:
-            if g.verbose: print(f'{self.name}\t{symbol}\tshare price < {minLongPrice}')
+            if verbose: print(f'{self.name}\t{symbol}\tshare price < {minLongPrice}')
             return 0
         elif side == 'sell' and price < minShortPrice:
-            if g.verbose: print(f'{self.name}\t{symbol}\tshare price < {minShortPrice}')
+            if verbose: print(f'{self.name}\t{symbol}\tshare price < {minShortPrice}')
             return 0
 
         # set quantity
         qty = int(maxPosFrac * equity / price)
-        if g.verbose: print(f'{self.name}\t{symbol}\tqty: {qty}')
+        if verbose: print(f'{self.name}\t{symbol}\tqty: {qty}')
 
         # check buying power
         if qty * price > buyPow:
             qty = int(buyPow / price)
-            if g.verbose: print(f'{self.name}\t{symbol}\tbuyPow qty limit: {qty}')
+            if verbose: print(f'{self.name}\t{symbol}\tbuyPow qty limit: {qty}')
         
         # check volume
         try:
-            volume = g.assets[symbol][barFreq].iloc[-1].volume
+            volume = g.assets[barFreq][symbol].volume.iloc[-1]
         except Exception as e:
             warn(e)
             volume = 0
         if qty > volume * volumeMult:
             qty = volume * volumeMult
-            if g.verbose: print(f'{self.name}\t{symbol}\tvolume qty limit: {qty}')
+            if verbose: print(f'{self.name}\t{symbol}\tvolume qty limit: {qty}')
 
         # check zero
         if qty == 0: return 0
@@ -261,22 +261,22 @@ class Algo:
             if posQty * qty > 0: # same side as position
                 if abs(posQty) < abs(qty): # position is smaller than order
                     qty -= posQty # add to position
-                    if g.verbose: print(f'{self.name}\t{symbol}\tadding {qty} to position of {posQty}')
+                    if verbose: print(f'{self.name}\t{symbol}\tadding {qty} to position of {posQty}')
                 else: # position is large enough
-                    if g.verbose: print(f'{self.name}\t{symbol}\tposition of {posQty} is large enough')
+                    if verbose: print(f'{self.name}\t{symbol}\tposition of {posQty} is large enough')
                     return 0
             elif posQty * qty < 0: # opposite side from position
                 qty = -posQty # exit position
-                if g.verbose: print(f'{self.name}\t{symbol}\texiting position of {posQty}')
+                if verbose: print(f'{self.name}\t{symbol}\texiting position of {posQty}')
 
         # check for existing orders
         for orderID, order in self.orders.items():
             if order['symbol'] == symbol:
                 if order['qty'] * qty < 0: # opposite side
                     self.cancel_order(orderID)
-                    if g.verbose: print(f'{self.name}\t{symbol}\tcancelling opposing order {orderID}')
+                    if verbose: print(f'{self.name}\t{symbol}\tcancelling opposing order {orderID}')
                 else: # same side
-                    if g.verbose: print(f'{self.name}\t{symbol}\talready placed order for {order["qty"]}')
+                    if verbose: print(f'{self.name}\t{symbol}\talready placed order for {order["qty"]}')
                     return 0
 
         # TODO: check risk
@@ -296,7 +296,7 @@ class Algo:
             allPosQty = self.allPositions[symbol]['qty']
             if (allPosQty + qty) * allPosQty < 0: # trade will swap position
                 qty = -allPosQty # exit position
-                if g.verbose: print(f'{self.name}\t{symbol}\texiting global position of {qty}')
+                if verbose: print(f'{self.name}\t{symbol}\texiting global position of {qty}')
         else:
             allPosQty = 0
 
@@ -304,7 +304,7 @@ class Algo:
         if qty > 0 and allPosQty == 0: # buying from zero position
             for orderID, order in self.allOrders.items():
                 if order['symbol'] == symbol and order['qty'] < 0: # pending short
-                    if g.verbose: print(f'{self.name}\t{symbol}\topposing global order {orderID}')
+                    if verbose: print(f'{self.name}\t{symbol}\topposing global order {orderID}')
                     return
 
         # get side

@@ -37,7 +37,7 @@ def update_tradable_assets(numAssets=None):
 
     # get inactive symbols
     inactiveSymbols = []
-    for symbol in g.assets:
+    for symbol in g.assets['sec']:
         if symbol not in activeSymbols:
             inactiveSymbols.append(symbol)
     
@@ -48,14 +48,15 @@ def update_tradable_assets(numAssets=None):
 
     # add active assets
     for ii, symbol in enumerate(activeSymbols):
-        if symbol not in g.assets:
+        if symbol not in g.assets['sec']:
             print(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
             add_asset(symbol)
 
 
 def remove_asset(symbol, alpacaAssets, polygonTickers):
     # remove from assets
-    g.assets.pop(symbol)
+    for barFreq in g.assets:
+        g.assets[barFreq].pop(symbol)
 
     # get reasons for removal
     removalReasons = [
@@ -108,16 +109,13 @@ positionsList = [g.paperPositions, g.livePositions]
 positionsList += [algo.positions for algo in allAlgos]
 
 def add_asset(symbol):
-    # add key
-    g.assets[symbol] = {}
-
     # add zero positions
     for positions in positionsList:
         if symbol not in positions:
             positions[symbol] = {'qty': 0, 'basis': 0}
 
     # init secBars
-    g.assets[symbol]['secBars'] = pd.DataFrame()
+    g.assets['sec'][symbol] = pd.DataFrame()
 
 
     # GET MINUTE BARS
@@ -137,7 +135,7 @@ def add_asset(symbol):
             bars.iloc[ii, jj] = indicator.get(bars.iloc[:ii])
     
     # write to assets
-    g.assets[symbol]['minBars'] = bars
+    g.assets['min'][symbol] = bars
 
 
     # GET DAY BARS
@@ -156,4 +154,4 @@ def add_asset(symbol):
             bars.iloc[ii, jj] = indicator.get(bars.iloc[:ii])
     
     # write to assets
-    g.assets[symbol]['dayBars'] = bars
+    g.assets['day'][symbol] = bars

@@ -1,3 +1,5 @@
+# NOTE: this file is outdated and unused
+
 import g
 from warn import warn
 

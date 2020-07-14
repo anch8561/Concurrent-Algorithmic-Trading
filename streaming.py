@@ -11,22 +11,27 @@ def process_bar(barFreq, data):
     # barFreq: 'sec', 'min', or 'day'
     # data: raw stream data
 
-    # add bar to g.assets (needs to be initialized first)
-    newBar = pd.DataFrame({
-        'open': data.open,
-        'high': data.high,
-        'low': data.low,
-        'close': data.close,
-        'volume': data.volume,
-        'processed': False
-    }, index=[data.start])
-    g.assets[data.symbol][barFreq] = \
-        g.assets[data.symbol][barFreq].append(newBar)
+    try: # add bar to g.assets (needs to be initialized first)
+        newBar = pd.DataFrame({
+            'open': data.open,
+            'high': data.high,
+            'low': data.low,
+            'close': data.close,
+            'volume': data.volume,
+            'ticked': False
+        }, index=[data.start])
+        bars = g.assets[barFreq][data.symbol].append(newBar)
+    except Exception as e: warn(e, data)
     
-    # get indicators
-    for indicator in indicators[barFreq]:
-        g.assets[data.symbol][barFreq][indicator.name][-1] = \
-            indicator.get(g.assets[data.symbol][barFreq])
+    try: # get indicators
+        for indicator in indicators[barFreq]:
+            jj = bars.columns.get_loc(indicator.name)
+            bars.iloc[-1, jj] = indicator.get(bars)
+    except Exception as e: warn(e, data)
+    
+    try: # save bars
+        g.assets[barFreq][data.symbol] = bars
+    except Exception as e: warn(e, data)
 
 def process_trade(data):
     try: # get trade info
@@ -74,7 +79,7 @@ def process_trade(data):
                     oldBasis = positions[symbol]['basis']
                     positions[symbol]['basis'] = \
                         ((oldBasis * oldQty) + (fillPrice * fillQty)) / (oldQty + fillQty)
-        except Exception as e: warn(f'{e}\n{data}\n{data}')
+        except Exception as e: warn(f'{e}\n{data}')
         
         try: # update position qty
             allPositions[symbol]['qty'] += fillQty

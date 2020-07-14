@@ -118,5 +118,5 @@ for numBars in (3, 5, 10, 20):
 
 
 ## ALL INDICATORS
-for barFreq in ('sec', 'min', 'day'):
+for barFreq in g.assets:
     indicators['all'] += indicators[barFreq]
