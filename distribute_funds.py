@@ -6,8 +6,9 @@ from warn import warn
 import numpy as np
 import scipy.optimize as opt
 
-buyPow = 200000 # FIX: for testing
-regTBuyPow = 100000
+account = alpacaPaper.get_account() # FIX: paper
+buyPow = float(account.daytrading_buying_power)
+regTBuyPow = float(account.regt_buying_power)
 
 def distribute_funds():
     print('Allocating buying power')
@@ -15,16 +16,29 @@ def distribute_funds():
     try: # get performance weights
         w = []
         for algo in allAlgos:
-            try:
+            try: # get performance metrics
                 metrics = algo.get_metrics(allocMetricDays)
-                w.append(metrics['mean']['long'])
-                w.append(metrics['mean']['short'])
-                print(f'{algo.name}')
-                print(f"\tlong:  {metrics['mean']['long']}\t+/- {metrics['stdev']['long']}")
-                print(f"\tshort: {metrics['mean']['short']}\t+/- {metrics['stdev']['short']}")
+
+                try: # get long equity growth
+                    w.append(metrics['mean']['long'])
+                except:
+                    w.append(0)
+                    warn(f'{algo.name} missing long data')
+                
+                try: # get short equity growth
+                    w.append(metrics['mean']['short'])
+                except:
+                    w.append(0)
+                    warn(f'{algo.name} missing short data')
             except:
                 warn(f'{algo.name} missing performance data')
-                w += [0, 0] # FIX: new algos never get money
+
+            try:
+                print(f'{algo.name}')
+                print(f"\tlong growth:  {metrics['mean']['long']}\t+/- {metrics['stdev']['long']}")
+                print(f"\tshort growth: {metrics['mean']['short']}\t+/- {metrics['stdev']['short']}")
+            except:
+                warn(f'{algo.name} missing risk data')
         w = np.array(w)
     except Exception as e: warn(e)
 
@@ -78,12 +92,12 @@ def distribute_funds():
         allocFrac = results.x
     except Exception as e: warn(e)
 
-    # try: # distribute buying power
+    # distribute buying power
+    # NOTE: allowing this to crash if broken
     for ii, algo in enumerate(allAlgos):
         algo.buyPow['long'] = int(allocFrac[ii*2] * buyPow)
         algo.buyPow['short'] = int(allocFrac[ii*2+1] * buyPow)
         print(f'{algo.name}\n\t{algo.buyPow}')
-    # except Exception as e: warn(e)
 
 def get_overnight_fee(self, debt):
         # accrues daily (including weekends) and posts at end of month

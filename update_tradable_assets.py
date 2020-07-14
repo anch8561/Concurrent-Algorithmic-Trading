@@ -2,6 +2,7 @@ import g
 from alpacaAPI import alpacaPaper as alpaca
 from algos import allAlgos
 from config import minSharePrice, minDayVolume, leverageStrings
+from indicators import indicators
 from timing import get_date, get_market_date
 from warn import warn
 
@@ -118,15 +119,41 @@ def add_asset(symbol):
     # init secBars
     g.assets[symbol]['secBars'] = pd.DataFrame()
 
-    # get minBars
+
+    # GET MINUTE BARS
+    # get historic aggs
+    print('    Getting historic min bars')
     fromDate = get_market_date(-1)
     toDate = get_date()
-    g.assets[symbol]['minBars'] = \
-        alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate).df
-    g.assets[symbol]['minBars']['processed'] = False
+    bars = alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate).df.iloc[-100:]
+    bars['ticked'] = False
 
-    # get dayBars
+    # get indicators
+    for kk, indicator in enumerate(indicators['min']):
+        print(f'\tAdding min indicator {kk+1} / {len(indicators["min"])}\t{indicator.name}')
+        bars[indicator.name] = None
+        jj = bars.columns.get_loc(indicator.name)
+        for ii in range(len(bars.index)):
+            bars.iloc[ii, jj] = indicator.get(bars.iloc[:ii])
+    
+    # write to assets
+    g.assets[symbol]['minBars'] = bars
+
+
+    # GET DAY BARS
+    # get historic aggs
+    print('    Getting historic day bars')
     fromDate = get_market_date(-100)
     toDate = get_date()
-    g.assets[symbol]['dayBars'] = \
-        alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
+    bars = alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
+
+    # get indicators
+    for kk, indicator in enumerate(indicators['day']):
+        print(f'\tAdding day indicator {kk+1} / {len(indicators["day"])}\t{indicator.name}')
+        bars[indicator.name] = None
+        jj = bars.columns.get_loc(indicator.name)
+        for ii in range(len(bars.index)):
+            bars.iloc[ii, jj] = indicator.get(bars.iloc[:ii])
+    
+    # write to assets
+    g.assets[symbol]['dayBars'] = bars

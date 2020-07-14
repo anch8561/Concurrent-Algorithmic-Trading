@@ -114,8 +114,10 @@ class Algo:
                     elif entry['event'] == 'stop' and startEquity:
                         stopEquity = entry['equity']
                         for longShort in ('long', 'short'):
-                            growth[longShort][ii] += (1 + growth[longShort][ii]) * \
-                                (stopEquity[longShort] - startEquity[longShort]) / startEquity[longShort]
+                            try:
+                                growth[longShort][ii] += (1 + growth[longShort][ii]) * \
+                                    (stopEquity[longShort] - startEquity[longShort]) / startEquity[longShort]
+                            except: pass # in case start equity is zero
                         startEquity = {}
         except Exception as e: warn(f'{self.name}\n{e}')
         
@@ -123,7 +125,8 @@ class Algo:
             metrics = {'mean': {}, 'stdev': {}}
             for longShort in ('long', 'short'):
                 metrics['mean'][longShort] = stats.mean(growth[longShort])
-                metrics['stdev'][longShort] = stats.stdev(growth[longShort])
+                try: metrics['stdev'][longShort] = stats.stdev(growth[longShort])
+                except: metrics['stdev'][longShort] = None
             return metrics
         except Exception as e: warn(f'{self.name}\n{e}')
 
@@ -183,7 +186,7 @@ class Algo:
 
     def get_price(self, symbol):
         try:
-            return g.assets[symbol]['minBars'].iloc[-1].close # TODO: secBars
+            return g.assets[symbol]['min'].iloc[-1].close # TODO: secBars
         except Exception as e:
             warn(e)
             return 0
@@ -202,12 +205,12 @@ class Algo:
 
         return price
 
-    def get_trade_qty(self, symbol, side, price, volumeMult=1, barType='minBars'):
+    def get_trade_qty(self, symbol, side, price, volumeMult=1, barFreq='min'):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
         # limitPrice: float or None for configured price collar
         # volumeMult: float; volume limit multiplier
-        # barType: 'secBars', 'minBars', or 'dayBars'; bar type for checking volume limit
+        # barFreq: 'sec', 'min', or 'day'; bar frequency for checking volume limit
         # returns: int; signed # of shares to trade (positive buy, negative sell)
 
         # get buying power and equity
@@ -237,7 +240,7 @@ class Algo:
         
         # check volume
         try:
-            volume = g.assets[symbol][barType].iloc[-1].volume
+            volume = g.assets[symbol][barFreq].iloc[-1].volume
         except Exception as e:
             warn(e)
             volume = 0

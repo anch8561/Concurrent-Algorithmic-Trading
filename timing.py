@@ -1,5 +1,5 @@
 import g
-from alpacaAPI import alpacaPaper
+from alpacaAPI import alpacaPaper as alpaca
 from warn import warn
 
 from datetime import datetime, timedelta
@@ -16,7 +16,7 @@ def update_timing():
     # update calendar
     if lastCalendarUpdate < get_date():
         nyc = timezone('America/New_York')
-        calendar = alpacaPaper.get_calendar()
+        calendar = alpaca.get_calendar()
         todayStr = datetime.now(nyc).strftime('%Y-%m-%d')
         for ii, date in enumerate(calendar):
             if date._raw['date'] >= todayStr: # current or next market day
@@ -107,3 +107,5 @@ def is_new_week_since(dateStr):
 
     # was date before monday
     return date < monday
+
+update_timing()

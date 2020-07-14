@@ -7,96 +7,116 @@ import statistics as stats
 # TODO: confirm indices have correct timestamps
 
 class Indicator:
-    def __init__(self, func, numBars, barFreq, **kwargs):
-        self.func = func
+    def __init__(self, numBars, barFreq, func, **kwargs):
         self.numBars = numBars # int
         self.barFreq = barFreq # 'sec', 'min', or 'day'
-        self.barType = barFreq + 'Bars'
+        self.func = func
         self.name = str(numBars) + '_' + barFreq + '_'
         for key, val in kwargs.items(): # e.g. moving average function
             self.__setattr__(key, val)
             self.name += str(val) + '_'
         self.name += func.__name__
     
-    def tick(self):
-        for asset in g.assets.values():
-            try: val = self.func(self, asset)
-            except: val = None
-            try: asset[self.name].append(val)
-            except: asset[self.name] = [val]
+    def get(self, bars):
+        # bars: DataFrame
+        try: val = self.func(self, bars)
+        except: val = None
+        return val
 
 
 ## FUNCTIONS
-def momentum(self, asset):
-    openPrice = asset[self.barType].iloc[-self.numBars].open
-    closePrice = asset[self.barType].iloc[-1].close
+def momentum(self, bars):
+    openPrice = bars.iloc[-self.numBars].open
+    closePrice = bars.iloc[-1].close
     return (closePrice - openPrice) / openPrice
 
-def volume(self, asset):
+def volume(self, bars):
     volume = 0
     for i_bar in range(-1, -self.numBars-1, -1):
-        volume += asset[self.barType].iloc[i_bar].volume
+        volume += bars.iloc[i_bar].volume
     return volume
 
-def volume_stdev(self, asset):
-    volumes = asset[self.barType].iloc[-self.numBars:].volume
+def volume_stdev(self, bars):
+    volumes = bars.iloc[-self.numBars:].volume
     return stats.stdev(volumes)
 
-def volume_num_stdevs(self, asset):
-    _volume = asset[Indicator(volume, 1, self.barFreq).name][-1]
-    volumeStdev = asset[Indicator(volume_stdev, self.numBars, self.barFreq).name][-1]
+def volume_num_stdevs(self, bars):
+    _volume = bars[Indicator(volume, 1, self.barFreq).name][-1]
+    volumeStdev = bars[Indicator(volume_stdev, self.numBars, self.barFreq).name][-1]
     return  _volume / volumeStdev
 
-def typical_price(self, asset):
-    data = asset[self.barType].iloc[-1]
+def typical_price(self, bars):
+    data = bars.iloc[-1]
     high = data.high
     low = data.low
     close = data.close
     for i_bar in range(-2, -self.numBars-1, -1):
-        data = asset[self.barType].iloc[i_bar]
+        data = bars.iloc[i_bar]
         if data.high > high: high = data.high
         if data.low < low: low = data.low
     return (high + low + close) / 3
 
-def SMA(self, asset):
-    prices = asset[self.barType].iloc[-self.numBars:].close
+def SMA(self, bars):
+    prices = bars.iloc[-self.numBars:].close
     return ta.trend.sma_indicator(prices, self.numBars)[-1]
 
-def EMA(self, asset):
-    prices = asset[self.barType].iloc[-self.numBars:].close
+def EMA(self, bars):
+    prices = bars.iloc[-self.numBars:].close
     return ta.trend.ema_indicator(prices, self.numBars)[-1]
 
-def KAMA(self, asset):
+def KAMA(self, bars):
     # variable EMA from 2 to 30 bars (default)
-    prices = asset[self.barType].iloc[-self.numBars:].close
+    prices = bars.iloc[-self.numBars:].close
     return ta.momentum.kama(prices, self.numBars)[-1]
 
 
-## INSTANCES
-indicators = []
+## INDICATORS DICTIONARY
+indicators = {
+    'sec': [],
+    'min': [],
+    'day': [],
+    'all': []
+}
+
+
+## SECOND INDICATORS
+barFreq = 'sec'
+
+
+## MINUTE INDICATORS
+barFreq = 'min'
 
 # momentum and volume
-for barFreq in ('min', 'day'):
-    # 1 bar
-    indicators += [
-        Indicator(momentum, 1, barFreq),
-        Indicator(volume, 1, barFreq)
+for numBars in (1, 3, 5, 10, 20):
+    indicators[barFreq] += [
+        Indicator(numBars, barFreq, momentum),
+        Indicator(numBars, barFreq, volume),
+        Indicator(numBars, barFreq, volume_stdev),
+        Indicator(numBars, barFreq, volume_num_stdevs)
     ]
 
-    # multibar
-    for numBars in (3, 5, 10, 20):
-        indicators += [
-            Indicator(momentum, numBars, barFreq),
-            Indicator(volume, numBars, barFreq),
-            Indicator(volume_stdev, numBars, barFreq),
-            Indicator(volume_num_stdevs, numBars, barFreq)
-        ]
+
+## DAY INDICATORS
+barFreq = 'day'
+
+# momentum and volume
+for numBars in (1, 3, 5, 10, 20):
+    indicators[barFreq] += [
+        Indicator(numBars, barFreq, momentum),
+        Indicator(numBars, barFreq, volume),
+        Indicator(numBars, barFreq, volume_stdev),
+        Indicator(numBars, barFreq, volume_num_stdevs)
+    ]
 
 # moving averages
-barFreq = 'day'
 for numBars in (3, 5, 10, 20):
-    indicators += [
-        Indicator(SMA, numBars, barFreq),
-        Indicator(EMA, numBars, barFreq),
-        Indicator(KAMA, numBars, barFreq)
+    indicators[barFreq] += [
+        Indicator(numBars, barFreq, SMA),
+        Indicator(numBars, barFreq, EMA),
+        Indicator(numBars, barFreq, KAMA)
     ]
+
+
+## ALL INDICATORS
+for barFreq in ('sec', 'min', 'day'):
+    indicators['all'] += indicators[barFreq]

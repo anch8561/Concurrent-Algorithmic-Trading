@@ -4,7 +4,7 @@ from alpacaAPI import connLive, connPaper
 from config import marketCloseTransitionMinutes
 from distribute_funds import distribute_funds
 from indicators import indicators
-from streaming import stream
+from streaming import stream, process_all_trades
 from timing import update_timing, get_date, is_new_week_since
 from update_tradable_assets import update_tradable_assets
 from warn import warn
@@ -38,11 +38,6 @@ def handoff_BP(oldAlgos, newAlgos):
             algo.stop()
     return not oldActive
 
-# allocate buying power
-for algo in allAlgos:
-    algo.buyPow['long'] = 5000
-    algo.buyPow['short'] = 5000
-
 # start algos
 for algo in multidayAlgos: algo.start()
 state = 'day' # day, night
@@ -52,59 +47,66 @@ elif state == 'day':
     for algo in intradayAlgos: algo.start()
 
 # main loop
+lastAllocUpdate = None
 lastSymbolUpdate = None
+marketIsOpen = True
 print('Entering main loop')
 numLoops = 0
-while numLoops < 60:
+while numLoops < 30:
     numLoops += 1
     update_timing()
 
-    # update buying power
-    # if lastAllocUpdate != get_date():
-    #     distribute_funds()
-    #     lastAllocUpdate = get_date()
+    # update buying power allocation
+    if (
+        lastAllocUpdate != get_date() and # wasn't updated today
+        g.TTOpen < timedelta(hours=1) # < 1 hour until market open:
+    ):
+        # stop algos
+        activeAlgos = []
+        for algo in allAlgos:
+            if algo.active:
+                activeAlgos.append(algo)
+                algo.stop()
+        
+        # allocate buying power
+        distribute_funds()
+        lastAllocUpdate = get_date()
+        
+        # restart algos
+        for algo in activeAlgos: algo.start()
 
-    # update symbols
+    # update tradable assets
     if (
         lastSymbolUpdate != get_date() and # weren't updated today
         g.TTOpen < timedelta(hours=1) # < 1 hour until market open
     ):
         # update symbols
-        update_tradable_assets(100)
+        update_tradable_assets(1)
         lastSymbolUpdate = get_date()
-
-        # stop previous stream thread
-        try: streamThread.stop()
-        except Exception as e: warn(e)
 
         # update channels
         channels = ['account_updates', 'trade_updates']
         for symbol in g.assets:
-            channels += [f'AM.{symbol}'] # TODO: second bars
+            channels += [f'AM.{symbol}']
         
         # start new stream thread
         streamThread = Thread(target=stream, args=(connPaper, channels))
         streamThread.start()
-        print(f'Streaming {len(g.assets)} tickers')
+        # NOTE: need way to update asset channels if not restarting main each day
     
-    if ( # market is open
-        all(asset['minBars']['processed'].iloc[-1] == False for asset in g.assets.values()) and
+    # tick algos
+    if ( # market is open and new bars
         g.TTOpen < timedelta(0) and
-        g.TTClose > timedelta(0) 
+        g.TTClose > timedelta(0) and
+        all(asset['minBars']['ticked'].iloc[-1] == False for asset in g.assets.values())
     ):
-        for asset in g.assets.values():
-            asset['minBars']['processed'].iloc[-1] == True 
-        
+        marketIsOpen = True
         closingSoon = g.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
 
-        # update indicators
-        print('Ticking indicators')
-        for ii, indicator in enumerate(indicators):
-            print(f'Ticking indicator {ii+1} / {len(indicators)}\t{indicator.name}')
-            indicator.tick()
-        
-        # update algos
-        print('Ticking algos')
+        # block trade updates
+        g.tickingAlgos = True
+
+        # tick algos
         if state == 'night' and not closingSoon:
             if handoff_BP(overnightAlgos, intradayAlgos): # true when done
                 for algo in intradayAlgos: algo.start()
@@ -128,13 +130,21 @@ while numLoops < 60:
         elif state == 'night' and closingSoon:
             for algo in overnightAlgos: algo.tick() # in parallel
             for algo in multidayAlgos: algo.tick()
+        
+        # update assets
+        for asset in g.assets.values():
+            asset['minBars']['ticked'].iloc[-1] = True
+        
+        # unblock trade updates
+        g.tickingAlgos = False
+        process_all_trades()
+
+        print('Waiting for bars')
     else:
-        print('Market is closed')
-    
-
-
-    # TODO: wait for new bars
-    print('Waiting for bars')
+        if marketIsOpen:
+            marketIsOpen = False
+            print('Market is closed')
+        sleep(1)
 
 
 for algo in allAlgos:
