@@ -120,7 +120,7 @@ while True:
                     print('Transitioning to intraday algos')
 
             elif state == 'day' and not closingSoon:
-                for algo in intradayAlgos: algo.tick() # in parallel
+                for algo in intradayAlgos: algo.tick() # TODO: parallel
                 for algo in multidayAlgos: algo.tick()
 
             elif state == 'day' and closingSoon:
@@ -132,7 +132,7 @@ while True:
                     print('Transitioning to overnight algos')
 
             elif state == 'night' and closingSoon:
-                for algo in overnightAlgos: algo.tick() # in parallel
+                for algo in overnightAlgos: algo.tick() # TODO: parallel
                 for algo in multidayAlgos: algo.tick()
             
             # update assets

@@ -9,7 +9,7 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
     indicator = str(1) + '_' + self.barFreq + '_momentum'
     # NOTE: could use multibar momentum also
     
-    for symbol, bars in g.assets[self.barFreq].items():
+    for symbol, bars in g.assets[self.barFreq].items(): # TODO: parallel
         # enter position
         if self.positions[symbol]['qty'] == 0: # no position
             if all(ii >= 0 for ii in bars[indicator][-self.enterNumBars:]): # momentum up
@@ -80,7 +80,7 @@ def crossover(self): # kwargs: barFreq, fastNumBars, fastMovAvg, slowNumBars, sl
     fastInd = str(self.fastNumBars) + '_' + self.barFreq + '_' + self.fastMovAvg
     slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_' + self.slowMovAvg
 
-    for symbol, bars in g.assets[self.barFreq].items():
+    for symbol, bars in g.assets[self.barFreq].items(): # TODO: parallel
         # enter position
         if self.positions[symbol]['qty'] == 0: # no position
             if bars[fastInd][-1] < bars[slowInd][-1]: # oversold
