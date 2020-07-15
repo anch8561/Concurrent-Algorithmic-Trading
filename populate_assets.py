@@ -1,6 +1,6 @@
 import g
-from alpacaAPI import alpacaPaper as alpaca
 from algos import allAlgos
+from alpacaAPI import alpacaPaper as alpaca
 from config import verbose, minSharePrice, minDayVolume, leverageStrings
 from indicators import indicators
 from timing import get_date, get_market_date
@@ -8,7 +8,8 @@ from warn import warn
 
 import pandas as pd
 
-def update_tradable_assets(numAssets=None):
+def populate_assets(numAssets=None):
+    # numAssets: int or None; number of symbols to check (None means no limit)
 
     print('Updating tradable assets')
 
@@ -51,7 +52,6 @@ def update_tradable_assets(numAssets=None):
         if symbol not in g.assets['sec']:
             print(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
             add_asset(symbol)
-
 
 def remove_asset(symbol, alpacaAssets, polygonTickers):
     # remove from assets
@@ -102,7 +102,6 @@ def remove_asset(symbol, alpacaAssets, polygonTickers):
             algo.alpaca.cancel_order(orderID)
             algo.allOrders.pop(orderID)
             algo.orders.pop(orderID)
-
 
 # list of lists of positions
 positionsList = [g.paperPositions, g.livePositions]

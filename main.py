@@ -4,9 +4,9 @@ from alpacaAPI import connLive, connPaper
 from config import marketCloseTransitionMinutes
 from distribute_funds import distribute_funds
 from indicators import indicators
+from populate_assets import populate_assets
 from streaming import stream, process_all_trades
 from timing import update_time
-from update_tradable_assets import update_tradable_assets
 from warn import warn
 
 from datetime import timedelta
@@ -22,7 +22,7 @@ for algo in allAlgos:
     algo.buyPow['short'] = 5000
 
 # populate assets
-update_tradable_assets(10)
+populate_assets(10)
 
 # start streaming
 channels = ['account_updates', 'trade_updates']
