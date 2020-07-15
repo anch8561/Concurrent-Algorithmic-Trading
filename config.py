@@ -12,7 +12,7 @@ allocMetricDays = 1
 
 maxSectorFrac = 0.1
 maxIndustryFrac = 0.05
-maxPosFrac = 0.01
+maxPosFrac = 0.1
 
 minSharePrice = 20
 minDayVolume = 200000

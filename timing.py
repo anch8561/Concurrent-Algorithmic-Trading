@@ -5,55 +5,35 @@ from warn import warn
 from datetime import datetime, timedelta
 from pytz import timezone
 
-nyc = None # timezone and daylight savings
-calendar = None # from alpaca
-i_today = None # calendar index
-lastCalendarUpdate = '0000-00-00' # date string
+nyc = timezone('America/New_York')
+calendar = alpaca.get_calendar()
+todayStr = datetime.now(nyc).strftime('%Y-%m-%d')
+for ii, date in enumerate(calendar):
+    if date._raw['date'] >= todayStr: # current or next market day
+        i_today = ii
+        break
 
-def update_timing():
-    global nyc, calendar, i_today, lastCalendarUpdate
-
-    # update calendar
-    if lastCalendarUpdate < get_date():
-        nyc = timezone('America/New_York')
-        calendar = alpaca.get_calendar()
-        todayStr = datetime.now(nyc).strftime('%Y-%m-%d')
-        for ii, date in enumerate(calendar):
-            if date._raw['date'] >= todayStr: # current or next market day
-                i_today = ii
-                break
-        lastCalendarUpdate = get_date()
-    
-    # update market time
-    time = datetime.now(nyc)
-    g.TTOpen = get_open_time() - time
-    g.TTClose = get_close_time() - time
-
-def get_time(): return datetime.now(nyc).strftime('%H:%M:%S.%f')
-
-def get_open_time():
-    # returns: nyc datetime
-    time = calendar[i_today].open
+def update_time():
+    now = datetime.now(nyc)
     date = calendar[i_today].date
-    return datetime.now(nyc).replace(
-        year = date.year,
-        month = date.month,
-        day = date.day,
-        hour = time.hour,
-        minute = time.minute,
-        second = time.second)
-        
-def get_close_time():
-    # returns: nyc datetime
-    time = calendar[i_today].close
-    date = calendar[i_today].date
-    return datetime.now(nyc).replace(
-        year = date.year,
-        month = date.month,
-        day = date.day,
-        hour = time.hour,
-        minute = time.minute,
-        second = time.second)
+
+    # update time til open
+    openTime = datetime.combine(
+        date = date,
+        time = calendar[i_today].open,
+        tzinfo = now.tzinfo)
+    g.TTOpen = openTime - now
+
+    # update time til close
+    closeTime = datetime.combine(
+        date = date,
+        time = calendar[i_today].close,
+        tzinfo = now.tzinfo)
+    g.TTClose = closeTime - now
+
+def get_time():
+    # returns: nyc time string
+    return datetime.now(nyc).strftime('%H:%M:%S.%f')
 
 def get_date(offset=0):
     # offset: int, days relative to today (-1 is yesterday)
@@ -90,22 +70,3 @@ def is_market_day(offset=0):
 
     # today
     return dateStr == calendar[i_today]._raw['date']
-    
-def is_new_week_since(dateStr):
-    # dateStr: e.g. '2020-05-28' (YYYY-MM-DD)
-    # returns: bool
-    
-    # check argument
-    try: date = datetime.strptime(dateStr, '%Y-%m-%d').date()
-    except:
-        warn(f'{date} could not be parsed')
-        return
-
-    # get past/current Monday's date
-    today = datetime.now(nyc).date()
-    monday = today - timedelta(today.weekday())
-
-    # was date before monday
-    return date < monday
-
-update_timing()
