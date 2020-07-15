@@ -34,13 +34,8 @@ class Algo:
         self.positions = {} # {symbol: {qty, basis}}
         self.orders = {} # {orderID: {symbol, qty, limit, longShort}}
         # qty is positive for buy/long and negative for sell/short
-
-        # risk and performance metrics
+        self.ticking = False # trade update blocking flag
         self.history = {} # {date: {time: event, equity}}
-        self.mean = {'long': 0, 'short': 0} # average daily growth
-        self.stdev = {'long': 0, 'short': 0} # sample standard deviation of daily growth
-        self.allocFrac = 0
-        self.longShortFrac = 0.5 # float; 0 is all shorts; 1 is all longs
 
         # attributes to save / load
         self.dataFields = [
@@ -57,24 +52,35 @@ class Algo:
 
     def start(self):
         self.cancel_all_orders()
+        self.set_ticking(True)
         self.update_equity()
         self.update_history('start')
         self.save_data()
+        self.set_ticking(False)
         self.active = True
     
     def stop(self):
         self.cancel_all_orders()
+        self.set_ticking(True)
         self.update_equity()
         self.update_history('stop')
         self.save_data()
+        self.set_ticking(False)
         self.active = False
 
-    def update_equity(self):
-        # check orders
-        if len(self.orders):
-            warn(f'{self.name} cannot update equity with open orders')
-            return
+    def cancel_all_orders(self):
+        for orderID in self.orders:
+            self.alpaca.cancel_order(orderID)
+        while len(self.orders): pass
 
+    def set_ticking(self, ticking):
+        # ticking: bool; whether algo is accessing positions or orders
+        # (blocks trade updates)
+        self.ticking = ticking
+        if ticking:
+            while g.processingTrade: pass
+
+    def update_equity(self):
         # copy buying power
         self.equity = self.buyPow.copy()
 
@@ -273,7 +279,7 @@ class Algo:
         for orderID, order in self.orders.items():
             if order['symbol'] == symbol:
                 if order['qty'] * qty < 0: # opposite side
-                    self.cancel_order(orderID)
+                    self.alpaca.cancel_order(orderID)
                     if verbose: print(f'{self.name}\t{symbol}\tcancelling opposing order {orderID}')
                 else: # same side
                     if verbose: print(f'{self.name}\t{symbol}\talready placed order for {order["qty"]}')
@@ -339,15 +345,6 @@ class Algo:
                 'algo': self}
         except Exception as e: warn(e)
 
-    def cancel_order(self, orderID):
-        self.alpaca.cancel_order(orderID)
-        self.orders.pop(orderID)
-        self.allOrders.pop(orderID)
-
-    def cancel_all_orders(self):
-        for orderID in self.orders:
-            self.cancel_order(orderID)
-
     def save_data(self):
         try: # get data
             data = {}
@@ -377,9 +374,13 @@ class Algo:
 
 class NightAlgo(Algo):
     def tick(self):
+        self.set_ticking(True)
         if sum(self.buyPow.values()) > minTradeBuyPow * 2:
             self.func(self)
+        self.set_ticking(False)
 
 class DayAlgo(Algo):
     def tick(self):
+        self.set_ticking(True)
         self.func(self)
+        self.set_ticking(False)

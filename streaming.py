@@ -1,4 +1,5 @@
 import g
+from algos import allAlgos
 from indicators import indicators
 from warn import warn
 
@@ -137,8 +138,10 @@ def stream(conn, channels):
     conn.register('account_updates', on_account_update)
 
     async def on_trade_update(conn, channel, data):
-        if g.tickingAlgos: trades.append(data)
-        else: process_trade(data)
+        if any(algo.ticking for algo in allAlgos):
+            trades.append(data)
+        else:
+            process_trade(data)
     conn.register('trade_updates', on_trade_update)
 
     print(f'Streaming {len(channels)} channels')

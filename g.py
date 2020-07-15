@@ -13,5 +13,4 @@ liveOrders = {}
 paperPositions = {} # {symbol: {qty, basis}}
 livePositions = {}
 
-tickingAlgos = False
 processingTrade = False

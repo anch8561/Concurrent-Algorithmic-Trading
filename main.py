@@ -28,14 +28,14 @@ def handoff_BP(oldAlgos, newAlgos):
     # FIX: need partial handoff in case an algo can't exit a position
     oldActive = False
     for algo in oldAlgos:
-        if (
-            algo.active and
-            any(algo.positions[symbol]['qty'] for symbol in algo.positions)
-        ):
-            oldActive = True
-            algo.exit_all_positions()
-        else:
-            algo.stop()
+        if algo.active:
+            algo.set_ticking(True)
+            if any(algo.positions[symbol]['qty'] for symbol in algo.positions):
+                oldActive = True
+                algo.exit_all_positions()
+            else:
+                algo.stop()
+            algo.set_ticking(False)
     return not oldActive
 
 # start algos
@@ -60,7 +60,6 @@ while True:
         g.TTOpen < timedelta(hours=1) # < 1 hour until market open:
     ):
         # stop algos
-        g.tickingAlgos = True
         activeAlgos = []
         for algo in allAlgos:
             if algo.active:
@@ -76,7 +75,6 @@ while True:
         
         # restart algos
         for algo in activeAlgos: algo.start()
-        g.tickingAlgos = False
 
     # update tradable assets
     if (
@@ -105,10 +103,6 @@ while True:
         marketIsOpen = True
         if all(bars['ticked'].iloc[-1] == False for bars in g.assets['min'].values()): # new bars
             closingSoon = g.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
-
-            # block trade updates
-            g.tickingAlgos = True
-            while g.processingTrade: pass
 
             # tick algos
             if state == 'night' and not closingSoon:
@@ -139,9 +133,8 @@ while True:
             for bars in g.assets['min'].values():
                 jj = bars.columns.get_loc('ticked')
                 bars.iloc[-1, jj] = True
-            
-            # unblock trade updates
-            g.tickingAlgos = False
+
+            # process trade update backlog
             process_all_trades()
 
             print('Waiting for bars')
