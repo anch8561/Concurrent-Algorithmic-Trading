@@ -1,4 +1,4 @@
-import g
+import g 
 from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 from alpacaAPI import connLive, connPaper
 from config import marketCloseTransitionMinutes
@@ -50,103 +50,112 @@ elif state == 'day':
 lastAllocUpdate = None
 lastSymbolUpdate = None
 marketIsOpen = True
-print('Entering main loop')
-while True:
-    update_timing()
 
-    # update buying power allocation
-    if (
-        lastAllocUpdate != get_date() and # wasn't updated today
-        g.TTOpen < timedelta(hours=1) # < 1 hour until market open:
-    ):
-        # stop algos
-        g.tickingAlgos = True
-        activeAlgos = []
-        for algo in allAlgos:
-            if algo.active:
-                activeAlgos.append(algo)
-                algo.stop()
-        
-        # allocate buying power
-        distribute_funds()
-        lastAllocUpdate = get_date()
-        for algo in allAlgos: # FIX: no performance data
-            algo.buyPow['long'] = 5000
-            algo.buyPow['short'] = 5000
-        
-        # restart algos
-        for algo in activeAlgos: algo.start()
-        g.tickingAlgos = False
+try:
+    print('Entering main loop')
+    while True:
+        update_timing()
 
-    # update tradable assets
-    if (
-        lastSymbolUpdate != get_date() and # weren't updated today
-        g.TTOpen < timedelta(hours=1) # < 1 hour until market open
-    ):
-        # update symbols
-        update_tradable_assets(10)
-        lastSymbolUpdate = get_date()
-
-        # update channels
-        channels = ['account_updates', 'trade_updates']
-        for symbol in g.assets['min']:
-            channels += [f'AM.{symbol}']
-        
-        # start new stream thread
-        streamThread = Thread(target=stream, args=(connPaper, channels))
-        streamThread.start()
-        # NOTE: need way to update asset channels if not restarting main each day
-    
-    # tick algos
-    if ( # market is open
-        g.TTOpen < timedelta(0) and
-        g.TTClose > timedelta(0)
-    ):
-        marketIsOpen = True
-        if all(bars['ticked'].iloc[-1] == False for bars in g.assets['min'].values()): # new bars
-            closingSoon = g.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
-
-            # block trade updates
+        # update buying power allocation
+        if (
+            lastAllocUpdate != get_date() and # wasn't updated today
+            g.TTOpen < timedelta(hours=1) # < 1 hour until market open:
+        ):
+            # stop algos
             g.tickingAlgos = True
-            while g.processingTrade: pass
-
-            # tick algos
-            if state == 'night' and not closingSoon:
-                if handoff_BP(overnightAlgos, intradayAlgos): # true when done
-                    for algo in intradayAlgos: algo.start()
-                    state = 'day'
-                    print('Intraday algos have buying power')
-                else:
-                    print('Transitioning to intraday algos')
-
-            elif state == 'day' and not closingSoon:
-                for algo in intradayAlgos: algo.tick() # in parallel
-                for algo in multidayAlgos: algo.tick()
-
-            elif state == 'day' and closingSoon:
-                if handoff_BP(intradayAlgos, overnightAlgos): # true when done
-                    for algo in overnightAlgos: algo.start()
-                    state = 'night'
-                    print('Overnight algos have buying power')
-                else:
-                    print('Transitioning to overnight algos')
-
-            elif state == 'night' and closingSoon:
-                for algo in overnightAlgos: algo.tick() # in parallel
-                for algo in multidayAlgos: algo.tick()
+            activeAlgos = []
+            for algo in allAlgos:
+                if algo.active:
+                    activeAlgos.append(algo)
+                    algo.stop()
             
-            # update assets
-            for bars in g.assets['min'].values():
-                jj = bars.columns.get_loc('ticked')
-                bars.iloc[-1, jj] = True
+            # allocate buying power
+            distribute_funds()
+            lastAllocUpdate = get_date()
+            for algo in allAlgos: # FIX: no performance data
+                algo.buyPow['long'] = 5000
+                algo.buyPow['short'] = 5000
             
-            # unblock trade updates
+            # restart algos
+            for algo in activeAlgos: algo.start()
             g.tickingAlgos = False
-            process_all_trades()
 
-            print('Waiting for bars')
-    else:
-        if marketIsOpen:
-            marketIsOpen = False
-            print('Market is closed')
-        sleep(1)
+        # update tradable assets
+        if (
+            lastSymbolUpdate != get_date() and # weren't updated today
+            g.TTOpen < timedelta(hours=1) # < 1 hour until market open
+        ):
+            # update symbols
+            update_tradable_assets(10)
+            lastSymbolUpdate = get_date()
+
+            # update channels
+            channels = ['account_updates', 'trade_updates']
+            for symbol in g.assets['min']:
+                channels += [f'AM.{symbol}']
+            
+            # start new stream thread
+            streamThread = Thread(target=stream, args=(connPaper, channels))
+            streamThread.start()
+            # NOTE: need way to update asset channels if not restarting main each day
+        
+        # tick algos
+        if ( # market is open
+            g.TTOpen < timedelta(0) and
+            g.TTClose > timedelta(0)
+        ):
+            marketIsOpen = True
+            if all(bars['ticked'].iloc[-1] == False for bars in g.assets['min'].values()): # new bars
+                closingSoon = g.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
+
+                # block trade updates
+                g.tickingAlgos = True
+                while g.processingTrade: pass
+
+                # tick algos
+                if state == 'night' and not closingSoon:
+                    if handoff_BP(overnightAlgos, intradayAlgos): # true when done
+                        for algo in intradayAlgos: algo.start()
+                        state = 'day'
+                        print('Intraday algos have buying power')
+                    else:
+                        print('Transitioning to intraday algos')
+
+                elif state == 'day' and not closingSoon:
+                    for algo in intradayAlgos: algo.tick() # in parallel
+                    for algo in multidayAlgos: algo.tick()
+
+                elif state == 'day' and closingSoon:
+                    if handoff_BP(intradayAlgos, overnightAlgos): # true when done
+                        for algo in overnightAlgos: algo.start()
+                        state = 'night'
+                        print('Overnight algos have buying power')
+                    else:
+                        print('Transitioning to overnight algos')
+
+                elif state == 'night' and closingSoon:
+                    for algo in overnightAlgos: algo.tick() # in parallel
+                    for algo in multidayAlgos: algo.tick()
+                
+                # update assets
+                for bars in g.assets['min'].values():
+                    jj = bars.columns.get_loc('ticked')
+                    bars.iloc[-1, jj] = True
+                
+                # unblock trade updates
+                g.tickingAlgos = False
+                process_all_trades()
+
+                print('Waiting for bars')
+        else:
+            if marketIsOpen:
+                marketIsOpen = False
+                print('Market is closed')
+            sleep(1)
+
+except KeyboardInterrupt:
+    for algo in allAlgos:
+        if algo.active:
+            print(f"Stopping: {algo}")
+            algo.stop()
+            pass #Remove pass to require two "Ctrl-C"s to exit
