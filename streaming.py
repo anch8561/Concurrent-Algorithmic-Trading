@@ -1,4 +1,4 @@
-import g
+import globalVariables as g
 from algos import allAlgos
 from indicators import indicators
 from timing import update_time
@@ -12,6 +12,8 @@ trades = []
 def process_bar(barFreq, data):
     # barFreq: 'sec', 'min', or 'day'
     # data: raw stream data
+
+    print(f'{data.symbol}\t new bar')
 
     try: # add bar to g.assets (needs to be initialized first)
         newBar = DataFrame({

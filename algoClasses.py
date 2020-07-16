@@ -1,13 +1,14 @@
-import alpacaAPI, g
-from config import algoPath, verbose, maxPosFrac, limitPriceFrac, minLongPrice, minShortPrice, minTradeBuyPow
+import alpacaAPI
+import config as c
+import globalVariables as g
 from timing import get_time, get_date
 from warn import warn
 
 import json, os
 import statistics as stats
 
-# create algoPath if needed
-try: os.mkdir(algoPath)
+# create c.algoPath if needed
+try: os.mkdir(c.algoPath)
 except: pass
 
 class Algo:
@@ -97,14 +98,14 @@ class Algo:
         except Exception as e: warn(e)
         
         try: # write data
-            fileName = algoPath + self.name + '.data'
+            fileName = c.algoPath + self.name + '.data'
             with open(fileName, 'w') as f:
                 json.dump(data, f)
         except Exception as e: warn(e)
 
     def load_data(self):
         try: # read data
-            fileName = algoPath + self.name + '.data'
+            fileName = c.algoPath + self.name + '.data'
             with open(fileName, 'r') as f:
                 data = json.load(f)
         except Exception as e:
@@ -166,7 +167,7 @@ class Algo:
             allPosQty = self.allPositions[symbol]['qty']
             if (allPosQty + qty) * allPosQty < 0: # trade will swap position
                 qty = -allPosQty # exit position
-                if verbose: print(f'{self.name}\t{symbol}\texiting global position of {qty}')
+                if c.verbose: print(f'{self.name}\t{symbol}\texiting global position of {qty}')
         else:
             allPosQty = 0
 
@@ -174,7 +175,7 @@ class Algo:
         if qty > 0 and allPosQty == 0: # buying from zero position
             for orderID, order in self.allOrders.items():
                 if order['symbol'] == symbol and order['qty'] < 0: # pending short
-                    if verbose: print(f'{self.name}\t{symbol}\topposing global order {orderID}')
+                    if c.verbose: print(f'{self.name}\t{symbol}\topposing global order {orderID}')
                     return
 
         # get side
@@ -222,9 +223,9 @@ class Algo:
 
         try:
             if side == 'buy':
-                price *= 1 + limitPriceFrac
+                price *= 1 + c.limitPriceFrac
             elif side == 'sell':
-                price *= 1 - limitPriceFrac
+                price *= 1 - c.limitPriceFrac
             else: warn(f'{self.name} unknown side "{side}"')
 
             return price
@@ -284,21 +285,21 @@ class Algo:
             buyPow = self.buyPow['short']
 
         # check price
-        if side == 'buy' and price < minLongPrice:
-            if verbose: print(f'{self.name}\t{symbol}\tshare price < {minLongPrice}')
+        if side == 'buy' and price < c.minLongPrice:
+            if c.verbose: print(f'{self.name}\t{symbol}\tshare price < {c.minLongPrice}')
             return 0
-        elif side == 'sell' and price < minShortPrice:
-            if verbose: print(f'{self.name}\t{symbol}\tshare price < {minShortPrice}')
+        elif side == 'sell' and price < c.minShortPrice:
+            if c.verbose: print(f'{self.name}\t{symbol}\tshare price < {c.minShortPrice}')
             return 0
 
         # set quantity
-        qty = int(maxPosFrac * equity / price)
-        if verbose: print(f'{self.name}\t{symbol}\tqty: {qty}')
+        qty = int(c.maxPosFrac * equity / price)
+        reason = 'max position fraction'
 
         # check buying power
         if qty * price > buyPow:
             qty = int(buyPow / price)
-            if verbose: print(f'{self.name}\t{symbol}\tbuyPow qty limit: {qty}')
+            reason = 'buying power'
         
         # check volume
         try:
@@ -308,14 +309,14 @@ class Algo:
             volume = 0
         if qty > volume * volumeMult:
             qty = volume * volumeMult
-            if verbose: print(f'{self.name}\t{symbol}\tvolume qty limit: {qty}')
+            reason = 'volume'
 
         # check zero
         if qty == 0: return 0
 
         # set sell quantity negative
-        # FIX: sell qty prints positive above this line
-        if side == 'sell': qty *= -1 
+        if side == 'sell': qty *= -1
+        if c.verbose: print(f'{self.name}\t{symbol}\t{reason} qty limit: {qty}')
 
         # check for existing position
         if symbol in self.positions:
@@ -323,22 +324,22 @@ class Algo:
             if posQty * qty > 0: # same side as position
                 if abs(posQty) < abs(qty): # position is smaller than order
                     qty -= posQty # add to position
-                    if verbose: print(f'{self.name}\t{symbol}\tadding {qty} to position of {posQty}')
+                    if c.verbose: print(f'{self.name}\t{symbol}\tadding {qty} to position of {posQty}')
                 else: # position is large enough
-                    if verbose: print(f'{self.name}\t{symbol}\tposition of {posQty} is large enough')
+                    if c.verbose: print(f'{self.name}\t{symbol}\tposition of {posQty} is large enough')
                     return 0
             elif posQty * qty < 0: # opposite side from position
                 qty = -posQty # exit position
-                if verbose: print(f'{self.name}\t{symbol}\texiting position of {posQty}')
+                if c.verbose: print(f'{self.name}\t{symbol}\texiting position of {posQty}')
 
         # check for existing orders
         for orderID, order in self.orders.items():
             if order['symbol'] == symbol:
                 if order['qty'] * qty < 0: # opposite side
                     self.alpaca.cancel_order(orderID)
-                    if verbose: print(f'{self.name}\t{symbol}\tcancelling opposing order {orderID}')
+                    if c.verbose: print(f'{self.name}\t{symbol}\tcancelling opposing order {orderID}')
                 else: # same side
-                    if verbose: print(f'{self.name}\t{symbol}\talready placed order for {order["qty"]}')
+                    if c.verbose: print(f'{self.name}\t{symbol}\talready placed order for {order["qty"]}')
                     return 0
 
         # TODO: check risk
@@ -389,7 +390,7 @@ class Algo:
 class NightAlgo(Algo):
     def tick(self):
         self.set_ticking(True)
-        if sum(self.buyPow.values()) > minTradeBuyPow * 2:
+        if sum(self.buyPow.values()) > c.minTradeBuyPow * 2:
             self.func(self)
         self.set_ticking(False)
 

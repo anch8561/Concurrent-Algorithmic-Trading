@@ -1,4 +1,4 @@
-import g
+import globalVariables as g
 from alpacaAPI import alpacaPaper as alpaca
 from warn import warn
 

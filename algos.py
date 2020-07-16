@@ -1,6 +1,6 @@
-import g
+import config as c
+import globalVariables as g
 from algoClasses import DayAlgo, NightAlgo
-from config import maxPosFrac, minTradeBuyPow
 
 # intraday
 intradayAlgos = []
@@ -10,24 +10,26 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
     # NOTE: could use multibar momentum also
     
     for symbol, bars in g.assets[self.barFreq].items(): # TODO: parallel
-        # enter position
-        if self.positions[symbol]['qty'] == 0: # no position
-            if all(ii >= 0 for ii in bars[indicator][-self.enterNumBars:]): # momentum up
-                self.enter_position(symbol, 'buy')
-            elif all(ii <= 0 for ii in bars[indicator][-self.enterNumBars:]): # momentum down
-                self.enter_position(symbol, 'sell')
-        
-        # exit position
-        if (
-            (
-                self.positions[symbol]['qty'] > 0 and # long
-                all(ii <= 0 for ii in bars[indicator][-self.exitNumBars:]) # momentum down
-            ) or (
-                self.positions[symbol]['qty'] < 0 and # short
-                all(ii >= 0 for ii in bars[indicator][-self.exitNumBars:]) # momentum up
-            )
-        ):
-            self.exit_position(symbol)
+        # check for new bar
+        if not bars.ticked.iloc[-1]:
+            # enter position
+            if self.positions[symbol]['qty'] == 0: # no position
+                if all(ii >= 0 for ii in bars[indicator][-self.enterNumBars:]): # momentum up
+                    self.enter_position(symbol, 'buy')
+                elif all(ii <= 0 for ii in bars[indicator][-self.enterNumBars:]): # momentum down
+                    self.enter_position(symbol, 'sell')
+            
+            # exit position
+            if (
+                (
+                    self.positions[symbol]['qty'] > 0 and # long
+                    all(ii <= 0 for ii in bars[indicator][-self.exitNumBars:]) # momentum down
+                ) or (
+                    self.positions[symbol]['qty'] < 0 and # short
+                    all(ii >= 0 for ii in bars[indicator][-self.exitNumBars:]) # momentum up
+                )
+            ):
+                self.exit_position(symbol)
 
 for exitNumBars in (1, 2, 3, 5):
     for enterNumBars in (1, 2, 3, 5):
@@ -59,13 +61,13 @@ def momentum_volume(self): # kwargs: numBars
 
     # enter long
     for symbol in reversed(sortedSymbols):
-        if self.buyPow['long'] < minTradeBuyPow: break
+        if self.buyPow['long'] < c.minTradeBuyPow: break
         if metrics[symbol] < 0: break
         self.enter_position(symbol, 'buy')
 
     # enter short
     for symbol in sortedSymbols:
-        if self.buyPow['short'] < minTradeBuyPow: break
+        if self.buyPow['short'] < c.minTradeBuyPow: break
         if metrics[symbol] > 0: break
         self.enter_position(symbol, 'sell')
 
@@ -81,24 +83,26 @@ def crossover(self): # kwargs: barFreq, fastNumBars, fastMovAvg, slowNumBars, sl
     slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_' + self.slowMovAvg
 
     for symbol, bars in g.assets[self.barFreq].items(): # TODO: parallel
-        # enter position
-        if self.positions[symbol]['qty'] == 0: # no position
-            if bars[fastInd][-1] < bars[slowInd][-1]: # oversold
-                self.enter_position(symbol, 'buy')
-            elif bars[fastInd][-1] > bars[slowInd][-1]: # overbought
-                self.enter_position(symbol, 'sell')
-        
-        # exit position
-        if (
-            (
-                self.positions[symbol]['qty'] > 0 and # long
-                bars[fastInd][-1] > bars[slowInd][-1] # overbought
-            ) or (
-                self.positions[symbol]['qty'] < 0 and # short
-                bars[fastInd][-1] < bars[slowInd][-1] # oversold
-            )
-        ):
-            self.exit_position(symbol)
+        # check for new bar
+        if not bars.ticked.iloc[-1]:
+            # enter position
+            if self.positions[symbol]['qty'] == 0: # no position
+                if bars[fastInd][-1] < bars[slowInd][-1]: # oversold
+                    self.enter_position(symbol, 'buy')
+                elif bars[fastInd][-1] > bars[slowInd][-1]: # overbought
+                    self.enter_position(symbol, 'sell')
+            
+            # exit position
+            if (
+                (
+                    self.positions[symbol]['qty'] > 0 and # long
+                    bars[fastInd][-1] > bars[slowInd][-1] # overbought
+                ) or (
+                    self.positions[symbol]['qty'] < 0 and # short
+                    bars[fastInd][-1] < bars[slowInd][-1] # oversold
+                )
+            ):
+                self.exit_position(symbol)
 
 for movAvg in ('SMA', 'EMA', 'KAMA'):
     for slowNumBars in (5, 10, 20):

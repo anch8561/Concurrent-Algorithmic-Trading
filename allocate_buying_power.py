@@ -1,6 +1,6 @@
+import config as c
 from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 from alpacaAPI import alpacaLive, alpacaPaper
-from config import verbose, minAllocBuyPow, maxAllocFrac, minLongShortFrac, maxLongShortFrac, allocMetricDays
 from warn import warn
 
 import numpy as np
@@ -20,7 +20,7 @@ def allocate_buying_power():
         w = []
         for algo in allAlgos:
             try: # get performance metrics
-                metrics = algo.get_metrics(allocMetricDays)
+                metrics = algo.get_metrics(c.allocMetricDays)
 
                 try: # get long equity growth
                     w.append(metrics['mean']['long'])
@@ -37,7 +37,7 @@ def allocate_buying_power():
                 warn(f'{algo.name} missing performance data')
 
             try:
-                if verbose:
+                if c.verbose:
                     print(f'{algo.name}')
                     print(f"\tlong growth:  {metrics['mean']['long']}\t+/- {metrics['stdev']['long']}")
                     print(f"\tshort growth: {metrics['mean']['short']}\t+/- {metrics['stdev']['short']}")
@@ -61,7 +61,7 @@ def allocate_buying_power():
     try: # set allcoation bounds
         bounds = opt.Bounds(
             lb = [0] * n_all,
-            ub = [maxAllocFrac] * n_all
+            ub = [c.maxAllocFrac] * n_all
         )
     except Exception as e: warn(e)
     
@@ -77,12 +77,12 @@ def allocate_buying_power():
                 [1] * n_intraday + [0] * n_overnight + [1] * n_multiday
             ],
             lb = [
-                minLongShortFrac * 2 - 1, # longShortFrac bounds
+                c.minLongShortFrac * 2 - 1, # longShortFrac bounds
                 0, # overnight + multiday <= regT
                 0 # intraday + multiday <= daytrading
             ],
             ub = [
-                maxLongShortFrac * 2 - 1, # longShortFrac bounds
+                c.maxLongShortFrac * 2 - 1, # longShortFrac bounds
                 regTBuyPow / buyPow, # overnight + multiday <= regT
                 1 # intraday + multiday <= daytrading
             ]

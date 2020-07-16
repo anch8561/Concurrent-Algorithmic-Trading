@@ -1,4 +1,4 @@
-import g 
+import globalVariables as g 
 from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 from alpacaAPI import connLive, connPaper
 from config import marketCloseTransitionMinutes
@@ -25,7 +25,7 @@ for algo in allAlgos:
     algo.buyPow['short'] = 5000
 
 # populate assets
-populate_assets(1000)
+populate_assets(50)
 
 # start streaming
 channels = ['account_updates', 'trade_updates']
@@ -37,7 +37,7 @@ Thread(target=stream, args=(connPaper, channels)).start()
 print('Starting active algos')
 for algo in allAlgos:
     if algo.active:
-        print(f'Starting {algo.name}')
+        print(f'\tStarting {algo.name}')
         algo.start()
 
 # main loop
@@ -58,7 +58,7 @@ try:
                 print('Market is open')
 
             # check for new minute bars
-            if all(bars['ticked'].iloc[-1] == False for bars in g.assets['min'].values()):
+            if any(bars['ticked'].iloc[-1] == False for bars in g.assets['min'].values()):
                 closingSoon = g.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
 
                 # tick algos
@@ -109,5 +109,5 @@ except: # stop active algos
     print('Stopping active algos')
     for algo in allAlgos:
         if algo.active:
-            print(f"Stopping {algo.name}")
+            print(f'\tStopping {algo.name}')
             algo.stop()

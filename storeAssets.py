@@ -1,6 +1,6 @@
 # NOTE: this file is outdated and unused
 
-import g
+import globalVariables as g
 from warn import warn
 
 def save_asset(symbol, barType):

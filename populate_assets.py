@@ -1,7 +1,7 @@
-import g
+import config as c
+import globalVariables as g
 from algos import allAlgos
 from alpacaAPI import alpacaPaper as alpaca
-from config import verbose, minSharePrice, minDayVolume, leverageStrings
 from indicators import indicators
 from timing import get_date, get_market_date
 from warn import warn
@@ -25,13 +25,13 @@ def populate_assets(numAssets=None):
         if (
             asset.marginable and
             asset.shortable and
-            not any(x in asset.name.lower() for x in leverageStrings)
+            not any(x in asset.name.lower() for x in c.leverageStrings)
         ):
             for ticker in polygonTickers:
                 if (
                     ticker.ticker == asset.symbol and
-                    ticker.prevDay['v'] > minDayVolume and
-                    ticker.prevDay['l'] > minSharePrice
+                    ticker.prevDay['v'] > c.minDayVolume and
+                    ticker.prevDay['l'] > c.minSharePrice
                 ):
                     activeSymbols.append(asset.symbol)
                     break
@@ -59,7 +59,7 @@ def add_asset(symbol):
 
     # GET MINUTE BARS
     try: # get historic aggs
-        if verbose: print('    Getting historic min bars')
+        if c.verbose: print('    Getting historic min bars')
         fromDate = get_market_date(-1)
         toDate = get_date()
         bars = alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate).df.iloc[-100:]
@@ -71,7 +71,7 @@ def add_asset(symbol):
 
     # get indicators
     for kk, indicator in enumerate(indicators['min']):
-        if verbose: print(f'\tAdding min indicator {kk+1} / {len(indicators["min"])}\t{indicator.name}')
+        if c.verbose: print(f'\tAdding min indicator {kk+1} / {len(indicators["min"])}\t{indicator.name}')
         bars[indicator.name] = None
         jj = bars.columns.get_loc(indicator.name)
         for ii in range(len(bars.index)):
@@ -83,7 +83,7 @@ def add_asset(symbol):
 
     # GET DAY BARS
     try: # get historic aggs
-        if verbose: print('    Getting historic day bars')
+        if c.verbose: print('    Getting historic day bars')
         fromDate = get_market_date(-100)
         toDate = get_date()
         bars = alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
@@ -95,7 +95,7 @@ def add_asset(symbol):
 
     # get indicators
     for kk, indicator in enumerate(indicators['day']):
-        if verbose: print(f'\tAdding day indicator {kk+1} / {len(indicators["day"])}\t{indicator.name}')
+        if c.verbose: print(f'\tAdding day indicator {kk+1} / {len(indicators["day"])}\t{indicator.name}')
         bars[indicator.name] = None
         jj = bars.columns.get_loc(indicator.name)
         for ii in range(len(bars.index)):

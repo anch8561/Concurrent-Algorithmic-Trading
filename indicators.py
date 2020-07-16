@@ -1,4 +1,4 @@
-import g
+import globalVariables as g
 from warn import warn
 
 import ta
