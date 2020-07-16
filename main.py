@@ -62,6 +62,7 @@ try:
                 closingSoon = g.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
 
                 # tick algos
+                print('Ticking algos')
                 if state == 'night' and not closingSoon:
                     print('Deactivating overnight algos')
                     for algo in overnightAlgos: algo.deactivate()
@@ -92,11 +93,13 @@ try:
                 for bars in g.assets['min'].values():
                     jj = bars.columns.get_loc('ticked')
                     bars.iloc[-1, jj] = True
+                    # FIX: only mark some symbols
 
-                # process trade updates
+                # process trade update backlog
+                print('Processing trade update backlog')
                 process_all_trades()
 
-                print('Waiting for bars')
+                print(f'{get_time()}\tWaiting for bars')
             
             # TODO: check for new day bars (possibly in new thread)
         else:

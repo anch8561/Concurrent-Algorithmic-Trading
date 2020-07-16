@@ -1,7 +1,7 @@
 import globalVariables as g
 from algos import allAlgos
 from indicators import indicators
-from timing import update_time
+from timing import update_time, get_time, get_date
 from warn import warn
 
 import asyncio
@@ -13,7 +13,7 @@ def process_bar(barFreq, data):
     # barFreq: 'sec', 'min', or 'day'
     # data: raw stream data
 
-    print(f'{data.symbol}\t new bar')
+    print(f'{get_date()} {get_time()}\t{data.symbol}\tnew bar\t{data.start}')
 
     try: # add bar to g.assets (needs to be initialized first)
         newBar = DataFrame({
@@ -72,6 +72,7 @@ def compile_day_bars():
 
 def process_trade(data):
     g.processingTrade = True
+    # print('processingTrade = True')
     
     try: # get trade info
         event = data.event
@@ -89,7 +90,7 @@ def process_trade(data):
             allOrders = g.liveOrders
             allPositions = g.livePositions
         else:
-            print(f'Unknown order id: {orderID}')
+            print(f'Unknown order id: {orderID} Event: {event}')
             return
     except Exception as e: warn(f'{e}', f'{data}')
         
@@ -154,7 +155,8 @@ def process_trade(data):
             algo.orders.pop(orderID)
         except Exception as e: warn(f'{e}', f'{data}')
 
-        g.processingTrade = False
+    g.processingTrade = False
+    # print('processingTrade = False')
 
 def process_all_trades():
     for trade in trades:
@@ -167,7 +169,7 @@ def stream(conn, channels):
 
     async def on_minute(conn, channel, data):
         process_bar('min', data)
-    conn.register('AM', on_minute)
+    conn.register(r'^AM$', on_minute)
 
     async def on_account_update(conn, channel, data):
         print(f'{data}')

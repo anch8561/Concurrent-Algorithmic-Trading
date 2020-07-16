@@ -362,8 +362,14 @@ class Algo:
         # ticking: bool; whether algo is accessing positions or orders
         # (blocks trade updates)
         self.ticking = ticking
+        # print(f'{self.name}\tticking = {ticking}')
         if ticking:
+            # waiting = False
+            # if g.processingTrade:
+            #     waiting = True
+            #     print('Waiting for processingTrade == False')
             while g.processingTrade: pass
+            # if waiting: print('Done waiting')
 
     def update_equity(self):
         # copy buying power
@@ -389,10 +395,10 @@ class Algo:
 
 class NightAlgo(Algo):
     def tick(self):
-        self.set_ticking(True)
         if sum(self.buyPow.values()) > c.minTradeBuyPow * 2:
+            self.set_ticking(True)
             self.func(self)
-        self.set_ticking(False)
+            self.set_ticking(False)
 
 class DayAlgo(Algo):
     def tick(self):
