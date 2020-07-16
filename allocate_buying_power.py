@@ -6,7 +6,7 @@ from warn import warn
 import numpy as np
 import scipy.optimize as opt
 
-def distribute_funds():
+def allocate_buying_power():
     print('Allocating buying power')
 
     # get buying power
