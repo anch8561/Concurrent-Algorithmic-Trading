@@ -59,7 +59,7 @@ try:
 
             # check for new minute bars
             print()
-            sleep(1)
+            sleep(10)
             for symbol, bars in g.assets['min'].items():
                 print(f'{symbol}\t{bars.index[-1]}\t{bars.ticked.iloc[-1]}')
             if any(bars['ticked'].iloc[-1] == False for bars in g.assets['min'].values()):
