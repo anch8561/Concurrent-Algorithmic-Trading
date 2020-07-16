@@ -31,19 +31,21 @@ def update_time():
         tzinfo = now.tzinfo)
     g.TTClose = closeTime - now
 
+    return now, openTime, closeTime
+
 def get_time():
-    # returns: nyc time string
+    # returns: nyc time str; e.g. '08:35:41.736216' (HH:MM:SS.US)
     return datetime.now(nyc).strftime('%H:%M:%S.%f')
 
 def get_date(offset=0):
     # offset: int, days relative to today (-1 is yesterday)
-    # returns: e.g. '2020-05-28' (YYYY-MM-DD)
+    # returns: nyc date str; e.g. '2020-05-28' (YYYY-MM-DD)
     date = datetime.now(nyc) + timedelta(offset)
     return date.strftime('%Y-%m-%d')
 
 def get_market_date(offset=0):
     # offset: int, market days relative to today (-1 is prev market day)
-    # returns: e.g. '2020-05-28' (YYYY-MM-DD)
+    # returns: nyc date str; e.g. '2020-05-28' (YYYY-MM-DD)
     if offset > 0 and not is_market_day(): offset -= 1
     return calendar[i_today + offset].date.strftime('%Y-%m-%d')
 

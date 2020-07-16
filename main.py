@@ -2,19 +2,22 @@ import g
 from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 from alpacaAPI import connLive, connPaper
 from config import marketCloseTransitionMinutes
-from distribute_funds import distribute_funds
+from allocate_buying_power import allocate_buying_power
 from indicators import indicators
 from populate_assets import populate_assets
-from streaming import stream, process_all_trades
-from timing import update_time
+from streaming import stream, process_all_trades, compile_day_bars
+from timing import update_time, get_time, get_date
 from warn import warn
 
+import sys
 from datetime import timedelta
 from threading import Thread
 from time import sleep
 
+print(get_date(), get_time())
+
 # allocate buying power
-distribute_funds()
+allocate_buying_power()
 
 # FIX: no performance data
 for algo in allAlgos:
@@ -22,7 +25,7 @@ for algo in allAlgos:
     algo.buyPow['short'] = 5000
 
 # populate assets
-populate_assets(10)
+populate_assets(1000)
 
 # start streaming
 channels = ['account_updates', 'trade_updates']
@@ -38,6 +41,7 @@ for algo in allAlgos:
         algo.start()
 
 # main loop
+print(get_date(), get_time())
 print('Entering main loop')
 marketIsOpen = True
 state = 'night'
@@ -78,9 +82,11 @@ try:
                         print('Activating overnight algos')
                         for algo in overnightAlgos: algo.activate()
                         state = 'night'
+                        compile_day_bars()
 
                 elif state == 'night' and closingSoon:
                     for algo in overnightAlgos: algo.tick() # TODO: parallel
+                    for algo in multidayAlgos: algo.tick() # TODO: parallel
                 
                 # set ticked
                 for bars in g.assets['min'].values():
@@ -99,10 +105,9 @@ try:
                 print('Market is closed')
             sleep(1)
 
-except KeyboardInterrupt: # stop active algos
+except: # stop active algos
     print('Stopping active algos')
     for algo in allAlgos:
         if algo.active:
             print(f"Stopping {algo.name}")
             algo.stop()
-            pass #Remove pass to require two "Ctrl-C"s to exit

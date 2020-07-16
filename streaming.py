@@ -1,10 +1,11 @@
 import g
 from algos import allAlgos
 from indicators import indicators
+from timing import update_time
 from warn import warn
 
 import asyncio
-import pandas as pd
+from pandas import DataFrame
 
 trades = []
 
@@ -13,7 +14,7 @@ def process_bar(barFreq, data):
     # data: raw stream data
 
     try: # add bar to g.assets (needs to be initialized first)
-        newBar = pd.DataFrame({
+        newBar = DataFrame({
             'open': data.open,
             'high': data.high,
             'low': data.low,
@@ -33,6 +34,39 @@ def process_bar(barFreq, data):
     try: # save bars
         g.assets[barFreq][data.symbol] = bars
     except Exception as e: warn(e, data)
+
+def compile_day_bars():
+    print('Compiling day bars')
+    _, openTime, _ = update_time()
+    for ii, (symbol, minBars) in enumerate(g.assets['min'].items()):
+        print(f'Compiling bar {ii+1} / {len(g.assets["min"])}\t{symbol}')
+        minBars = minBars.loc[openTime:]
+
+        try: # compile bar
+            newDayBar = {}
+            newDayBar['open'] = minBars.open.iloc[0]
+            newDayBar['high'] = minBars.high.max()
+            newDayBar['low'] = minBars.low.min()
+            newDayBar['close'] = minBars.close.iloc[-1]
+            newDayBar['volume'] = minBars.volume.sum()
+            newDayBar['ticked'] = False
+        except Exception as e: warn(e)
+
+        try: # add bar to g.assets
+            date = openTime.replace(hour=0, minute=0)
+            newDayBar = DataFrame(newDayBar, index=[date])
+            dayBars = g.assets['day'][symbol].append(newDayBar)
+        except Exception as e: warn(e)
+        
+        try: # get indicators
+            for indicator in indicators['day']:
+                jj = dayBars.columns.get_loc(indicator.name)
+                dayBars.iloc[-1, jj] = indicator.get(dayBars)
+        except Exception as e: warn(e)
+        
+        try: # save bars
+            g.assets['day'][symbol] = dayBars
+        except Exception as e: warn(e)
 
 def process_trade(data):
     g.processingTrade = True
