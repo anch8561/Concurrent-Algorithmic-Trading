@@ -362,14 +362,14 @@ class Algo:
         # ticking: bool; whether algo is accessing positions or orders
         # (blocks trade updates)
         self.ticking = ticking
-        # print(f'{self.name}\tticking = {ticking}')
+        print(f'{self.name}\tticking = {ticking}')
         if ticking:
-            # waiting = False
-            # if g.processingTrade:
-            #     waiting = True
-            #     print('Waiting for processingTrade == False')
+            waiting = False
+            if g.processingTrade:
+                waiting = True
+                print('Waiting for processingTrade == False')
             while g.processingTrade: pass
-            # if waiting: print('Done waiting')
+            if waiting: print('Done waiting')
 
     def update_equity(self):
         # copy buying power

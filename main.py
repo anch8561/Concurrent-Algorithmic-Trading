@@ -25,7 +25,7 @@ for algo in allAlgos:
     algo.buyPow['short'] = 5000
 
 # populate assets
-populate_assets(50)
+populate_assets(30)
 
 # start streaming
 channels = ['account_updates', 'trade_updates']
@@ -58,6 +58,10 @@ try:
                 print('Market is open')
 
             # check for new minute bars
+            print()
+            sleep(1)
+            for symbol, bars in g.assets['min'].items():
+                print(f'{symbol}\t{bars.index[-1]}\t{bars.ticked.iloc[-1]}')
             if any(bars['ticked'].iloc[-1] == False for bars in g.assets['min'].values()):
                 closingSoon = g.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
 
@@ -108,9 +112,10 @@ try:
                 print('Market is closed')
             sleep(1)
 
-except: # stop active algos
+except Exception as e: # stop active algos
     print('Stopping active algos')
     for algo in allAlgos:
         if algo.active:
             print(f'\tStopping {algo.name}')
             algo.stop()
+    print(e)
