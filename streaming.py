@@ -72,7 +72,7 @@ def compile_day_bars():
 
 def process_trade(data):
     g.processingTrade = True
-    print('processingTrade = True')
+    # print('processingTrade = True')
     
     try: # get trade info
         event = data.event
@@ -156,7 +156,7 @@ def process_trade(data):
         except Exception as e: warn(f'{e}', f'{data}')
 
     g.processingTrade = False
-    print('processingTrade = False')
+    # print('processingTrade = False')
 
 def process_all_trades():
     for trade in trades:

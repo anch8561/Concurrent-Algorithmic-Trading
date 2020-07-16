@@ -14,8 +14,6 @@ from datetime import timedelta
 from threading import Thread
 from time import sleep
 
-print(get_date(), get_time())
-
 # allocate buying power
 allocate_buying_power()
 
@@ -41,7 +39,6 @@ for algo in allAlgos:
         algo.start()
 
 # main loop
-print(get_date(), get_time())
 print('Entering main loop')
 marketIsOpen = True
 state = 'night'
@@ -49,7 +46,7 @@ try:
     while True:
         update_time()
 
-        if ( # market is open
+        if True or ( # market is open
             g.TTOpen < timedelta(0) and
             g.TTClose > timedelta(0)
         ):
@@ -58,11 +55,6 @@ try:
                 print('Market is open')
 
             # check for new minute bars
-            print()
-            sleep(10)
-            print('symbol\tdata start time\t\t\tticked')
-            for symbol, bars in g.assets['min'].items():
-                print(f'{symbol}\t{bars.index[-1]}\t{bars.ticked.iloc[-1]}')
             if any(bars['ticked'].iloc[-1] == False for bars in g.assets['min'].values()):
                 closingSoon = g.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
 
@@ -105,8 +97,6 @@ try:
                 process_all_trades()
 
                 print(f'{get_time()}\tWaiting for bars')
-            
-            # TODO: check for new day bars (possibly in new thread)
         else:
             if marketIsOpen:
                 marketIsOpen = False
@@ -119,5 +109,5 @@ except Exception as e: # stop active algos
         if algo.active:
             print(f'\tStopping {algo.name}')
             algo.stop()
-    print(e)
+    warn(e)
     pass
