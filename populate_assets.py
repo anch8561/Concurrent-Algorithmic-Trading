@@ -36,76 +36,16 @@ def populate_assets(numAssets=None):
                     activeSymbols.append(asset.symbol)
                     break
 
-    # get inactive symbols
-    inactiveSymbols = []
-    for symbol in g.assets['sec']:
-        if symbol not in activeSymbols:
-            inactiveSymbols.append(symbol)
-    
-    # remove inactive assets
-    for ii, symbol in enumerate(inactiveSymbols):
-        print(f'Removing asset {ii+1} / {len(inactiveSymbols)}\t{symbol}')
-        remove_asset(symbol, alpacaAssets, polygonTickers)
-
     # add active assets
     for ii, symbol in enumerate(activeSymbols):
-        if symbol not in g.assets['sec']:
-            print(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
-            add_asset(symbol)
+        print(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
+        add_asset(symbol)
 
-def remove_asset(symbol, alpacaAssets, polygonTickers):
-    # remove from assets
-    for barFreq in g.assets:
-        g.assets[barFreq].pop(symbol)
-
-    # get reasons for removal
-    removalReasons = [
-        'inactive',
-        'unmarginable',
-        'unshortable',
-        'leveraged',
-        'noTicker',
-        'lowVolume',
-        'lowPrice'
-    ]
-    for asset in alpacaAssets:
-        if asset.symbol == symbol:
-            removalReasons.remove('inactive')
-            if asset.marginable:
-                removalReasons.remove('unmarginable')
-            if asset.shortable:
-                removalReasons.remove('unshortable')
-            if not any(x in asset.name.lower() for x in leverageStrings):
-                removalReasons.remove('leveraged')
-            for ticker in polygonTickers:
-                if ticker.ticker == asset.symbol:
-                    removalReasons.remove('noTicker')
-                    if ticker.prevDay['v'] > minDayVolume:
-                        removalReasons.remove('lowVolume')
-                    if ticker.prevDay['l'] > minSharePrice:
-                        removalReasons.remove('lowPrice')
-                    break
-    removalReasons = ', '.join(removalReasons)
-
-    # check for positions
-    for algo in allAlgos:
-        qty = algo.positions[symbol]['qty']
-        if qty: warn(f'{algo.name} {qty} shares of {symbol} ({removalReasons})')
-
-    # check for orders
-    for algo in allAlgos:
-        orderIDs = []
-        for order in algo.orders:
-            if order['symbol'] == symbol:
-                orderIDs.append(order['id'])
-        for orderID in orderIDs:
-            algo.alpaca.cancel_order(orderID)
-            algo.allOrders.pop(orderID)
-            algo.orders.pop(orderID)
 
 # list of lists of positions
 positionsList = [g.paperPositions, g.livePositions]
 positionsList += [algo.positions for algo in allAlgos]
+
 
 def add_asset(symbol):
     # add zero positions
@@ -118,12 +58,16 @@ def add_asset(symbol):
 
 
     # GET MINUTE BARS
-    # get historic aggs
-    if verbose: print('    Getting historic min bars')
-    fromDate = get_market_date(-1)
-    toDate = get_date()
-    bars = alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate).df.iloc[-100:]
-    bars['ticked'] = False
+    try: # get historic aggs
+        if verbose: print('    Getting historic min bars')
+        fromDate = get_market_date(-1)
+        toDate = get_date()
+        bars = alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate).df.iloc[-100:]
+        bars['ticked'] = False
+    except Exception as e:
+        warn(e)
+        g.assets['sec'].pop(symbol)
+        return
 
     # get indicators
     for kk, indicator in enumerate(indicators['min']):
@@ -138,11 +82,16 @@ def add_asset(symbol):
 
 
     # GET DAY BARS
-    # get historic aggs
-    if verbose: print('    Getting historic day bars')
-    fromDate = get_market_date(-100)
-    toDate = get_date()
-    bars = alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
+    try: # get historic aggs
+        if verbose: print('    Getting historic day bars')
+        fromDate = get_market_date(-100)
+        toDate = get_date()
+        bars = alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
+    except Exception as e:
+        warn(e)
+        g.assets['sec'].pop(symbol)
+        g.assets['min'].pop(symbol)
+        return
 
     # get indicators
     for kk, indicator in enumerate(indicators['day']):
