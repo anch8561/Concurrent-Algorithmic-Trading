@@ -60,6 +60,7 @@ try:
             # check for new minute bars
             print()
             sleep(10)
+            print('symbol\tdata start time\t\t\tticked')
             for symbol, bars in g.assets['min'].items():
                 print(f'{symbol}\t{bars.index[-1]}\t{bars.ticked.iloc[-1]}')
             if any(bars['ticked'].iloc[-1] == False for bars in g.assets['min'].values()):
@@ -119,3 +120,4 @@ except Exception as e: # stop active algos
             print(f'\tStopping {algo.name}')
             algo.stop()
     print(e)
+    pass
