@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 algoPath = 'algos/'
 
 verbose = True
@@ -22,6 +24,11 @@ minTradeBuyPow = 100
 minLongPrice = 3
 minShortPrice = 17
 
-marketCloseTransitionMinutes = 10
+barTimeout = 2.5 # number of bar periods without new bar before asset is removed
+tickDelay = timedelta(seconds=1) # time between last bar received and ticking algos
+
+numHistoricDays = 20
+
+marketCloseTransitionPeriod = timedelta(minutes=10)
 
 limitPriceFrac = 0.02

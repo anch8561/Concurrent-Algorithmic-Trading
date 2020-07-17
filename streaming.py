@@ -1,10 +1,12 @@
+import config as c
 import globalVariables as g
 from algos import allAlgos
 from indicators import indicators
-from timing import update_time, get_time, get_date
+from timing import get_time, get_market_open, get_time_str
 from warn import warn
 
-import asyncio
+# import asyncio
+from datetime import timedelta
 from pandas import DataFrame
 
 trades = []
@@ -13,7 +15,7 @@ def process_bar(barFreq, data):
     # barFreq: 'sec', 'min', or 'day'
     # data: raw stream data
 
-    print(f'{get_date()} {get_time()}\t{data.symbol}\tnew bar\t{data.start}')
+    print(f'{get_time_str()}\t{data.symbol}\tNew bar\t{data.start}')
 
     try: # add bar to g.assets (needs to be initialized first)
         newBar = DataFrame({
@@ -35,11 +37,12 @@ def process_bar(barFreq, data):
     
     try: # save bars
         g.assets[barFreq][data.symbol] = bars
+        g.lastBarProcessTime = get_time()
     except Exception as e: warn(e, data)
 
 def compile_day_bars():
     print('Compiling day bars')
-    _, openTime, _ = update_time()
+    openTime = get_market_open()
     for ii, (symbol, minBars) in enumerate(g.assets['min'].items()):
         print(f'Compiling bar {ii+1} / {len(g.assets["min"])}\t{symbol}')
         minBars = minBars.loc[openTime:]

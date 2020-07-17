@@ -1,15 +1,14 @@
-import globalVariables as g 
+import config as c
+import globalVariables as g
 from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 from alpacaAPI import connLive, connPaper
-from config import marketCloseTransitionMinutes
 from allocate_buying_power import allocate_buying_power
 from indicators import indicators
 from populate_assets import populate_assets
 from streaming import stream, process_all_trades, compile_day_bars
-from timing import update_time, get_time, get_date
+from timing import get_time, get_market_open, get_market_close, get_time_str, get_date
 from warn import warn
 
-import sys
 from datetime import timedelta
 from threading import Thread
 from time import sleep
@@ -23,7 +22,7 @@ for algo in allAlgos:
     algo.buyPow['short'] = 5000
 
 # populate assets
-populate_assets(30)
+populate_assets(10)
 
 # start streaming
 channels = ['account_updates', 'trade_updates']
@@ -34,9 +33,7 @@ Thread(target=stream, args=(connPaper, channels)).start()
 # start active algos
 print('Starting active algos')
 for algo in allAlgos:
-    if algo.active:
-        print(f'\tStarting {algo.name}')
-        algo.start()
+    if algo.active: algo.start()
 
 # main loop
 print('Entering main loop')
@@ -44,9 +41,12 @@ marketIsOpen = True
 state = 'night'
 try:
     while True:
-        update_time()
+        # update time
+        now = get_time()
+        g.TTOpen = get_market_open() - now
+        g.TTClose = get_market_close() - now
 
-        if True or ( # market is open
+        if ( # market is open
             g.TTOpen < timedelta(0) and
             g.TTClose > timedelta(0)
         ):
@@ -55,53 +55,59 @@ try:
                 print('Market is open')
 
             # check for new minute bars
-            if any(bars['ticked'].iloc[-1] == False for bars in g.assets['min'].values()):
-                closingSoon = g.TTClose <= timedelta(minutes=marketCloseTransitionMinutes)
+            try: newBars = now - g.lastBarReceivedTime > c.tickDelay
+            except: newBars = False
+            if newBars:
+                closingSoon = g.TTClose <= c.marketCloseTransitionPeriod
 
                 # tick algos
                 print('Ticking algos')
-                if state == 'night' and not closingSoon:
-                    print('Deactivating overnight algos')
-                    for algo in overnightAlgos: algo.deactivate()
-                    
-                    if not any(algo.active for algo in overnightAlgos):
-                        print('Activating intraday algos')
-                        for algo in intradayAlgos: algo.activate()
-                        state = 'day'
+                try:
+                    if state == 'night' and not closingSoon:
+                        print('Deactivating overnight algos')
+                        for algo in overnightAlgos: algo.deactivate()
+                        
+                        if not any(algo.active for algo in overnightAlgos):
+                            print('Activating intraday algos')
+                            for algo in intradayAlgos: algo.activate()
+                            state = 'day'
 
-                elif state == 'day' and not closingSoon:
-                    for algo in intradayAlgos: algo.tick() # TODO: parallel
+                    elif state == 'day' and not closingSoon:
+                        for algo in intradayAlgos: algo.tick() # TODO: parallel
 
-                elif state == 'day' and closingSoon:
-                    print('Deactivating intraday algos')
-                    for algo in intradayAlgos: algo.deactivate()
-                    
-                    if not any(algo.active for algo in intradayAlgos):
-                        print('Activating overnight algos')
-                        for algo in overnightAlgos: algo.activate()
-                        state = 'night'
-                        compile_day_bars()
+                    elif state == 'day' and closingSoon:
+                        print('Deactivating intraday algos')
+                        for algo in intradayAlgos: algo.deactivate()
+                        
+                        if not any(algo.active for algo in intradayAlgos):
+                            print('Activating overnight algos')
+                            for algo in overnightAlgos: algo.activate()
+                            state = 'night'
+                            compile_day_bars()
 
-                elif state == 'night' and closingSoon:
-                    for algo in overnightAlgos: algo.tick() # TODO: parallel
-                    for algo in multidayAlgos: algo.tick() # TODO: parallel
-                
+                    elif state == 'night' and closingSoon:
+                        for algo in overnightAlgos: algo.tick() # TODO: parallel
+                        for algo in multidayAlgos: algo.tick() # TODO: parallel
+                except Exception as e: warn(e)
+
                 # set ticked
                 for bars in g.assets['min'].values():
-                    jj = bars.columns.get_loc('ticked')
-                    bars.iloc[-1, jj] = True
-                    # FIX: only mark some symbols
+                    try: # won't work if no bars
+                        jj = bars.columns.get_loc('ticked')
+                        bars.iloc[-1, jj] = True
+                    except Exception as e: warn(e)
 
                 # process trade update backlog
                 print('Processing trade update backlog')
                 process_all_trades()
 
-                print(f'{get_time()}\tWaiting for bars')
+                print('Waiting for bars')
         else:
             if marketIsOpen:
                 marketIsOpen = False
                 print('Market is closed')
-            sleep(1)
+
+        sleep(1)
 
 except Exception as e: # stop active algos
     print('Stopping active algos')

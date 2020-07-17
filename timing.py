@@ -13,29 +13,27 @@ for ii, date in enumerate(calendar):
         i_today = ii
         break
 
-def update_time():
-    now = datetime.now(nyc)
-    date = calendar[i_today].date
-
-    # update time til open
-    openTime = datetime.combine(
-        date = date,
-        time = calendar[i_today].open,
-        tzinfo = now.tzinfo)
-    g.TTOpen = openTime - now
-
-    # update time til close
-    closeTime = datetime.combine(
-        date = date,
-        time = calendar[i_today].close,
-        tzinfo = now.tzinfo)
-    g.TTClose = closeTime - now
-
-    return now, openTime, closeTime
-
 def get_time():
+    # returns: current nyc datetime
+    return datetime.now(nyc)
+
+def get_time_str():
     # returns: nyc time str; e.g. '08:35:41.736216' (HH:MM:SS.US)
-    return datetime.now(nyc).strftime('%H:%M:%S.%f')
+    return get_time().strftime('%H:%M:%S.%f')
+
+def get_market_open():
+    # returns: nyc market open datetime
+    return datetime.combine(
+        date = calendar[i_today].date,
+        time = calendar[i_today].open,
+        tzinfo = get_time().tzinfo)
+
+def get_market_close():
+    # returns: nyc market close datetime
+    return datetime.combine(
+        date = calendar[i_today].date,
+        time = calendar[i_today].close,
+        tzinfo = get_time().tzinfo)
 
 def get_date(offset=0):
     # offset: int, days relative to today (-1 is yesterday)

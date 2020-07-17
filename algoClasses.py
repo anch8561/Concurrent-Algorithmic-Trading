@@ -1,7 +1,7 @@
 import alpacaAPI
 import config as c
 import globalVariables as g
-from timing import get_time, get_date
+from timing import get_time_str, get_date
 from warn import warn
 
 import json, os
@@ -72,6 +72,7 @@ class Algo:
         if not self.active:
             warn(f'{self.name} cannot start while inactive')
         else:
+            print('Starting ', self.name)
             self.cancel_all_orders()
             self.set_ticking(True)
             self.update_equity()
@@ -83,6 +84,7 @@ class Algo:
         if not self.active:
             warn(f'{self.name} cannot stop while inactive')
         else:
+            print('Stopping ', self.name)
             self.cancel_all_orders()
             self.set_ticking(True)
             self.update_equity()
@@ -162,6 +164,9 @@ class Algo:
 
         if qty == 0: return
 
+        if limitPrice == None: orderType = 'market'
+        else: orderType = 'limit'
+
         # check allPositions for zero crossing
         if symbol in self.allPositions:
             allPosQty = self.allPositions[symbol]['qty']
@@ -189,7 +194,7 @@ class Algo:
                 symbol = symbol,
                 qty = abs(qty),
                 side = side,
-                type = 'limit',
+                type = orderType,
                 time_in_force = 'day',
                 limit_price = limitPrice)
 
@@ -211,8 +216,10 @@ class Algo:
         except Exception as e: warn(e)
 
     def cancel_all_orders(self):
+        self.set_ticking(True)
         for orderID in self.orders:
             self.alpaca.cancel_order(orderID)
+        self.set_ticking(False)
         while len(self.orders): pass
 
     def get_limit_price(self, symbol, side):
@@ -265,8 +272,7 @@ class Algo:
         try:
             return g.assets['min'][symbol].close.iloc[-1] # TODO: secBars
         except Exception as e:
-            warn(f'{symbol}\tno price data', e)
-            return self.alpaca.get_last_trade(symbol).price
+            warn(f'No price data for {symbol}', e)
 
     def get_trade_qty(self, symbol, side, price, volumeMult=1, barFreq='min'):
         # symbol: e.g. 'AAPL'
@@ -376,19 +382,27 @@ class Algo:
         self.equity = self.buyPow.copy()
 
         # check positions
+        self.set_ticking(True)
         for symbol, position in self.positions.items():
             qty = position['qty']
             if qty: # get position value
                 longShort = 'long' if qty > 0 else 'short'
                 price = self.get_price(symbol)
-                self.equity[longShort] += price * abs(qty)
+                try: self.equity[longShort] += price * abs(qty)
+                except: # exit positions of unknown value
+                    print(f'{self.name}\tExiting untracked position of {qty} {symbol}')
+                    self.exit_position(symbol)
+                    print(self.name, '\tGetting price of {symbol} from alpaca')
+                    price = self.alpaca.get_last_trade(symbol).price
+                    self.equity[longShort] += price * abs(qty)
+        self.set_ticking(False)
 
     def update_history(self, event):
         # event: 'start' or 'stop'
         date = get_date()
         if date not in self.history:
             self.history[date] = {}
-        self.history[date][get_time()] = {
+        self.history[date][get_time_str()] = {
             'event': event,
             'equity': self.equity
         }
@@ -397,11 +411,13 @@ class NightAlgo(Algo):
     def tick(self):
         if sum(self.buyPow.values()) > c.minTradeBuyPow * 2:
             self.set_ticking(True)
-            self.func(self)
+            try: self.func(self)
+            except Exception as e: warn(f'{self.name}\t{e}')
             self.set_ticking(False)
 
 class DayAlgo(Algo):
     def tick(self):
         self.set_ticking(True)
-        self.func(self)
+        try: self.func(self)
+        except Exception as e: warn(f'{self.name}\t{e}')
         self.set_ticking(False)

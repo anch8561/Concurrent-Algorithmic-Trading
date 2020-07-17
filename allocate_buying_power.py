@@ -19,30 +19,24 @@ def allocate_buying_power():
     try: # get performance weights
         w = []
         for algo in allAlgos:
-            try: # get performance metrics
-                metrics = algo.get_metrics(c.allocMetricDays)
+            metrics = algo.get_metrics(c.allocMetricDays)
 
-                try: # get long equity growth
-                    w.append(metrics['mean']['long'])
-                except:
-                    w.append(0)
-                    warn(f'{algo.name} missing long data')
-                
-                try: # get short equity growth
-                    w.append(metrics['mean']['short'])
-                except:
-                    w.append(0)
-                    warn(f'{algo.name} missing short data')
+            try: # get long equity growth
+                w.append(metrics['mean']['long'])
             except:
-                warn(f'{algo.name} missing performance data')
+                w.append(0)
+                warn(f'{algo.name} missing long data')
+            
+            try: # get short equity growth
+                w.append(metrics['mean']['short'])
+            except:
+                w.append(0)
+                warn(f'{algo.name} missing short data')
 
-            try:
-                if c.verbose:
-                    print(f'{algo.name}')
-                    print(f"\tlong growth:  {metrics['mean']['long']}\t+/- {metrics['stdev']['long']}")
-                    print(f"\tshort growth: {metrics['mean']['short']}\t+/- {metrics['stdev']['short']}")
-            except:
-                warn(f'{algo.name} missing risk data')
+            if c.verbose:
+                print(f'{algo.name}')
+                print(f"\tlong growth:  {metrics['mean']['long']}\t+/- {metrics['stdev']['long']}")
+                print(f"\tshort growth: {metrics['mean']['short']}\t+/- {metrics['stdev']['short']}")
         w = np.array(w)
     except Exception as e: warn(e)
 

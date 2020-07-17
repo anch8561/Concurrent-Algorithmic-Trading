@@ -3,15 +3,15 @@ import globalVariables as g
 from algos import allAlgos
 from alpacaAPI import alpacaPaper as alpaca
 from indicators import indicators
-from timing import get_date, get_market_date
+from timing import get_market_open, get_date, get_market_date
 from warn import warn
 
-import pandas as pd
+from pandas import DataFrame
 
 def populate_assets(numAssets=None):
     # numAssets: int or None; number of symbols to check (None means no limit)
 
-    print('Updating tradable assets')
+    print('Populating assets')
 
     # get alpaca assets and polygon tickers
     alpacaAssets = alpaca.list_assets('active', 'us_equity')
@@ -53,38 +53,20 @@ def add_asset(symbol):
         if symbol not in positions:
             positions[symbol] = {'qty': 0, 'basis': 0}
 
-    # init secBars
-    g.assets['sec'][symbol] = pd.DataFrame()
+    # init second bars
+    g.assets['sec'][symbol] = DataFrame()
 
-
-    # GET MINUTE BARS
-    try: # get historic aggs
-        if c.verbose: print('    Getting historic min bars')
-        fromDate = get_market_date(-1)
-        toDate = get_date()
-        bars = alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate).df.iloc[-100:]
-        bars['ticked'] = False
-    except Exception as e:
-        warn(e)
-        g.assets['sec'].pop(symbol)
-        return
-
-    # get indicators
-    for kk, indicator in enumerate(indicators['min']):
-        if c.verbose: print(f'\tAdding min indicator {kk+1} / {len(indicators["min"])}\t{indicator.name}')
-        bars[indicator.name] = None
-        jj = bars.columns.get_loc(indicator.name)
-        for ii in range(len(bars.index)):
-            bars.iloc[ii, jj] = indicator.get(bars.iloc[:ii])
-    
-    # write to assets
-    g.assets['min'][symbol] = bars
+    # init minute bars
+    columns = ['open', 'high', 'low', 'close', 'volume', 'ticked']
+    for indicator in indicators['min']: columns.append(indicator.name)
+    data = {}
+    for column in columns: data[column] = None
+    g.assets['min'][symbol] = DataFrame(data, [get_market_open()])
 
 
     # GET DAY BARS
     try: # get historic aggs
-        if c.verbose: print('    Getting historic day bars')
-        fromDate = get_market_date(-100)
+        fromDate = get_market_date(-c.numHistoricDays)
         toDate = get_date()
         bars = alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
     except Exception as e:
@@ -94,8 +76,7 @@ def add_asset(symbol):
         return
 
     # get indicators
-    for kk, indicator in enumerate(indicators['day']):
-        if c.verbose: print(f'\tAdding day indicator {kk+1} / {len(indicators["day"])}\t{indicator.name}')
+    for indicator in indicators['day']:
         bars[indicator.name] = None
         jj = bars.columns.get_loc(indicator.name)
         for ii in range(len(bars.index)):
