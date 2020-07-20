@@ -90,12 +90,12 @@ def allocate_buying_power():
         allocFrac = results.x
     except Exception as e: warn(e)
 
-    # distribute buying power
-    # NOTE: allowing this to crash if broken
-    for ii, algo in enumerate(allAlgos):
-        algo.buyPow['long'] = int(allocFrac[ii*2] * buyPow)
-        algo.buyPow['short'] = int(allocFrac[ii*2+1] * buyPow)
-        print(f'{algo.name}\n\t{algo.buyPow}')
+    try: # distribute buying power
+        for ii, algo in enumerate(allAlgos):
+            algo.buyPow['long'] = int(allocFrac[ii*2] * buyPow)
+            algo.buyPow['short'] = int(allocFrac[ii*2+1] * buyPow)
+            print(f'{algo.name}\n\tBuying power: {algo.buyPow}')
+    except Exception as e: warn(e)
 
 def get_overnight_fee(self, debt):
         # accrues daily (including weekends) and posts at end of month

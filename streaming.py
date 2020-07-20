@@ -37,7 +37,7 @@ def process_bar(barFreq, data):
     
     try: # save bars
         g.assets[barFreq][data.symbol] = bars
-        g.lastBarProcessTime = get_time()
+        g.lastBarReceivedTime = get_time()
     except Exception as e: warn(e, data)
 
 def compile_day_bars():
@@ -81,6 +81,11 @@ def process_trade(data):
         event = data.event
         orderID = data.order['id']
         symbol = data.order['symbol']
+        side = data.order['side']
+        qty = int(data.order['qty'])
+        fillQty = int(data.order['filled_qty'])
+        try: limit = float(data.order['limit_price'])
+        except: limit = None
     except Exception as e: warn(f'{e}', f'{data}')
 
     try: # paper / live
@@ -93,13 +98,11 @@ def process_trade(data):
             allOrders = g.liveOrders
             allPositions = g.livePositions
         else:
-            print(f'Unknown order id: {orderID} Event: {event}')
+            print(f"Unknown order id: {orderID}\n\t{event}\t{symbol}\t{side}\t{fillQty} / {qty} @ {limit}")
             return
     except Exception as e: warn(f'{e}', f'{data}')
         
     try: # get local data
-        qty = order['qty']
-        limit = order['limit']
         longShort = order['longShort']
         enterExit = order['enterExit']
         algo = order['algo']
@@ -108,8 +111,9 @@ def process_trade(data):
     # check event
     if event == 'fill':
         try: # get streamed data
-            fillQty = int(data.order['filled_qty'])
-            if data.order['side'] == 'sell': fillQty *= -1
+            if side == 'sell':
+
+                fillQty *= -1
             fillPrice = float(data.order['filled_avg_price'])
         except Exception as e: warn(f'{e}', f'{data}')
 
@@ -131,8 +135,8 @@ def process_trade(data):
 
         try: # update buying power
             if enterExit == 'enter':
-                algo.buyPow[longShort] += abs(qty) * limit
                 algo.buyPow[longShort] -= abs(fillQty) * fillPrice
+                algo.buyPow[longShort] += abs(qty) * limit
             elif enterExit == 'exit':
                 algo.buyPow[longShort] += abs(fillQty) * fillPrice
         except Exception as e: warn(f'{e}', f'{data}')
@@ -147,8 +151,8 @@ def process_trade(data):
 
         try: # update buying power
             if enterExit == 'enter':
-                algo.buyPow[longShort] += abs(qty) * limit
                 algo.buyPow[longShort] -= abs(fillQty) * fillPrice
+                algo.buyPow[longShort] += abs(qty) * limit
             elif enterExit == 'exit':
                 algo.buyPow[longShort] += abs(fillQty) * fillPrice
         except Exception as e: warn(f'{e}', f'{data}')
@@ -162,8 +166,10 @@ def process_trade(data):
     # print('processingTrade = False')
 
 def process_all_trades():
+    global trades
     for trade in trades:
         process_trade(trade)
+    trades = []
 
 def stream(conn, channels):
     async def on_second(conn, channel, data):

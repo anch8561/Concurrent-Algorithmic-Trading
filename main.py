@@ -55,9 +55,12 @@ try:
                 print('Market is open')
 
             # check for new minute bars
-            try: newBars = now - g.lastBarReceivedTime > c.tickDelay
-            except: newBars = False
-            if newBars:
+            try: newBarDelay = now - g.lastBarReceivedTime > c.tickDelay
+            except: newBarDelay = False
+            if (
+                newBarDelay and
+                any(bars.ticked[-1] == False for bars in g.assets['min'].values())
+            ):
                 closingSoon = g.TTClose <= c.marketCloseTransitionPeriod
 
                 # tick algos
@@ -106,10 +109,11 @@ try:
             if marketIsOpen:
                 marketIsOpen = False
                 print('Market is closed')
-
+                
         sleep(1)
 
 except Exception as e: # stop active algos
+    # FIX: not working
     print('Stopping active algos')
     for algo in allAlgos:
         if algo.active:

@@ -199,14 +199,13 @@ class Algo:
                 limit_price = limitPrice)
 
             # add to orders and allOrders
-            orderID = order.id
-            self.orders[orderID] = {
+            self.orders[order.id] = {
                 'symbol': symbol,
                 'qty': qty,
                 'limit': limitPrice,
                 'longShort': longShort,
                 'enterExit': enterExit}
-            self.allOrders[orderID] = {
+            self.allOrders[order.id] = {
                 'symbol': symbol,
                 'qty': qty,
                 'limit': limitPrice,

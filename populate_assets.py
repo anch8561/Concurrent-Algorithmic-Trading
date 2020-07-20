@@ -54,7 +54,11 @@ def add_asset(symbol):
             positions[symbol] = {'qty': 0, 'basis': 0}
 
     # init second bars
-    g.assets['sec'][symbol] = DataFrame()
+    columns = ['open', 'high', 'low', 'close', 'volume', 'ticked']
+    for indicator in indicators['sec']: columns.append(indicator.name)
+    data = {}
+    for column in columns: data[column] = None
+    g.assets['sec'][symbol] = DataFrame(data, [get_market_open()])
 
     # init minute bars
     columns = ['open', 'high', 'low', 'close', 'volume', 'ticked']
