@@ -1,6 +1,12 @@
-TTOpen = None # timedelta; time until open (open time - current time)
-TTClose = None # timedelta; time until close (close time - current time)
-lastBarReceivedTime = None
+alpacaLive = None # alpaca trade api REST object with live credentials
+alpacaPaper = None # alpaca trade api REST object with paper credentials
+connLive = None # alpaca trade api StreamConn object with live credentials
+connPaper = None # alpaca trade api StreamConn object with paper credentials
+
+TTOpen = None # timedelta until today's market open (or next market open if today is not a market day)
+TTClose = None # timedelta until today's market close (or next market close if today is not a market day)
+
+lastBarReceivedTime = None # datetime when last bar was received in streaming
 
 assets = {'sec': {}, 'min': {}, 'day': {}} # dict of dicts of dataframes {barFreq: symbol: df}
 # 'sec': dict of dataframes; second bars and indicators for each symbol

@@ -1,4 +1,3 @@
-import alpacaAPI
 import config as c
 import globalVariables as g
 from timing import get_time_str, get_date
@@ -24,7 +23,7 @@ class Algo:
 
         # paper / live
         self.live = False # whether using real money
-        self.alpaca = alpacaAPI.alpacaPaper # always call alpaca through self.alpaca
+        self.alpaca = g.alpacaPaper # always call alpaca through self.alpaca
         self.allOrders = g.paperOrders # have to be careful not to break these references
         self.allPositions = g.paperPositions
 
@@ -355,11 +354,11 @@ class Algo:
         # live: bool; whether algo uses real money
         self.live = live
         if live:
-            self.alpaca = alpacaAPI.alpacaLive
+            self.alpaca = g.alpacaLive
             self.allOrders = g.liveOrders
             self.allPositions = g.livePositions
         else:
-            self.alpaca = alpacaAPI.alpacaPaper
+            self.alpaca = g.alpacaPaper
             self.allOrders = g.paperOrders
             self.allPositions = g.paperPositions
 

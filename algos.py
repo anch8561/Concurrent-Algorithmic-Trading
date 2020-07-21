@@ -31,8 +31,8 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
             ):
                 self.exit_position(symbol)
 
-for exitNumBars in (1, 2, 3, 5):
-    for enterNumBars in (1, 2, 3, 5):
+for exitNumBars in (1, 2, 3):
+    for enterNumBars in (1, 2, 3):
         if enterNumBars >= exitNumBars:
             intradayAlgos += [
                 DayAlgo(

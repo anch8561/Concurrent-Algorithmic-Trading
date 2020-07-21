@@ -1,23 +1,64 @@
 import config as c
 import globalVariables as g
 from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
-from alpacaAPI import connLive, connPaper
 from allocate_buying_power import allocate_buying_power
 from indicators import indicators
+from init_alpaca import init_alpaca
 from populate_assets import populate_assets
 from streaming import stream, process_all_trades, compile_day_bars
-from timing import get_time, get_market_open, get_market_close, get_time_str, get_date
+from timing import init_timing, get_time, get_market_open, get_market_close, get_time_str, get_date
 from warn import warn
 
+import argparse
 from datetime import timedelta
 from threading import Thread
 from time import sleep
 
+# get arguments
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    'env',
+    choices = ['dev', 'test', 'prod'],
+    nargs = '?',
+    default = 'dev',
+    help = 'which credentials to use: development, testing, or production')
+parser.add_argument(
+    "-v", "--verbose",
+    action = "count",
+    default = 0,
+    help = "print additional output to terminal")
+parser.add_argument(
+    '--reset',
+    action = 'store_true',
+    help = 'whether to load algo positions or reset and start from scratch')
+args = parser.parse_args()
+
+# initialize
+init_alpaca(args.env)
+init_timing()
+
+# reset accounts and algos
+if args.reset:
+    # reset account orders and positions
+    for alpaca in (g.alpacaLive, g.alpacaPaper):
+        alpaca.cancel_all_orders()
+        alpaca.close_all_positions()
+    
+    # reset algo orders and positions
+    for algo in allAlgos:
+        algo.orders = {}
+        algo.positions = {}
+
+    # reset global orders and positions
+    g.liveOrders = {}
+    g.paperOrders = {}
+
+    g.livePositions = {}
+    g.paperPositions = {}
+
 # allocate buying power
 allocate_buying_power()
-
-# FIX: no performance data
-for algo in allAlgos:
+for algo in allAlgos: # FIX: no performance data
     algo.buyPow['long'] = 5000
     algo.buyPow['short'] = 5000
 
@@ -28,7 +69,7 @@ populate_assets(10)
 channels = ['account_updates', 'trade_updates']
 for symbol in g.assets['min']:
     channels += [f'AM.{symbol}']
-Thread(target=stream, args=(connPaper, channels)).start()
+Thread(target=stream, args=(g.connPaper, channels)).start()
 
 # start active algos
 print('Starting active algos')
@@ -109,7 +150,7 @@ try:
             if marketIsOpen:
                 marketIsOpen = False
                 print('Market is closed')
-                
+
         sleep(1)
 
 except Exception as e: # stop active algos

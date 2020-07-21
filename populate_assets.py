@@ -1,7 +1,6 @@
 import config as c
 import globalVariables as g
 from algos import allAlgos
-from alpacaAPI import alpacaPaper as alpaca
 from indicators import indicators
 from timing import get_market_open, get_date, get_market_date
 from warn import warn
@@ -14,9 +13,9 @@ def populate_assets(numAssets=None):
     print('Populating assets')
 
     # get alpaca assets and polygon tickers
-    alpacaAssets = alpaca.list_assets('active', 'us_equity')
+    alpacaAssets = g.alpacaPaper.list_assets('active', 'us_equity')
     if numAssets: alpacaAssets = alpacaAssets[:numAssets]
-    polygonTickers = alpaca.polygon.all_tickers()
+    polygonTickers = g.alpacaPaper.polygon.all_tickers()
 
     # get active symbols
     activeSymbols = []
@@ -72,7 +71,7 @@ def add_asset(symbol):
     try: # get historic aggs
         fromDate = get_market_date(-c.numHistoricDays)
         toDate = get_date()
-        bars = alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
+        bars = g.alpacaPaper.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
     except Exception as e:
         warn(e)
         g.assets['sec'].pop(symbol)

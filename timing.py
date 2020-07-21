@@ -1,17 +1,18 @@
 import globalVariables as g
-from alpacaAPI import alpacaPaper as alpaca
 from warn import warn
 
 from datetime import datetime, timedelta
 from pytz import timezone
 
-nyc = timezone('America/New_York')
-calendar = alpaca.get_calendar()
-todayStr = datetime.now(nyc).strftime('%Y-%m-%d')
-for ii, date in enumerate(calendar):
-    if date._raw['date'] >= todayStr: # current or next market day
-        i_today = ii
-        break
+def init_timing():
+    global nyc, calendar, i_today
+    nyc = timezone('America/New_York')
+    calendar = g.alpacaPaper.get_calendar()
+    todayStr = datetime.now(nyc).strftime('%Y-%m-%d')
+    for ii, date in enumerate(calendar):
+        if date._raw['date'] >= todayStr: # current or next market day
+            i_today = ii
+            break
 
 def get_time():
     # returns: current nyc datetime

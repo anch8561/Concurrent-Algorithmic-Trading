@@ -1,24 +1,32 @@
-class paper:
-    endpoint = 'https://paper-api.alpaca.markets'
-    apiKey = ''
-    secretKey = ''
-    creds = (apiKey, secretKey, endpoint)
+class prod:
+    paper = ( # paper 1
+        '', # api key
+        '', # secret key
+        '') # endpoint
 
-class live:
-    endpoint = 'https://api.alpaca.markets'
-    apiKey = ''
-    secretKey = ''
-    creds = (apiKey, secretKey, endpoint)
+    live = ( # live
+        '',
+        '',
+        '')
 
-class paperTest:
-    endpoint = 'https://paper-api.alpaca.markets'
-    apiKey = ''
-    secretKey = ''
-    creds = (apiKey, secretKey, endpoint)
+class test:
+    paper = ( # paper 2
+        '',
+        '',
+        '')
 
-class liveTest:
-    endpoint = 'https://paper-api.alpaca.markets'
-    apiKey = ''
-    secretKey = ''
-    creds = (apiKey, secretKey, endpoint)
-    
+    live = ( # paper 3
+        '',
+        '',
+        '')
+
+class dev:
+    paper = ( # paper 4
+        '',
+        '',
+        '')
+
+    live = ( # paper 5
+        '',
+        '',
+        '')

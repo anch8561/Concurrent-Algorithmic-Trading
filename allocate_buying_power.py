@@ -1,6 +1,6 @@
 import config as c
+import globalVariables as g
 from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
-from alpacaAPI import alpacaLive, alpacaPaper
 from warn import warn
 
 import numpy as np
@@ -10,7 +10,7 @@ def allocate_buying_power():
     print('Allocating buying power')
 
     # get buying power
-    account = alpacaPaper.get_account() # FIX: paper
+    account = g.alpacaPaper.get_account() # FIX: paper
     buyPow = float(account.daytrading_buying_power)
     regTBuyPow = float(account.regt_buying_power)
     print(f'Daytrading buying power: {buyPow}')

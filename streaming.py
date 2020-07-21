@@ -111,9 +111,7 @@ def process_trade(data):
     # check event
     if event == 'fill':
         try: # get streamed data
-            if side == 'sell':
-
-                fillQty *= -1
+            if side == 'sell': fillQty *= -1
             fillPrice = float(data.order['filled_avg_price'])
         except Exception as e: warn(f'{e}', f'{data}')
 
