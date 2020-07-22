@@ -25,7 +25,7 @@ minLongPrice = 3
 minShortPrice = 17
 
 barTimeout = 2.5 # number of bar periods without new bar before asset is removed
-tickDelay = timedelta(seconds=1) # time between last bar received and ticking algos
+tickDelay = timedelta(seconds=0.1) # time between last bar received and ticking algos
 
 numHistoricDays = 20
 
