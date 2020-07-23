@@ -32,3 +32,9 @@ numHistoricDays = 20
 marketCloseTransitionPeriod = timedelta(minutes=10)
 
 limitPriceFrac = 0.02
+
+# logging
+defaultLogLevel = 'info' # for printing to stderr
+logFormat = '%(asctime)s %(name)s %(levelname)s: %(message)s'
+logDatefmt = '%m-%d-%Y %H:%M:%S%z'
+criticalEmails = ['ancharters@gmail.com']

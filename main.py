@@ -4,12 +4,13 @@ from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 from allocate_buying_power import allocate_buying_power
 from indicators import indicators
 from init_alpaca import init_alpaca
+from init_logging import init_logging
 from populate_assets import populate_assets
 from streaming import stream, process_all_trades, compile_day_bars
 from timing import init_timing, get_time, get_market_open, get_market_close, get_time_str, get_date
 from warn import warn
 
-import argparse
+import argparse, logging
 from datetime import timedelta
 from threading import Thread
 from time import sleep
@@ -23,10 +24,10 @@ parser.add_argument(
     default = 'dev',
     help = 'which credentials to use: development, testing, or production')
 parser.add_argument(
-    "-v", "--verbose",
-    action = "count",
-    default = 0,
-    help = "print additional output to terminal")
+    "--log",
+    choices = ['debug', 'info', 'warn', 'warning', 'error', 'critical'],
+    default = c.defaultLogLevel,
+    help = "logging level")
 parser.add_argument(
     '--reset',
     action = 'store_true',
@@ -34,11 +35,13 @@ parser.add_argument(
 args = parser.parse_args()
 
 # initialize
+init_logging(args)
 init_alpaca(args.env)
 init_timing()
 
 # reset accounts and algos
 if args.reset:
+    if c.verbose: print('Cancelling orders and closing positions')
     # reset account orders and positions
     for alpaca in (g.alpacaLive, g.alpacaPaper):
         alpaca.cancel_all_orders()
@@ -63,7 +66,7 @@ for algo in allAlgos: # FIX: no performance data
     algo.buyPow['short'] = 5000
 
 # populate assets
-populate_assets(10)
+populate_assets(100)
 
 # start streaming
 channels = ['account_updates', 'trade_updates']

@@ -3,7 +3,7 @@ import globalVariables as g
 from timing import get_time_str, get_date
 from warn import warn
 
-import json, os
+import json, logging, os
 import statistics as stats
 
 # create c.algoPath if needed
@@ -14,12 +14,13 @@ class Algo:
     def __init__(self, func, **kwargs):
         self.func = func # function to determine when to enter and exit positions
 
-        # name and kwargs
+        # kwargs, name, and log
         self.name = ''
         for key, val in kwargs.items():
             self.__setattr__(key, val)
             self.name += str(val) + '_'
         self.name += self.func.__name__
+        self.log = logging.getLogger(self.name)
 
         # paper / live
         self.live = False # whether using real money
