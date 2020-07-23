@@ -8,13 +8,12 @@ from warn import warn
 from pandas import DataFrame
 
 def populate_assets(numAssets=None):
-    # numAssets: int or None; number of symbols to check (None means no limit)
+    # numAssets: int or None; number of symbols to watch (None means no limit)
 
     print('Populating assets')
 
     # get alpaca assets and polygon tickers
     alpacaAssets = g.alpacaPaper.list_assets('active', 'us_equity')
-    if numAssets: alpacaAssets = alpacaAssets[:numAssets]
     polygonTickers = g.alpacaPaper.polygon.all_tickers()
 
     # get active symbols
@@ -34,6 +33,10 @@ def populate_assets(numAssets=None):
                 ):
                     activeSymbols.append(asset.symbol)
                     break
+        
+        try: # check numAssets
+            if len(activeSymbols) == numAssets: break
+        except: pass
 
     # add active assets
     for ii, symbol in enumerate(activeSymbols):
