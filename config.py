@@ -2,7 +2,7 @@ from datetime import timedelta
 
 algoPath = 'algos/'
 
-verbose = True
+numAssets = 10 # number of symbols to stream (None means all)
 
 minAllocBuyPow = 10000
 maxAllocFrac = 0.1

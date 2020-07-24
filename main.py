@@ -8,40 +8,45 @@ from init_logging import init_logging
 from populate_assets import populate_assets
 from streaming import stream, process_all_trades, compile_day_bars
 from timing import init_timing, get_time, get_market_open, get_market_close, get_time_str, get_date
-from warn import warn
 
-import argparse, logging
+from argparse import ArgumentParser
 from datetime import timedelta
+from logging import getLogger
 from threading import Thread
 from time import sleep
 
 # get arguments
-parser = argparse.ArgumentParser()
+parser = ArgumentParser()
 parser.add_argument(
     'env',
     choices = ['dev', 'test', 'prod'],
     nargs = '?',
     default = 'dev',
-    help = 'which credentials to use: development, testing, or production')
+    help = 'which credentials to use: development, testing, or production (default dev)')
 parser.add_argument(
-    "--log",
+    '--log',
     choices = ['debug', 'info', 'warn', 'warning', 'error', 'critical'],
     default = c.defaultLogLevel,
-    help = "logging level")
+    help = f'logging level to display (default {c.defaultLogLevel})')
+parser.add_argument(
+    '--numAssets',
+    default = c.numAssets,
+    help = f'number of symbols to stream (default {c.numAssets}, None means all)')
 parser.add_argument(
     '--reset',
     action = 'store_true',
-    help = 'whether to load algo positions or reset and start from scratch')
+    help = 'cancel orders and exit positions before starting')
 args = parser.parse_args()
 
 # initialize
 init_logging(args)
 init_alpaca(args.env)
 init_timing()
+log = getLogger()
 
 # reset accounts and algos
 if args.reset:
-    if c.verbose: print('Cancelling orders and closing positions')
+    log.warning('Cancelling orders and closing positions')
     # reset account orders and positions
     for alpaca in (g.alpacaLive, g.alpacaPaper):
         alpaca.cancel_all_orders()
@@ -66,7 +71,7 @@ for algo in allAlgos: # FIX: no performance data
     algo.buyPow['short'] = 5000
 
 # populate assets
-populate_assets(100)
+populate_assets()
 
 # start streaming
 channels = ['account_updates', 'trade_updates']
@@ -75,12 +80,12 @@ for symbol in g.assets['min']:
 Thread(target=stream, args=(g.connPaper, channels)).start()
 
 # start active algos
-print('Starting active algos')
+log.warning('Starting active algos')
 for algo in allAlgos:
     if algo.active: algo.start()
 
 # main loop
-print('Entering main loop')
+log.warning('Entering main loop')
 marketIsOpen = True
 state = 'night'
 try:
@@ -96,26 +101,28 @@ try:
         ):
             if not marketIsOpen:
                 marketIsOpen = True
-                print('Market is open')
+                log.warning('Market is open')
 
             # check for new minute bars
-            try: newBarDelay = now - g.lastBarReceivedTime > c.tickDelay
-            except: newBarDelay = False
+            try: pastNewBarDelay = now - g.lastBarReceivedTime > c.tickDelay
+            except Exception as e:
+                if g.lastBarReceivedTime == None: pastNewBarDelay = False
+                else: log.exception(e)
             if (
-                newBarDelay and
+                pastNewBarDelay and
                 any(bars.ticked[-1] == False for bars in g.assets['min'].values())
             ):
                 closingSoon = g.TTClose <= c.marketCloseTransitionPeriod
 
                 # tick algos
-                print('Ticking algos')
+                log.info('Ticking algos')
                 try:
                     if state == 'night' and not closingSoon:
-                        print('Deactivating overnight algos')
+                        log.warning('Deactivating overnight algos')
                         for algo in overnightAlgos: algo.deactivate()
                         
                         if not any(algo.active for algo in overnightAlgos):
-                            print('Activating intraday algos')
+                            log.warning('Activating intraday algos')
                             for algo in intradayAlgos: algo.activate()
                             state = 'day'
 
@@ -123,11 +130,11 @@ try:
                         for algo in intradayAlgos: algo.tick() # TODO: parallel
 
                     elif state == 'day' and closingSoon:
-                        print('Deactivating intraday algos')
+                        log.warning('Deactivating intraday algos')
                         for algo in intradayAlgos: algo.deactivate()
                         
                         if not any(algo.active for algo in intradayAlgos):
-                            print('Activating overnight algos')
+                            log.warning('Activating overnight algos')
                             for algo in overnightAlgos: algo.activate()
                             state = 'night'
                             compile_day_bars()
@@ -135,33 +142,31 @@ try:
                     elif state == 'night' and closingSoon:
                         for algo in overnightAlgos: algo.tick() # TODO: parallel
                         for algo in multidayAlgos: algo.tick() # TODO: parallel
-                except Exception as e: warn(e)
+                except Exception as e: log.exception(e)
 
                 # set ticked
                 for bars in g.assets['min'].values():
                     try: # won't work if no bars
                         jj = bars.columns.get_loc('ticked')
                         bars.iloc[-1, jj] = True
-                    except Exception as e: warn(e)
+                    except Exception as e: log.exception(e)
 
                 # process trade update backlog
-                print('Processing trade update backlog')
+                log.info('Processing trade update backlog')
                 process_all_trades()
 
-                print('Waiting for bars')
+                log.info('Waiting for bars')
         else:
             if marketIsOpen:
                 marketIsOpen = False
-                print('Market is closed')
+                log.warning('Market is closed')
 
-        sleep(1)
-
-except Exception as e: # stop active algos
-    # FIX: not working
-    print('Stopping active algos')
+except BaseException as e:
+    log.warning('Stopping active algos')
     for algo in allAlgos:
         if algo.active:
-            print(f'\tStopping {algo.name}')
+            log.info(f'\tStopping {algo.name}')
             algo.stop()
-    warn(e)
+
+    log.exception(e)
     pass

@@ -31,6 +31,9 @@ class Formatter_ns(logging.Formatter):
         #     s = self.default_msec_format % (t, record.msecs)
         # return s
 
+
+# formatter tab before msg, extra (possible list) below, ns timestamp
+
 def init_logging(args):
     # handlers
     consoleHdlr = logging.StreamHandler()
@@ -61,6 +64,9 @@ def init_logging(args):
 
     streamLog = logging.getLogger('stream')
     streamLog.setLevel(logging.DEBUG)
+
+    indicatorsLog = logging.getLogger('indicators')
+    indicatorsLog.setLevel(logging.DEBUG)
 
     for algo in allAlgos:
         algo.log.setLevel(logging.DEBUG)

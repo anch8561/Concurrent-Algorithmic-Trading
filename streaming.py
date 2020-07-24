@@ -3,19 +3,17 @@ import globalVariables as g
 from algos import allAlgos
 from indicators import indicators
 from timing import get_time, get_market_open, get_time_str
-from warn import warn
 
-# import asyncio
 from datetime import timedelta
+from logging import getLogger
 from pandas import DataFrame
 
+log = getLogger('stream')
 trades = []
 
 def process_bar(barFreq, data):
     # barFreq: 'sec', 'min', or 'day'
     # data: raw stream data
-
-    print(f'{get_time_str()}\t{data.symbol}\tNew bar\t{data.start}')
 
     try: # add bar to g.assets (needs to be initialized first)
         newBar = DataFrame({
@@ -27,24 +25,25 @@ def process_bar(barFreq, data):
             'ticked': False
         }, index=[data.start])
         bars = g.assets[barFreq][data.symbol].append(newBar)
-    except Exception as e: warn(e, data)
+        log.debug(newBar)
+    except Exception as e: log.exception(e, extra=data)
     
     try: # get indicators
         for indicator in indicators[barFreq]:
             jj = bars.columns.get_loc(indicator.name)
             bars.iloc[-1, jj] = indicator.get(bars)
-    except Exception as e: warn(e, data)
+    except Exception as e: log.exception(e, extra=data)
     
     try: # save bars
         g.assets[barFreq][data.symbol] = bars
         g.lastBarReceivedTime = get_time()
-    except Exception as e: warn(e, data)
+    except Exception as e: log.exception(e, extra=data)
 
 def compile_day_bars():
-    print('Compiling day bars')
+    log.warning('Compiling day bars')
     openTime = get_market_open()
     for ii, (symbol, minBars) in enumerate(g.assets['min'].items()):
-        print(f'Compiling bar {ii+1} / {len(g.assets["min"])}\t{symbol}')
+        log.info(f'Compiling bar {ii+1} / {len(g.assets["min"])}\t{symbol}')
         minBars = minBars.loc[openTime:]
 
         try: # compile bar
@@ -55,27 +54,27 @@ def compile_day_bars():
             newDayBar['close'] = minBars.close.iloc[-1]
             newDayBar['volume'] = minBars.volume.sum()
             newDayBar['ticked'] = False
-        except Exception as e: warn(e)
+        except Exception as e: log.exception(e)
 
         try: # add bar to g.assets
             date = openTime.replace(hour=0, minute=0)
             newDayBar = DataFrame(newDayBar, index=[date])
             dayBars = g.assets['day'][symbol].append(newDayBar)
-        except Exception as e: warn(e)
+        except Exception as e: log.exception(e)
         
         try: # get indicators
             for indicator in indicators['day']:
                 jj = dayBars.columns.get_loc(indicator.name)
                 dayBars.iloc[-1, jj] = indicator.get(dayBars)
-        except Exception as e: warn(e)
+        except Exception as e: log.exception(e)
         
         try: # save bars
             g.assets['day'][symbol] = dayBars
-        except Exception as e: warn(e)
+        except Exception as e: log.exception(e)
 
 def process_trade(data):
     g.processingTrade = True
-    # print('processingTrade = True')
+    # log.debug('processingTrade = True')
     
     try: # get trade info
         event = data.event
@@ -85,8 +84,10 @@ def process_trade(data):
         qty = int(data.order['qty'])
         fillQty = int(data.order['filled_qty'])
         try: limit = float(data.order['limit_price'])
-        except: limit = None
-    except Exception as e: warn(f'{e}', f'{data}')
+        except Exception as e:
+            if 'limit_price' not in data.order: limit = None
+            else: log.exception(e)
+    except Exception as e: log.exception(e, extra=data)
 
     try: # paper / live
         if orderID in g.paperOrders:
@@ -98,22 +99,22 @@ def process_trade(data):
             allOrders = g.liveOrders
             allPositions = g.livePositions
         else:
-            print(f"Unknown order id: {orderID}\n\t{event}\t{symbol}\t{side}\t{fillQty} / {qty} @ {limit}")
+            log.warning('Unknown order id', extra=data)
             return
-    except Exception as e: warn(f'{e}', f'{data}')
+    except Exception as e: log.exception(e, extra=data)
         
     try: # get local data
         longShort = order['longShort']
         enterExit = order['enterExit']
         algo = order['algo']
-    except Exception as e: warn(f'{e}', f'{data}')
+    except Exception as e: log.exception(e, extra=data)
 
     # check event
     if event == 'fill':
         try: # get streamed data
             if side == 'sell': fillQty *= -1
             fillPrice = float(data.order['filled_avg_price'])
-        except Exception as e: warn(f'{e}', f'{data}')
+        except Exception as e: log.exception(e, extra=data)
 
         try: # update position basis
             for positions in (allPositions, algo.positions):
@@ -124,12 +125,12 @@ def process_trade(data):
                     oldBasis = positions[symbol]['basis']
                     positions[symbol]['basis'] = \
                         ((oldBasis * oldQty) + (fillPrice * fillQty)) / (oldQty + fillQty)
-        except Exception as e: warn(f'{e}\n{data}')
+        except Exception as e: log.exception(e, extra=data)
         
         try: # update position qty
             allPositions[symbol]['qty'] += fillQty
             algo.positions[symbol]['qty'] += fillQty
-        except Exception as e: warn(f'{e}', f'{data}')
+        except Exception as e: log.exception(e, extra=data)
 
         try: # update buying power
             if enterExit == 'enter':
@@ -137,15 +138,15 @@ def process_trade(data):
                 algo.buyPow[longShort] += abs(qty) * limit
             elif enterExit == 'exit':
                 algo.buyPow[longShort] += abs(fillQty) * fillPrice
-        except Exception as e: warn(f'{e}', f'{data}')
+        except Exception as e: log.exception(e, extra=data)
 
         try: # pop order
             allOrders.pop(orderID)
             algo.orders.pop(orderID)
-        except Exception as e: warn(f'{e}', f'{data}')
+        except Exception as e: log.exception(e, extra=data)
         
     elif event in ('canceled', 'expired', 'rejected'):
-        print(f'{orderID}: {event}')
+        log.info(f'{orderID}: {event}')
 
         try: # update buying power
             if enterExit == 'enter':
@@ -153,15 +154,15 @@ def process_trade(data):
                 algo.buyPow[longShort] += abs(qty) * limit
             elif enterExit == 'exit':
                 algo.buyPow[longShort] += abs(fillQty) * fillPrice
-        except Exception as e: warn(f'{e}', f'{data}')
+        except Exception as e: log.exception(e, extra=data)
 
         try: # pop order
             allOrders.pop(orderID)
             algo.orders.pop(orderID)
-        except Exception as e: warn(f'{e}', f'{data}')
+        except Exception as e: log.exception(e, extra=data)
 
     g.processingTrade = False
-    # print('processingTrade = False')
+    # log.debug('processingTrade = False')
 
 def process_all_trades():
     global trades
@@ -179,7 +180,7 @@ def stream(conn, channels):
     conn.register(r'^AM$', on_minute)
 
     async def on_account_update(conn, channel, data):
-        print(f'{data}')
+        log.warning(data)
     conn.register('account_updates', on_account_update)
 
     async def on_trade_update(conn, channel, data):
@@ -189,5 +190,5 @@ def stream(conn, channels):
             process_trade(data)
     conn.register('trade_updates', on_trade_update)
 
-    print(f'Streaming {len(channels)} channels')
+    log.warning(f'Streaming {len(channels)} channels')
     conn.run(channels)

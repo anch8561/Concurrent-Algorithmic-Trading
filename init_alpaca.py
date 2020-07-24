@@ -1,15 +1,17 @@
 import credentials
 import globalVariables as g
-from warn import warn
 
 import alpaca_trade_api as tradeapi
+from logging import getLogger
+
+log = getLogger()
 
 def init_alpaca(environment):
     # environment: 'dev', 'test', or 'prod'; which credentials to use
     
     try: # get credentials
         creds = getattr(credentials, environment)
-    except Exception as e: warn(e)
+    except Exception as e: log.exception(e)
 
     # initialize tradeapi
     g.alpacaLive = tradeapi.REST(*creds.live)

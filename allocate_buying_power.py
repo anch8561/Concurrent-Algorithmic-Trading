@@ -1,63 +1,53 @@
 import config as c
 import globalVariables as g
 from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
-from warn import warn
 
+from logging import getLogger
 import numpy as np
 import scipy.optimize as opt
 
+log = getLogger()
+
 def allocate_buying_power():
-    print('Allocating buying power')
+    log.warning('Allocating buying power')
 
     # get buying power
     account = g.alpacaPaper.get_account() # FIX: paper
     buyPow = float(account.daytrading_buying_power)
     regTBuyPow = float(account.regt_buying_power)
-    print(f'Daytrading buying power: {buyPow}')
-    print(f'Overnight buying power:  {regTBuyPow}')
+    log.warning(f'Daytrading buying power: {buyPow}')
+    log.warning(f'Overnight buying power:  {regTBuyPow}')
 
     try: # get performance weights
         w = []
         for algo in allAlgos:
             metrics = algo.get_metrics(c.allocMetricDays)
-
-            try: # get long equity growth
-                w.append(metrics['mean']['long'])
-            except:
-                w.append(0)
-                warn(f'{algo.name} missing long data')
-            
-            try: # get short equity growth
-                w.append(metrics['mean']['short'])
-            except:
-                w.append(0)
-                warn(f'{algo.name} missing short data')
-
-            if c.verbose:
-                print(f'{algo.name}')
-                print(f"\tlong growth:  {metrics['mean']['long']}\t+/- {metrics['stdev']['long']}")
-                print(f"\tshort growth: {metrics['mean']['short']}\t+/- {metrics['stdev']['short']}")
+            w.append(metrics['mean']['long'])
+            w.append(metrics['mean']['short'])
+            algo.log.debug(
+                f"\tlong growth:  {metrics['mean']['long']}\t+/- {metrics['stdev']['long']}\n" +
+                f"\tshort growth: {metrics['mean']['short']}\t+/- {metrics['stdev']['short']}")
         w = np.array(w)
-    except Exception as e: warn(e)
+    except Exception as e: log.exception(e)
 
     try: # get weight region lengths
         n_all = len(allAlgos) * 2
         n_intraday = len(intradayAlgos) * 2
         n_overnight = len(overnightAlgos) * 2
         n_multiday = len(multidayAlgos) * 2
-    except Exception as e: warn(e)
+    except Exception as e: log.exception(e)
 
     try: # set objective function and initial guess
         func = lambda x: - np.dot(x, w)
         x0 = [0] * n_all
-    except Exception as e: warn(e)
+    except Exception as e: log.exception(e)
 
     try: # set allcoation bounds
         bounds = opt.Bounds(
             lb = [0] * n_all,
             ub = [c.maxAllocFrac] * n_all
         )
-    except Exception as e: warn(e)
+    except Exception as e: log.exception(e)
     
     try: # set allocation constraints
         constraints = opt.LinearConstraint(
@@ -81,21 +71,21 @@ def allocate_buying_power():
                 1 # intraday + multiday <= daytrading
             ]
         )
-    except Exception as e: warn(e)
+    except Exception as e: log.exception(e)
 
     try: # calculate allocation
         results = opt.minimize(func, x0,
             bounds = bounds,
             constraints = constraints)
         allocFrac = results.x
-    except Exception as e: warn(e)
+    except Exception as e: log.exception(e)
 
     try: # distribute buying power
         for ii, algo in enumerate(allAlgos):
             algo.buyPow['long'] = int(allocFrac[ii*2] * buyPow)
             algo.buyPow['short'] = int(allocFrac[ii*2+1] * buyPow)
-            print(f'{algo.name}\n\tBuying power: {algo.buyPow}')
-    except Exception as e: warn(e)
+            algo.log.info(f'Buying power: {algo.buyPow}')
+    except Exception as e: log.exception(e)
 
 def get_overnight_fee(self, debt):
         # accrues daily (including weekends) and posts at end of month
@@ -136,7 +126,7 @@ def update_margins():
         elif quantity < 0: # short
             if price < 5.00: maintMargin += max(2.50*quantity, price*quantity)
             else: maintMargin += max(5.00*quantity, 0.3*price*quantity)
-        else: warn(f'zero position in {symbol}')
+        else: log.exception(f'zero position in {symbol}')
 
     # check orders
     for order in orders:

@@ -1,7 +1,6 @@
 import config as c
 import globalVariables as g
 from algoClasses import DayAlgo, NightAlgo
-from warn import warn
 
 # intraday
 intradayAlgos = []
@@ -31,7 +30,7 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
                     )
                 ):
                     self.exit_position(symbol)
-        except Exception as e: warn(f'{self.name}\t{symbol}\t{e}', bars.iloc[-1])
+        except Exception as e: self.log.exception(f'{symbol}\t{e}', extra=bars.iloc[-1])
 
 for exitNumBars in (1, 2, 3):
     for enterNumBars in (1, 2, 3):
@@ -58,7 +57,12 @@ def momentum_volume(self): # kwargs: numBars
         try: metrics[symbol] = \
             bars[indicatorPrefix + '_momentum'][-1] * \
             bars[indicatorPrefix + '_volume_num_stdevs'][-1]
-        except: pass
+        except Exception as e:
+            if (
+                bars[indicatorPrefix + '_momentum'][-1] != None and
+                bars[indicatorPrefix + '_volume_num_stdevs'][-1] != None
+            ):
+                self.log.exception(e)
     sortedSymbols = sorted(metrics, key=lambda symbol: metrics[symbol])
 
     # enter long
@@ -105,7 +109,7 @@ def crossover(self): # kwargs: barFreq, fastNumBars, fastMovAvg, slowNumBars, sl
                     )
                 ):
                     self.exit_position(symbol)
-        except Exception as e: warn(f'{self.name}\t{symbol}\t{e}', bars.iloc[-1])
+        except Exception as e: self.log.exception(f'{symbol}\t{e}', extra=bars.iloc[-1])
 
 for movAvg in ('SMA', 'EMA', 'KAMA'):
     for slowNumBars in (5, 10, 20):

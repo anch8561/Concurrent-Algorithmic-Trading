@@ -1,8 +1,10 @@
 import globalVariables as g
-from warn import warn
 
-import ta
 import statistics as stats
+import ta, time
+from logging import getLogger
+
+log = getLogger('indicators')
 
 # TODO: confirm indices have correct timestamps
 
@@ -20,7 +22,10 @@ class Indicator:
     def get(self, bars):
         # bars: DataFrame
         try: val = self.func(self, bars)
-        except: val = None
+        except Exception as e:
+            if len(bars.index) >= self.numBars:
+                log.exception(e, extra=bars)
+            val = None
         return val
 
 
@@ -38,12 +43,18 @@ def volume(self, bars):
 
 def volume_stdev(self, bars):
     volumes = bars.iloc[-self.numBars:].volume
-    return stats.stdev(volumes)
+    try: return stats.stdev(volumes)
+    except Exception as e:
+        if len(volumes) > 1:
+            log.exception(e, extra=volumes)
 
 def volume_num_stdevs(self, bars):
-    _volume = bars[Indicator(volume, 1, self.barFreq).name][-1]
-    volumeStdev = bars[Indicator(volume_stdev, self.numBars, self.barFreq).name][-1]
-    return  _volume / volumeStdev
+    _volume = bars[Indicator(1, self.barFreq, volume).name][-1]
+    volumeStdev = bars[Indicator(self.numBars, self.barFreq, volume_stdev).name][-1]
+    try: return  _volume / volumeStdev
+    except Exception as e:
+        if volumeStdev not in (None, 0):
+            log.exception(e, extra = [_volume, volumeStdev])
 
 def typical_price(self, bars):
     data = bars.iloc[-1]
