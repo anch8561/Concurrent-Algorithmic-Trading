@@ -4,46 +4,44 @@ import config as c
 from credentials import email
 from datetime import datetime
 import logging, logging.handlers
-import pytz
-from time import time_ns
+from os import mkdir
+from pytz import timezone
 
-class LogRecord_ns(logging.LogRecord):
-    def __init__(self, *args, **kwargs):
-        self.created_ns = time_ns() # Fetch precise timestamp
-        super().__init__(*args, **kwargs)
+# TODO: extra arg (possible list) printed below msg
 
-class Formatter_ns(logging.Formatter):
-    default_nsec_format = '%s,%09d'
-    def formatTime(self, record, datefmt=None):
-        if datefmt is not None: # Do not handle custom formats here ...
-            return super().formatTime(record, datefmt) # ... leave to original implementation
-        ct = self.converter(record.created_ns / 1e9)
+nyc = timezone('America/New_York')
+def formatDatetime(record, datefmt=None):
+    ct = datetime.fromtimestamp(record.created, nyc)
+    if datefmt:
+        s = ct.strftime(datefmt)
+    else:
         t = ct.strftime(self.default_time_format)
-        s = self.default_nsec_format % (t, record.created_ns - (record.created_ns // 10**9) * 10**9)
-        return s
-    
-        ## ORIGINAL IMPLEMENTATION
-        # ct = self.converter(record.created)
-        # if datefmt:
-        #     s = time.strftime(datefmt, ct)
-        # else:
-        #     t = time.strftime(self.default_time_format, ct)
-        #     s = self.default_msec_format % (t, record.msecs)
-        # return s
-
-
-# formatter tab before msg, extra (possible list) below, ns timestamp
+        s = self.default_msec_format % (t, record.msecs)
+    return s
 
 def init_logging(args):
+    # create logPath if needed
+    try: mkdir(c.logPath)
+    except Exception: pass
+
+    # formatter
+    formatter = logging.Formatter(
+        fmt = f'\n%(asctime)s %(name)s\n%(levelname)s: %(message)s',
+        datefmt = '%m-%d-%Y %H:%M:%S.%f')
+    formatter.formatTime = formatDatetime
+
     # handlers
     consoleHdlr = logging.StreamHandler()
     consoleHdlr.setLevel(args.log.upper())
+    consoleHdlr.setFormatter(formatter)
 
     debugHdlr = logging.FileHandler('debug.log')
     debugHdlr.setLevel(logging.DEBUG)
+    debugHdlr.setFormatter(formatter)
 
     warningHdlr = logging.FileHandler('warning.log')
     warningHdlr.setLevel(logging.WARNING)
+    warningHdlr.setFormatter(formatter)
 
     # toaddrs = c.criticalEmails if args.env == 'prod' else email.username
     # emailHdlr = logging.handlers.SMTPHandler(
@@ -53,13 +51,12 @@ def init_logging(args):
     #     subject = 'SOCKS EMERGENCY',
     #     secure = (),
     #     timeout = 60)
+    # emailHdlr.setFormatter(formatter)
     # emailHdlr.setLevel(logging.CRITICAL)
 
     # loggers
     logging.basicConfig(
         level = logging.DEBUG,
-        format = c.logFormat,
-        datefmt = c.logDatefmt,
         handlers = [consoleHdlr, debugHdlr, warningHdlr])
 
     streamLog = logging.getLogger('stream')
@@ -68,8 +65,14 @@ def init_logging(args):
     indicatorsLog = logging.getLogger('indicators')
     indicatorsLog.setLevel(logging.DEBUG)
 
+    # algos
     for algo in allAlgos:
-        algo.log.setLevel(logging.DEBUG)
+        # handler
         logFileName = c.algoPath + algo.name + '.log'
         hdlr = logging.FileHandler(logFileName)
+        hdlr.setLevel(logging.DEBUG)
+        hdlr.setFormatter(formatter)
+
+        # logger
         algo.log.addHandler(hdlr)
+        algo.log.setLevel(logging.DEBUG)

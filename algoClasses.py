@@ -2,12 +2,13 @@ import config as c
 import globalVariables as g
 from timing import get_time_str, get_date
 
-import json, os
+import json
 import statistics as stats
 from logging import getLogger
+from os import mkdir
 
-# create c.algoPath if needed
-try: os.mkdir(c.algoPath)
+# create algoPath if needed
+try: mkdir(c.algoPath)
 except Exception: pass
 
 class Algo:

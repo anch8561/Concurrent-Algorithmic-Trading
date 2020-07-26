@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 algoPath = 'algos/'
+logPath = 'logs/'
 
 numAssets = 10 # number of symbols to stream (None means all)
 
@@ -35,6 +36,4 @@ limitPriceFrac = 0.02
 
 # logging
 defaultLogLevel = 'info' # for printing to stderr
-logFormat = '%(asctime)s %(name)s %(levelname)s: %(message)s'
-logDatefmt = '%m-%d-%Y %H:%M:%S%z'
 criticalEmails = ['ancharters@gmail.com']
