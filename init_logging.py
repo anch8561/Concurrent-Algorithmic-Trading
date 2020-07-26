@@ -7,8 +7,6 @@ import logging, logging.handlers
 from os import mkdir
 from pytz import timezone
 
-# TODO: extra arg (possible list) printed below msg
-
 nyc = timezone('America/New_York')
 def formatDatetime(record, datefmt=None):
     ct = datetime.fromtimestamp(record.created, nyc)
@@ -35,11 +33,11 @@ def init_logging(args):
     consoleHdlr.setLevel(args.log.upper())
     consoleHdlr.setFormatter(formatter)
 
-    debugHdlr = logging.FileHandler('debug.log')
+    debugHdlr = logging.FileHandler(c.logPath + 'debug.log')
     debugHdlr.setLevel(logging.DEBUG)
     debugHdlr.setFormatter(formatter)
 
-    warningHdlr = logging.FileHandler('warning.log')
+    warningHdlr = logging.FileHandler(c.logPath + 'warning.log')
     warningHdlr.setLevel(logging.WARNING)
     warningHdlr.setFormatter(formatter)
 
@@ -68,7 +66,7 @@ def init_logging(args):
     # algos
     for algo in allAlgos:
         # handler
-        logFileName = c.algoPath + algo.name + '.log'
+        logFileName = c.logPath + algo.name + '.log'
         hdlr = logging.FileHandler(logFileName)
         hdlr.setLevel(logging.DEBUG)
         hdlr.setFormatter(formatter)

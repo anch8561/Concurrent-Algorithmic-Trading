@@ -24,7 +24,7 @@ class Indicator:
         try: val = self.func(self, bars)
         except Exception as e:
             if len(bars.index) >= self.numBars:
-                log.exception(e, extra=bars)
+                log.exception(f'{e}\n{bars}')
             val = None
         return val
 
@@ -46,7 +46,7 @@ def volume_stdev(self, bars):
     try: return stats.stdev(volumes)
     except Exception as e:
         if len(volumes) > 1:
-            log.exception(e, extra=volumes)
+            log.exception(f'{e}\n{volumes}')
 
 def volume_num_stdevs(self, bars):
     _volume = bars[Indicator(1, self.barFreq, volume).name][-1]
@@ -54,7 +54,7 @@ def volume_num_stdevs(self, bars):
     try: return  _volume / volumeStdev
     except Exception as e:
         if volumeStdev not in (None, 0):
-            log.exception(e, extra = [_volume, volumeStdev])
+            log.exception(f'{e}\n{_volume}\n{volumeStdev}')
 
 def typical_price(self, bars):
     data = bars.iloc[-1]

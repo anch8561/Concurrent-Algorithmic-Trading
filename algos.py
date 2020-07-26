@@ -30,7 +30,7 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
                     )
                 ):
                     self.exit_position(symbol)
-        except Exception as e: self.log.exception(f'{symbol}\t{e}', extra=bars.iloc[-1])
+        except Exception as e: self.log.exception(f'{symbol}\t{e}\n{bars.iloc[-1]}')
 
 for exitNumBars in (1, 2, 3):
     for enterNumBars in (1, 2, 3):
@@ -109,7 +109,7 @@ def crossover(self): # kwargs: barFreq, fastNumBars, fastMovAvg, slowNumBars, sl
                     )
                 ):
                     self.exit_position(symbol)
-        except Exception as e: self.log.exception(f'{symbol}\t{e}', extra=bars.iloc[-1])
+        except Exception as e: self.log.exception(f'{symbol}\t{e}\n{bars.iloc[-1]}')
 
 for movAvg in ('SMA', 'EMA', 'KAMA'):
     for slowNumBars in (5, 10, 20):

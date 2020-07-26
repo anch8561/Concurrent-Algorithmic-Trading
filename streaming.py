@@ -26,18 +26,18 @@ def process_bar(barFreq, data):
         }, index=[data.start])
         bars = g.assets[barFreq][data.symbol].append(newBar)
         log.debug(newBar)
-    except Exception as e: log.exception(e, extra=data)
+    except Exception as e: log.exception(f'{e}\n{data}')
     
     try: # get indicators
         for indicator in indicators[barFreq]:
             jj = bars.columns.get_loc(indicator.name)
             bars.iloc[-1, jj] = indicator.get(bars)
-    except Exception as e: log.exception(e, extra=data)
+    except Exception as e: log.exception(f'{e}\n{data}')
     
     try: # save bars
         g.assets[barFreq][data.symbol] = bars
         g.lastBarReceivedTime = get_time()
-    except Exception as e: log.exception(e, extra=data)
+    except Exception as e: log.exception(f'{e}\n{data}')
 
 def compile_day_bars():
     log.warning('Compiling day bars')
@@ -87,7 +87,7 @@ def process_trade(data):
         except Exception as e:
             if 'limit_price' not in data.order: limit = None
             else: log.exception(e)
-    except Exception as e: log.exception(e, extra=data)
+    except Exception as e: log.exception(f'{e}\n{data}')
 
     try: # paper / live
         if orderID in g.paperOrders:
@@ -99,22 +99,22 @@ def process_trade(data):
             allOrders = g.liveOrders
             allPositions = g.livePositions
         else:
-            log.warning('Unknown order id', extra=data)
+            log.warning(f'Unknown order id\n{data}')
             return
-    except Exception as e: log.exception(e, extra=data)
+    except Exception as e: log.exception(f'{e}\n{data}')
         
     try: # get local data
         longShort = order['longShort']
         enterExit = order['enterExit']
         algo = order['algo']
-    except Exception as e: log.exception(e, extra=data)
+    except Exception as e: log.exception(f'{e}\n{data}')
 
     # check event
     if event == 'fill':
         try: # get streamed data
             if side == 'sell': fillQty *= -1
             fillPrice = float(data.order['filled_avg_price'])
-        except Exception as e: log.exception(e, extra=data)
+        except Exception as e: log.exception(f'{e}\n{data}')
 
         try: # update position basis
             for positions in (allPositions, algo.positions):
@@ -125,12 +125,12 @@ def process_trade(data):
                     oldBasis = positions[symbol]['basis']
                     positions[symbol]['basis'] = \
                         ((oldBasis * oldQty) + (fillPrice * fillQty)) / (oldQty + fillQty)
-        except Exception as e: log.exception(e, extra=data)
+        except Exception as e: log.exception(f'{e}\n{data}')
         
         try: # update position qty
             allPositions[symbol]['qty'] += fillQty
             algo.positions[symbol]['qty'] += fillQty
-        except Exception as e: log.exception(e, extra=data)
+        except Exception as e: log.exception(f'{e}\n{data}')
 
         try: # update buying power
             if enterExit == 'enter':
@@ -138,12 +138,12 @@ def process_trade(data):
                 algo.buyPow[longShort] += abs(qty) * limit
             elif enterExit == 'exit':
                 algo.buyPow[longShort] += abs(fillQty) * fillPrice
-        except Exception as e: log.exception(e, extra=data)
+        except Exception as e: log.exception(f'{e}\n{data}')
 
         try: # pop order
             allOrders.pop(orderID)
             algo.orders.pop(orderID)
-        except Exception as e: log.exception(e, extra=data)
+        except Exception as e: log.exception(f'{e}\n{data}')
         
     elif event in ('canceled', 'expired', 'rejected'):
         log.info(f'{orderID}: {event}')
@@ -154,12 +154,12 @@ def process_trade(data):
                 algo.buyPow[longShort] += abs(qty) * limit
             elif enterExit == 'exit':
                 algo.buyPow[longShort] += abs(fillQty) * fillPrice
-        except Exception as e: log.exception(e, extra=data)
+        except Exception as e: log.exception(f'{e}\n{data}')
 
         try: # pop order
             allOrders.pop(orderID)
             algo.orders.pop(orderID)
-        except Exception as e: log.exception(e, extra=data)
+        except Exception as e: log.exception(f'{e}\n{data}')
 
     g.processingTrade = False
     # log.debug('processingTrade = False')
