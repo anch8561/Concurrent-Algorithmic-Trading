@@ -1,8 +1,10 @@
 import globalVariables as g
-from warn import warn
 
 from datetime import datetime, timedelta
+from logging import getLogger
 from pytz import timezone
+
+log = getLogger()
 
 def init_timing():
     global nyc, calendar, i_today

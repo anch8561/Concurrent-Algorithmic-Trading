@@ -3,14 +3,14 @@ import globalVariables as g
 from algos import allAlgos
 from indicators import indicators
 from timing import get_market_open, get_date, get_market_date
-from warn import warn
 
+from logging import getLogger
 from pandas import DataFrame
 
-def populate_assets(numAssets=None):
-    # numAssets: int or None; number of symbols to watch (None means no limit)
+log = getLogger()
 
-    print('Populating assets')
+def populate_assets():
+    log.warning('Populating assets')
 
     # get alpaca assets and polygon tickers
     alpacaAssets = g.alpacaPaper.list_assets('active', 'us_equity')
@@ -19,7 +19,7 @@ def populate_assets(numAssets=None):
     # get active symbols
     activeSymbols = []
     for ii, asset in enumerate(alpacaAssets):
-        print(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}')
+        log.info(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}')
         if (
             asset.marginable and
             asset.shortable and
@@ -34,13 +34,12 @@ def populate_assets(numAssets=None):
                     activeSymbols.append(asset.symbol)
                     break
         
-        try: # check numAssets
-            if len(activeSymbols) == numAssets: break
-        except: pass
+        # check numAssets
+        if c.numAssets != None and len(activeSymbols) == c.numAssets: break
 
     # add active assets
     for ii, symbol in enumerate(activeSymbols):
-        print(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
+        log.info(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
         add_asset(symbol)
 
 
@@ -76,7 +75,7 @@ def add_asset(symbol):
         toDate = get_date()
         bars = g.alpacaPaper.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
     except Exception as e:
-        warn(e)
+        log.exception(e)
         g.assets['sec'].pop(symbol)
         g.assets['min'].pop(symbol)
         return

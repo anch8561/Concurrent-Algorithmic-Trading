@@ -30,3 +30,8 @@ class dev:
         '',
         '',
         '')
+
+class email:
+    username = ''
+    password = ''
+    creds = username, password

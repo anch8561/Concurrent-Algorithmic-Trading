@@ -1,8 +1,9 @@
 from datetime import timedelta
 
 algoPath = 'algos/'
+logPath = 'logs/'
 
-verbose = True
+numAssets = 10 # number of symbols to stream (None means all)
 
 minAllocBuyPow = 10000
 maxAllocFrac = 0.1
@@ -32,3 +33,7 @@ numHistoricDays = 20
 marketCloseTransitionPeriod = timedelta(minutes=10)
 
 limitPriceFrac = 0.02
+
+# logging
+defaultLogLevel = 'info' # for printing to stderr
+criticalEmails = ['ancharters@gmail.com']
