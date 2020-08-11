@@ -97,7 +97,8 @@ class Algo:
         try: # get data
             data = {}
             for field in self.dataFields:
-                data[field] = self.__getattribute__(field)
+                try: data[field] = self.__getattribute__(field)
+                except Exception as e: self.log.exception(e)
         except Exception as e: self.log.exception(e)
         
         try: # write data
@@ -117,7 +118,8 @@ class Algo:
              
         try: # set data
             for field in self.dataFields:
-                self.__setattr__(field, data[field])
+                try: self.__setattr__(field, data[field])
+                except Exception as e: self.log.exception(e)
         except Exception as e: self.log.exception(e)
 
     def enter_position(self, symbol, side):
@@ -160,13 +162,35 @@ class Algo:
     def submit_order(self, symbol, qty, limitPrice, longShort, enterExit):
         # symbol: e.g. 'AAPL'
         # qty: int; signed # of shares to trade (positive buy, negative sell)
+        # limitPrice: float or None for market order
         # longShort: 'long' or 'short'
-        # limitPrice: float or None for configured price collar
+        # enterExit: 'enter' or 'exit'
 
         if qty == 0: return
 
-        if limitPrice == None: orderType = 'market'
-        else: orderType = 'limit'
+        # get and check side
+        side = 'buy' if qty > 0 else 'sell'
+        if (
+            side == 'buy' and (
+                (
+                    longShort == 'long' and
+                    enterExit == 'exit'
+                ) or (
+                    longShort == 'short' and
+                    enterExit == 'enter'
+                )
+            ) or side == 'sell' and (
+                (
+                    longShort == 'long' and
+                    enterExit == 'enter'
+                ) or (
+                    longShort == 'short' and
+                    enterExit == 'exit'
+                )
+            )
+        ):
+            self.log.error('mismatch between qty, longShort, and enterExit')
+            return
 
         # check allPositions for zero crossing
         if symbol in self.allPositions:
@@ -184,20 +208,25 @@ class Algo:
                     self.log.debug(f'{symbol}\topposing global order {orderID}')
                     return
 
-        # get side
-        side = 'buy' if qty > 0 else 'sell'
-
         try:
             self.log.info(f'{symbol}\tordering {qty} shares')
 
             # submit order
-            order = self.alpaca.submit_order(
-                symbol = symbol,
-                qty = abs(qty),
-                side = side,
-                type = orderType,
-                time_in_force = 'day',
-                limit_price = limitPrice)
+            if limitPrice == None:
+                order = self.alpaca.submit_order(
+                    symbol = symbol,
+                    qty = abs(qty),
+                    side = side,
+                    type = 'market',
+                    time_in_force = 'day')
+            else:
+                order = self.alpaca.submit_order(
+                    symbol = symbol,
+                    qty = abs(qty),
+                    side = side,
+                    type = 'limit',
+                    time_in_force = 'day',
+                    limit_price = limitPrice)
 
             # add to orders and allOrders
             self.orders[order.id] = {
@@ -239,6 +268,7 @@ class Algo:
             return price
         except Exception as e:
             if price != None: self.log.exception(e)
+            # else place market order (limitPrice == None)
 
     def get_metrics(self, numDays):
         try: # calculate growth # FIX: overnight algos start and stop on different days
