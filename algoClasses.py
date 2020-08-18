@@ -132,9 +132,12 @@ class Algo:
         # get longShort
         if side == 'buy': longShort = 'long'
         elif side == 'sell': longShort = 'short'
+        else:
+            self.log.error(f'unknown side: {side}')
+            return
 
         # submit order and update buying power
-        self.submit_order(symbol, qty, price, longShort, 'enter')
+        self.submit_order(symbol, qty, price, 'enter')
         self.buyPow[longShort] -= abs(qty) * price
 
     def exit_position(self, symbol):
@@ -146,50 +149,27 @@ class Algo:
             self.log.warning(f'{symbol}\tno position to exit')
             return
 
-        # get side and longShort
-        if qty > 0:
-            side = 'buy'
-            longShort = 'short'
-        elif qty < 0:
-            side = 'sell'
-            longShort = 'long'
-        else: return
-
         # get price and submit order
-        price = self.get_limit_price(symbol, side)
-        self.submit_order(symbol, qty, price, longShort, 'exit')
+        if qty > 0: side = 'buy'
+        elif qty < 0: side = 'sell'
+        else:
+            self.log.warning(f'{symbol}\tno position to exit')
+            return
 
-    def submit_order(self, symbol, qty, limitPrice, longShort, enterExit):
+        price = self.get_limit_price(symbol, side)
+        self.submit_order(symbol, qty, price, 'exit')
+
+    def submit_order(self, symbol, qty, limitPrice, enterExit):
         # symbol: e.g. 'AAPL'
         # qty: int; signed # of shares to trade (positive buy, negative sell)
         # limitPrice: float or None for market order
-        # longShort: 'long' or 'short'
         # enterExit: 'enter' or 'exit'
 
-        if qty == 0: return
-
-        # get and check side
-        side = 'buy' if qty > 0 else 'sell'
-        if (
-            side == 'buy' and (
-                (
-                    longShort == 'long' and
-                    enterExit == 'exit'
-                ) or (
-                    longShort == 'short' and
-                    enterExit == 'enter'
-                )
-            ) or side == 'sell' and (
-                (
-                    longShort == 'long' and
-                    enterExit == 'enter'
-                ) or (
-                    longShort == 'short' and
-                    enterExit == 'exit'
-                )
-            )
-        ):
-            self.log.error('mismatch between qty, longShort, and enterExit')
+        # get side
+        if qty > 0: side = 'buy'
+        elif qty < 0: side = 'sell'
+        else:
+            self.log.warning(f'{symbol}\torder quantity is zero')
             return
 
         # check allPositions for zero crossing
@@ -213,6 +193,9 @@ class Algo:
 
             # submit order
             if limitPrice == None:
+                if enterExit == 'enter':
+                    self.log.warning('cannot enter position with market order')
+                    return
                 order = self.alpaca.submit_order(
                     symbol = symbol,
                     qty = abs(qty),
@@ -233,13 +216,11 @@ class Algo:
                 'symbol': symbol,
                 'qty': qty,
                 'limit': limitPrice,
-                'longShort': longShort,
                 'enterExit': enterExit}
             self.allOrders[order.id] = {
                 'symbol': symbol,
                 'qty': qty,
                 'limit': limitPrice,
-                'longShort': longShort,
                 'enterExit': enterExit,
                 'algo': self}
         except Exception as e: self.log.exception(e)
@@ -263,7 +244,7 @@ class Algo:
             elif side == 'sell':
                 price *= 1 - c.limitPriceFrac
             else:
-                self.log.exception(f'unknown side: {side}')
+                self.log.error(f'unknown side: {side}')
 
             return price
         except Exception as e:

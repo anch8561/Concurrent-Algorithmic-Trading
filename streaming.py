@@ -104,7 +104,7 @@ def process_trade(data):
     except Exception as e: log.exception(f'{e}\n{data}')
         
     try: # get local data
-        longShort = order['longShort']
+        longShort = 'long' if order['qty'] > 0 else 'short'
         enterExit = order['enterExit']
         algo = order['algo']
     except Exception as e: log.exception(f'{e}\n{data}')
