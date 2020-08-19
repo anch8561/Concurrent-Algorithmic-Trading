@@ -1,7 +1,6 @@
 import config as c
 import globalVariables as g
 from algoClasses import DayAlgo, NightAlgo
-from warn import warn
 
 # intraday
 intradayAlgos = []
@@ -37,13 +36,10 @@ for exitNumBars in (1, 2, 3):
     for enterNumBars in (1, 2, 3):
         if enterNumBars >= exitNumBars:
             intradayAlgos += [
-                DayAlgo(
-                    momentum,
+                DayAlgo(momentum,
                     enterNumBars = enterNumBars,
                     exitNumBars = exitNumBars,
-                    barFreq = 'min'
-                )
-            ]
+                    barFreq = 'min')]
 
 # TODO: momentumMACD
 
@@ -80,7 +76,9 @@ def momentum_volume(self): # kwargs: numBars
 
 for numBars in (3, 5, 10):
     overnightAlgos.append(
-        NightAlgo(momentum_volume, numBars=numBars, barFreq='day'))
+        NightAlgo(momentum_volume,
+            numBars=numBars,
+            barFreq='day'))
 
 # multiday
 multidayAlgos = []
@@ -117,14 +115,12 @@ for movAvg in ('SMA', 'EMA', 'KAMA'):
         for fastNumBars in (3, 5, 10):
             if slowNumBars > fastNumBars:
                 multidayAlgos += [
-                    DayAlgo(
-                        crossover,
+                    DayAlgo(crossover,
                         barFreq = 'day',
                         fastNumBars = fastNumBars,
                         fastMovAvg = movAvg,
                         slowNumBars = slowNumBars,
-                        slowMovAvg = movAvg)
-                ]
+                        slowMovAvg = movAvg)]
 
 # all algos list
 allAlgos = intradayAlgos + overnightAlgos + multidayAlgos
