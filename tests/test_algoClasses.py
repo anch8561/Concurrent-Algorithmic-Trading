@@ -10,9 +10,8 @@ from unittest.mock import Mock
 
 logging.basicConfig(level=logging.DEBUG)
 
-def null_func(*args): return
-
 def TestAlgo():
+    def null_func(*args): return
     try: remove(c.algoPath + 'null_func.data')
     except: pass
     testAlgo = Algo(null_func)
@@ -22,24 +21,25 @@ def TestAlgo():
     return testAlgo
 
 def test_Algo():
-    testAlgo = Algo(null_func, a=1, b=2)
-    assert testAlgo.name == '1_2_null_func'
+    testAlgo = Algo(print, a=1, b=2)
+    assert testAlgo.name == '1_2_print'
 
 def test_activate():
     # setup
     testAlgo = TestAlgo()
     testAlgo.active = False
-    testAlgo.start = null_func # remove alpaca calendar dependency
+    testAlgo.start = Mock()
 
     # test
     testAlgo.activate()
     assert testAlgo.active == True
+    testAlgo.start.assert_called_once()
 
 def test_deactivate():
     # setup
     testAlgo = TestAlgo()
     testAlgo.active = True
-    testAlgo.stop = null_func # remove alpaca calendar dependency
+    testAlgo.stop = Mock()
 
     # open position
     testAlgo.positions = {
@@ -48,6 +48,7 @@ def test_deactivate():
         'TSLA': {'qty': 0, 'basis': 0}
     }
     testAlgo.deactivate()
+    testAlgo.stop.assert_not_called()
     assert testAlgo.active == True
 
     # typical
@@ -57,6 +58,7 @@ def test_deactivate():
         'TSLA': {'qty': 0, 'basis': 0}
     }
     testAlgo.deactivate()
+    testAlgo.stop.assert_called_once()
     assert testAlgo.active == False
 
 # NOTE: skip start and stop as they only call other methods
@@ -327,3 +329,39 @@ def test_get_trade_qty():
 
     # reset assets
     g.assets = assetsCopy
+
+def test_set_live():
+    testAlgo = TestAlgo()
+    testAlgo.set_live(True)
+    assert testAlgo.alpaca == g.alpacaLive
+    assert testAlgo.allOrders == g.liveOrders
+    assert testAlgo.allPositions == g.livePositions
+
+# NOTE: skip set_ticking as it depends on streaming
+
+def test_update_equity():
+    # setup
+    testAlgo = TestAlgo()
+    testAlgo.buyPow = {'long': 0, 'short': 0}
+    testAlgo.positions = {
+        'AAPL': {'qty': 2, 'basis': 0},
+        'MSFT': {'qty': -1, 'basis': 0},
+        'TSLA': {'qty': 0, 'basis': 0}
+    }
+
+    # typical
+    testAlgo.get_price = Mock(return_value=111.11)
+    testAlgo.update_equity()
+    assert testAlgo.equity == {'long': 222.22, 'short': 111.11}
+
+    # untracked position
+    testAlgo.get_price = Mock(return_value=None)
+    testAlgo.exit_position = Mock()
+    last_trade = Mock()
+    last_trade.price = 111.11
+    testAlgo.alpaca.get_last_trade = Mock(return_value=last_trade)
+    testAlgo.update_equity()
+    assert testAlgo.equity == {'long': 222.22, 'short': 111.11}
+
+# NOTE: skip update_history as it depends on timing
+    
