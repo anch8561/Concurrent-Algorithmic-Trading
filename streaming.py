@@ -171,24 +171,25 @@ def process_all_trades():
     trades = []
 
 def stream(conn, channels):
+    # pylint: disable=unused-variable
+    @conn.on('A')
     async def on_second(conn, channel, data):
         process_bar('sec', data)
-    conn.register('A', on_second)
 
+    @conn.on('AM')
     async def on_minute(conn, channel, data):
         process_bar('min', data)
-    conn.register(r'^AM$', on_minute)
 
+    @conn.on('account_updates')
     async def on_account_update(conn, channel, data):
         log.warning(data)
-    conn.register('account_updates', on_account_update)
 
+    @conn.on('trade_updates')
     async def on_trade_update(conn, channel, data):
         if any(algo.ticking for algo in allAlgos):
             trades.append(data)
         else:
             process_trade(data)
-    conn.register('trade_updates', on_trade_update)
 
     log.warning(f'Streaming {len(channels)} channels')
     conn.run(channels)
