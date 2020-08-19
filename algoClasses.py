@@ -177,7 +177,7 @@ class Algo:
             allPosQty = self.allPositions[symbol]['qty']
             if (allPosQty + qty) * allPosQty < 0: # trade will swap position
                 qty = -allPosQty # exit position
-                self.log.debug(f'{symbol}\texiting global position of {qty}')
+                self.log.debug(f'{symbol}\texiting global position of {allPosQty}')
         else:
             allPosQty = 0
 
