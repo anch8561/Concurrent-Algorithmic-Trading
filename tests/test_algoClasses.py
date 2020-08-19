@@ -6,11 +6,13 @@ import json, logging
 from copy import deepcopy
 from os import remove
 from pandas import DataFrame
+from pytest import fixture
 from unittest.mock import Mock
 
 logging.basicConfig(level=logging.DEBUG)
 
-def TestAlgo():
+@fixture
+def testAlgo():
     def null_func(*args): return
     try: remove(c.algoPath + 'null_func.data')
     except: pass
@@ -24,9 +26,8 @@ def test_Algo():
     testAlgo = Algo(print, a=1, b=2)
     assert testAlgo.name == '1_2_print'
 
-def test_activate():
+def test_activate(testAlgo):
     # setup
-    testAlgo = TestAlgo()
     testAlgo.active = False
     testAlgo.start = Mock()
 
@@ -35,17 +36,16 @@ def test_activate():
     assert testAlgo.active == True
     testAlgo.start.assert_called_once()
 
-def test_deactivate():
+def test_deactivate(testAlgo):
     # setup
-    testAlgo = TestAlgo()
     testAlgo.active = True
     testAlgo.stop = Mock()
 
     # open position
     testAlgo.positions = {
-        'AAPL': {'qty': 0, 'basis': 0},
-        'MSFT': {'qty': -1, 'basis': 0},
-        'TSLA': {'qty': 0, 'basis': 0}
+        'AAPL': {'qty': 0},
+        'MSFT': {'qty': -1},
+        'TSLA': {'qty': 0}
     }
     testAlgo.deactivate()
     testAlgo.stop.assert_not_called()
@@ -53,9 +53,9 @@ def test_deactivate():
 
     # typical
     testAlgo.positions = {
-        'AAPL': {'qty': 0, 'basis': 0},
-        'MSFT': {'qty': 0, 'basis': 0},
-        'TSLA': {'qty': 0, 'basis': 0}
+        'AAPL': {'qty': 0},
+        'MSFT': {'qty': 0},
+        'TSLA': {'qty': 0}
     }
     testAlgo.deactivate()
     testAlgo.stop.assert_called_once()
@@ -63,9 +63,8 @@ def test_deactivate():
 
 # NOTE: skip start and stop as they only call other methods
 
-def test_save_data():
+def test_save_data(testAlgo):
     # setup
-    testAlgo = TestAlgo()
     testAlgo.equity = {'long': 0, 'short': 1}
     
     # test
@@ -75,9 +74,8 @@ def test_save_data():
         data = json.load(f)
     assert data['equity'] == testAlgo.equity
 
-def test_load_data():
+def test_load_data(testAlgo):
     # setup
-    testAlgo = TestAlgo()
     testAlgo.equity = {'long': 1, 'short': 0}
     data = {'equity': {'long': 0, 'short': 1}}
     fileName = c.algoPath + testAlgo.name + '.data'
@@ -88,9 +86,8 @@ def test_load_data():
     testAlgo.load_data()
     assert testAlgo.equity == data['equity']
 
-def test_enter_position():
+def test_enter_position(testAlgo):
     # setup
-    testAlgo = TestAlgo()
     testAlgo.buyPow = {'long': 0, 'short': 0}
     testAlgo.get_limit_price = Mock(return_value=111.11)
     testAlgo.get_trade_qty = Mock(return_value=-2)
@@ -102,11 +99,10 @@ def test_enter_position():
         'AAPL', -2, 111.11, 'enter')
     assert testAlgo.buyPow == {'long': 0, 'short': -2*111.11}
 
-def test_exit_position():
+def test_exit_position(testAlgo):
     # setup
-    testAlgo = TestAlgo()
     testAlgo.buyPow = {'long': 0, 'short': 0}
-    testAlgo.positions = {'AAPL': {'qty': -2, 'basis': 0}}
+    testAlgo.positions['AAPL'] = {'qty': -2}
     testAlgo.get_limit_price = Mock(return_value=111.11)
     testAlgo.submit_order = Mock()
 
@@ -115,9 +111,8 @@ def test_exit_position():
     testAlgo.submit_order.assert_called_once_with(
         'AAPL', 2, 111.11, 'exit')
 
-def test_submit_order():
+def test_submit_order(testAlgo):
     # setup
-    testAlgo = TestAlgo()
     order = Mock()
     order.id = '1234'
     testAlgo.alpaca.submit_order = Mock(return_value=order)
@@ -131,7 +126,7 @@ def test_submit_order():
 
     # allPositions zero crossing
     testAlgo.alpaca.submit_order.reset_mock()
-    testAlgo.allPositions = {'AAPL': {'qty': 1, 'basis': 0}}
+    testAlgo.allPositions['AAPL'] = {'qty': 1}
     testAlgo.submit_order('AAPL', -2, 111.11, 'enter')
     testAlgo.alpaca.submit_order.assert_called_once_with(
         symbol = 'AAPL',
@@ -213,9 +208,8 @@ def test_submit_order():
 
 # NOTE: skip cancel_all_orders as it depends on streaming
 
-def test_get_limit_price():
+def test_get_limit_price(testAlgo):
     # setup
-    testAlgo = TestAlgo()
     testAlgo.get_price = Mock(return_value=111.11)
 
     # buy
@@ -230,19 +224,17 @@ def test_get_limit_price():
 
 def test_get_metrics(): pass # TODO: WIP function
 
-def test_get_price():
+def test_get_price(testAlgo):
     # setup
-    testAlgo = TestAlgo()
     assetsCopy = deepcopy(g.assets)
-    g.assets['min']['AAPL'] = DataFrame({'close': 111.11}, [0])
+    g.assets['min']['AAPL'] = DataFrame({'close': [111.11]})
 
     # test
     assert testAlgo.get_price('AAPL') == 111.11
     g.assets = assetsCopy
 
-def test_get_trade_qty():
+def test_get_trade_qty(testAlgo):
     # setup
-    testAlgo = TestAlgo()
     cash = 100 * c.minShortPrice / c.maxPosFrac
     testAlgo.equity['short'] = cash
     testAlgo.buyPow['short'] = cash
@@ -250,7 +242,7 @@ def test_get_trade_qty():
     maxPosQty = -int(c.maxPosFrac * cash / price)
     assetsCopy = deepcopy(g.assets)
     volume = int(cash / c.minShortPrice)
-    g.assets['min']['AAPL'] = DataFrame({'volume': volume}, [0])
+    g.assets['min']['AAPL'] = DataFrame({'volume': [volume]})
     testAlgo.alpaca.cancel_order = Mock()
 
     # min price
@@ -275,11 +267,11 @@ def test_get_trade_qty():
     # volume
     volumeCopy = volume
     volume = maxPosQty - 1
-    g.assets['min']['AAPL'] = DataFrame({'volume': volume}, [0])
+    g.assets['min']['AAPL'] = DataFrame({'volume': [volume]})
     testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
     assert testQty == -volume
     volume = volumeCopy
-    g.assets['min']['AAPL'] = DataFrame({'volume': volume}, [0])
+    g.assets['min']['AAPL'] = DataFrame({'volume': [volume]})
     
     # zero
     buyPowCopy = testAlgo.buyPow['short']
@@ -289,19 +281,19 @@ def test_get_trade_qty():
     testAlgo.buyPow['short'] = buyPowCopy
 
     # existing position (same side smaller)
-    testAlgo.positions['AAPL'] = {'qty': -1, 'basis': 0}
+    testAlgo.positions['AAPL'] = {'qty': -1}
     testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
     assert testQty == maxPosQty + 1
     testAlgo.positions = {}
 
     # existing position (same side larger)
-    testAlgo.positions['AAPL'] = {'qty': maxPosQty-1, 'basis': 0}
+    testAlgo.positions['AAPL'] = {'qty': maxPosQty-1}
     testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
     assert testQty == 0
     testAlgo.positions = {}
 
     # existing position (opposite side)
-    testAlgo.positions['AAPL'] = {'qty': 1, 'basis': 0}
+    testAlgo.positions['AAPL'] = {'qty': 1}
     testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
     assert testQty == -1
     testAlgo.positions = {}
@@ -330,8 +322,7 @@ def test_get_trade_qty():
     # reset assets
     g.assets = assetsCopy
 
-def test_set_live():
-    testAlgo = TestAlgo()
+def test_set_live(testAlgo):
     testAlgo.set_live(True)
     assert testAlgo.alpaca == g.alpacaLive
     assert testAlgo.allOrders == g.liveOrders
@@ -339,14 +330,13 @@ def test_set_live():
 
 # NOTE: skip set_ticking as it depends on streaming
 
-def test_update_equity():
+def test_update_equity(testAlgo):
     # setup
-    testAlgo = TestAlgo()
     testAlgo.buyPow = {'long': 0, 'short': 0}
     testAlgo.positions = {
-        'AAPL': {'qty': 2, 'basis': 0},
-        'MSFT': {'qty': -1, 'basis': 0},
-        'TSLA': {'qty': 0, 'basis': 0}
+        'AAPL': {'qty': 2},
+        'MSFT': {'qty': -1},
+        'TSLA': {'qty': 0}
     }
 
     # typical
