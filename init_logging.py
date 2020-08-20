@@ -9,6 +9,7 @@ from pytz import timezone
 
 nyc = timezone('America/New_York')
 def formatDatetime(record, datefmt=None):
+    # pylint: disable=undefined-variable
     ct = datetime.fromtimestamp(record.created, nyc)
     if datefmt:
         s = ct.strftime(datefmt)
