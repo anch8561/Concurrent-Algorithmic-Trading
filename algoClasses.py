@@ -12,7 +12,7 @@ try: mkdir(c.algoPath)
 except Exception: pass
 
 class Algo:
-    def __init__(self, func, **kwargs):
+    def __init__(self, func, loadData=True, **kwargs):
         self.func = func # function to determine when to enter and exit positions
 
         # kwargs, name, and self.log
@@ -50,7 +50,7 @@ class Algo:
         ]
 
         # load data
-        self.load_data()
+        if loadData: self.load_data()
 
     def activate(self):
         self.active = True
