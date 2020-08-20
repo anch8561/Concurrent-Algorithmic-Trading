@@ -2,6 +2,8 @@ import config as c
 import globalVariables as g
 from algoClasses import DayAlgo, NightAlgo
 
+# NOTE: kwargs must be in correct order to generate correct name
+
 # intraday
 intradayAlgos = []
 
@@ -46,7 +48,7 @@ for exitNumBars in (1, 2, 3):
 # overnight
 overnightAlgos = []
 
-def momentum_volume(self): # kwargs: numBars
+def momentum_volume(self): # kwargs: numBars, barFreq
     # sort symbols
     indicatorPrefix = str(self.numBars) + '_' + self.barFreq
     metrics = {}
@@ -60,18 +62,19 @@ def momentum_volume(self): # kwargs: numBars
                 bars[indicatorPrefix + '_volume_num_stdevs'][-1] != None
             ):
                 self.log.exception(e)
+            else: self.log.debug(e)
     sortedSymbols = sorted(metrics, key=lambda symbol: metrics[symbol])
 
     # enter long
     for symbol in reversed(sortedSymbols):
         if self.buyPow['long'] < c.minTradeBuyPow: break
-        if metrics[symbol] < 0: break
+        if metrics[symbol] <= 0: break
         self.enter_position(symbol, 'buy')
 
     # enter short
     for symbol in sortedSymbols:
         if self.buyPow['short'] < c.minTradeBuyPow: break
-        if metrics[symbol] > 0: break
+        if metrics[symbol] >= 0: break
         self.enter_position(symbol, 'sell')
 
 for numBars in (3, 5, 10):
