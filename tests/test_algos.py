@@ -3,12 +3,14 @@ import globalVariables as g
 from algoClasses import DayAlgo, NightAlgo
 from algos import momentum, momentum_volume, crossover
 
+from importlib import reload
 from pandas import DataFrame
 from unittest.mock import Mock, call
 
 def test_momentum():
     # setup
-    testAlgo = DayAlgo(momentum,
+    reload(g)
+    testAlgo = DayAlgo(momentum, False,
         enterNumBars = 3,
         exitNumBars = 2,
         barFreq = 'min')
@@ -19,7 +21,7 @@ def test_momentum():
     testAlgo.enter_position.reset_mock()
     testAlgo.positions['AAPL'] = {'qty': 0}
     bars = {'ticked': [False, False, True], '1_min_momentum': [0.1, 0.2, 0.3]}
-    g.assets['min']['AAPL'] = DataFrame(bars)
+    g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.enter_position.assert_not_called()
 
@@ -27,7 +29,7 @@ def test_momentum():
     testAlgo.enter_position.reset_mock()
     testAlgo.positions['AAPL'] = {'qty': 10}
     bars = {'ticked': [False]*3, '1_min_momentum': [0.1, 0.2, 0.3]}
-    g.assets['min']['AAPL'] = DataFrame(bars)
+    g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.enter_position.assert_not_called()
 
@@ -35,7 +37,7 @@ def test_momentum():
     testAlgo.enter_position.reset_mock()
     testAlgo.positions['AAPL'] = {'qty': 0}
     bars = {'ticked': [False]*3, '1_min_momentum': [0.1, -0.2, 0.3]}
-    g.assets['min']['AAPL'] = DataFrame(bars)
+    g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.enter_position.assert_not_called()
 
@@ -43,7 +45,7 @@ def test_momentum():
     testAlgo.enter_position.reset_mock()
     testAlgo.positions['AAPL'] = {'qty': 0}
     bars = {'ticked': [False]*3, '1_min_momentum': [0.1, 0.2, 0.3]}
-    g.assets['min']['AAPL'] = DataFrame(bars)
+    g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.enter_position.assert_called_once_with('AAPL', 'buy')
 
@@ -51,7 +53,7 @@ def test_momentum():
     testAlgo.enter_position.reset_mock()
     testAlgo.positions['AAPL'] = {'qty': 0}
     bars = {'ticked': [False]*3, '1_min_momentum': [-0.1, -0.2, -0.3]}
-    g.assets['min']['AAPL'] = DataFrame(bars)
+    g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.enter_position.assert_called_once_with('AAPL', 'sell')
 
@@ -59,7 +61,7 @@ def test_momentum():
     testAlgo.exit_position.reset_mock()
     testAlgo.positions['AAPL'] = {'qty': 10}
     bars = {'ticked': [False]*3, '1_min_momentum': [0.1, -0.2, 0.3]}
-    g.assets['min']['AAPL'] = DataFrame(bars)
+    g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.exit_position.assert_not_called()
 
@@ -67,7 +69,7 @@ def test_momentum():
     testAlgo.exit_position.reset_mock()
     testAlgo.positions['AAPL'] = {'qty': -10}
     bars = {'ticked': [False]*3, '1_min_momentum': [0.1, -0.2, 0.3]}
-    g.assets['min']['AAPL'] = DataFrame(bars)
+    g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.exit_position.assert_not_called()
 
@@ -75,7 +77,7 @@ def test_momentum():
     testAlgo.exit_position.reset_mock()
     testAlgo.positions['AAPL'] = {'qty': 10}
     bars = {'ticked': [False]*3, '1_min_momentum': [0.1, -0.2, -0.3]}
-    g.assets['min']['AAPL'] = DataFrame(bars)
+    g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.exit_position.assert_called_once_with('AAPL')
 
@@ -83,13 +85,14 @@ def test_momentum():
     testAlgo.exit_position.reset_mock()
     testAlgo.positions['AAPL'] = {'qty': -10}
     bars = {'ticked': [False]*3, '1_min_momentum': [-0.1, 0.2, 0.3]}
-    g.assets['min']['AAPL'] = DataFrame(bars)
+    g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.exit_position.assert_called_once_with('AAPL')
 
 def test_momentum_volume():
     # setup
-    testAlgo = NightAlgo(momentum_volume,
+    reload(g)
+    testAlgo = NightAlgo(momentum_volume, False,
         numBars = 2,
         barFreq = 'day')
     def enter_position(symbol, side):
@@ -106,6 +109,7 @@ def test_momentum_volume():
     g.assets['day']['TSLA'] = DataFrame(bars, ['a', 'b']) # -0.84
 
     # metric < 0
+    testAlgo.enter_position.reset_mock()
     cash = c.minTradeBuyPow * 3
     testAlgo.buyPow = {'long': cash, 'short': cash}
     testAlgo.tick()
@@ -129,4 +133,85 @@ def test_momentum_volume():
     assert testAlgo.enter_position.call_count == 2
 
 def test_crossover():
-    pass
+    # setup
+    reload(g)
+    testAlgo = DayAlgo(crossover, False,
+        barFreq = 'day',
+        fastNumBars = 3,
+        fastMovAvg = 'SMA',
+        slowNumBars = 5,
+        slowMovAvg = 'EMA')
+    testAlgo.enter_position = Mock()
+    testAlgo.exit_position = Mock()
+
+    # already ticked
+    testAlgo.enter_position.reset_mock()
+    testAlgo.positions['AAPL'] = {'qty': 0}
+    bars = {'ticked': [False, True], '3_day_SMA': [0.1, 1.2], '5_day_EMA': [0.3, 0.4]}
+    g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b'])
+    testAlgo.tick()
+    testAlgo.enter_position.assert_not_called()
+
+    # already entered
+    testAlgo.enter_position.reset_mock()
+    testAlgo.positions['AAPL'] = {'qty': 10}
+    bars = {'ticked': [False]*2, '3_day_SMA': [0.1, 1.2], '5_day_EMA': [0.3, 0.4]}
+    g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b'])
+    testAlgo.tick()
+    testAlgo.enter_position.assert_not_called()
+
+    # no enter condition
+    testAlgo.enter_position.reset_mock()
+    testAlgo.positions['AAPL'] = {'qty': 0}
+    bars = {'ticked': [False]*2, '3_day_SMA': [0.1, 0.4], '5_day_EMA': [0.3, 0.4]}
+    g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b'])
+    testAlgo.tick()
+    testAlgo.enter_position.assert_not_called()
+
+    # enter long
+    testAlgo.enter_position.reset_mock()
+    testAlgo.positions['AAPL'] = {'qty': 0}
+    bars = {'ticked': [False]*2, '3_day_SMA': [1.2, 0.1], '5_day_EMA': [0.4, 0.3]}
+    g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b'])
+    testAlgo.tick()
+    testAlgo.enter_position.assert_called_once_with('AAPL', 'buy')
+
+    # enter short
+    testAlgo.enter_position.reset_mock()
+    testAlgo.positions['AAPL'] = {'qty': 0}
+    bars = {'ticked': [False]*2, '3_day_SMA': [0.1, 1.2], '5_day_EMA': [0.3, 0.4]}
+    g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b'])
+    testAlgo.tick()
+    testAlgo.enter_position.assert_called_once_with('AAPL', 'sell')
+
+    # no exit condition (long)
+    testAlgo.exit_position.reset_mock()
+    testAlgo.positions['AAPL'] = {'qty': 10}
+    bars = {'ticked': [False]*2, '3_day_SMA': [0.1, 0.3], '5_day_EMA': [0.4, 0.3]}
+    g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b'])
+    testAlgo.tick()
+    testAlgo.exit_position.assert_not_called()
+
+    # no exit condition (short)
+    testAlgo.exit_position.reset_mock()
+    testAlgo.positions['AAPL'] = {'qty': -10}
+    bars = {'ticked': [False]*2, '3_day_SMA': [1.2, 0.4], '5_day_EMA': [0.3, 0.4]}
+    g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b'])
+    testAlgo.tick()
+    testAlgo.exit_position.assert_not_called()
+
+    # exit long
+    testAlgo.exit_position.reset_mock()
+    testAlgo.positions['AAPL'] = {'qty': 10}
+    bars = {'ticked': [False]*2, '3_day_SMA': [0.1, 1.2], '5_day_EMA': [0.4, 0.3]}
+    g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b'])
+    testAlgo.tick()
+    testAlgo.exit_position.assert_called_once_with('AAPL')
+
+    # exit short
+    testAlgo.exit_position.reset_mock()
+    testAlgo.positions['AAPL'] = {'qty': -10}
+    bars = {'ticked': [False]*2, '3_day_SMA': [1.2, 0.1], '5_day_EMA': [0.3, 0.4]}
+    g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b'])
+    testAlgo.tick()
+    testAlgo.exit_position.assert_called_once_with('AAPL')
