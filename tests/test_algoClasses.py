@@ -3,7 +3,7 @@ import globalVariables as g
 from algoClasses import Algo
 
 import json, logging
-from copy import deepcopy
+from importlib import reload
 from os import remove
 from pandas import DataFrame
 from pytest import fixture
@@ -14,9 +14,7 @@ logging.basicConfig(level=logging.DEBUG)
 @fixture
 def testAlgo():
     def null_func(*args): return
-    try: remove(c.algoPath + 'null_func.data')
-    except: pass
-    testAlgo = Algo(null_func)
+    testAlgo = Algo(null_func, False)
     testAlgo.alpaca = Mock()
     testAlgo.allOrders = {}
     testAlgo.allPositions = {}
@@ -64,12 +62,23 @@ def test_deactivate(testAlgo):
 # NOTE: skip start and stop as they only call other methods
 
 def test_save_data(testAlgo):
-    # setup
-    testAlgo.equity = {'long': 0, 'short': 1}
-    
-    # test
-    testAlgo.save_data()
     fileName = c.algoPath + testAlgo.name + '.data'
+    
+    # no file
+    try: remove(fileName)
+    except: pass
+    testAlgo.equity = {'long': 0, 'short': 1}
+    testAlgo.save_data()
+    with open(fileName, 'r') as f:
+        data = json.load(f)
+    assert data['equity'] == testAlgo.equity
+
+    # overwrite
+    data = {'equity': {'long': 0, 'short': 1}}
+    with open(fileName, 'w') as f:
+        json.dump(data, f)
+    testAlgo.equity = {'long': 1, 'short': 0}
+    testAlgo.save_data()
     with open(fileName, 'r') as f:
         data = json.load(f)
     assert data['equity'] == testAlgo.equity
@@ -226,21 +235,20 @@ def test_get_metrics(): pass # TODO: WIP function
 
 def test_get_price(testAlgo):
     # setup
-    assetsCopy = deepcopy(g.assets)
+    reload(g)
     g.assets['min']['AAPL'] = DataFrame({'close': 111.11}, ['a'])
 
     # test
     assert testAlgo.get_price('AAPL') == 111.11
-    g.assets = assetsCopy
 
 def test_get_trade_qty(testAlgo):
     # setup
+    reload(g)
     cash = 100 * c.minShortPrice / c.maxPosFrac
     testAlgo.equity['short'] = cash
     testAlgo.buyPow['short'] = cash
     price = c.minShortPrice + 1
     maxPosQty = -int(c.maxPosFrac * cash / price)
-    assetsCopy = deepcopy(g.assets)
     volume = int(cash / c.minShortPrice)
     g.assets['min']['AAPL'] = DataFrame({'volume': volume}, ['a'])
     testAlgo.alpaca.cancel_order = Mock()
@@ -318,9 +326,6 @@ def test_get_trade_qty(testAlgo):
     testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
     assert testQty == 0
     testAlgo.orders = {}
-
-    # reset assets
-    g.assets = assetsCopy
 
 def test_set_live(testAlgo):
     testAlgo.set_live(True)
