@@ -227,7 +227,7 @@ def test_get_metrics(): pass # TODO: WIP function
 def test_get_price(testAlgo):
     # setup
     assetsCopy = deepcopy(g.assets)
-    g.assets['min']['AAPL'] = DataFrame({'close': [111.11]})
+    g.assets['min']['AAPL'] = DataFrame({'close': 111.11}, ['a'])
 
     # test
     assert testAlgo.get_price('AAPL') == 111.11
@@ -242,7 +242,7 @@ def test_get_trade_qty(testAlgo):
     maxPosQty = -int(c.maxPosFrac * cash / price)
     assetsCopy = deepcopy(g.assets)
     volume = int(cash / c.minShortPrice)
-    g.assets['min']['AAPL'] = DataFrame({'volume': [volume]})
+    g.assets['min']['AAPL'] = DataFrame({'volume': volume}, ['a'])
     testAlgo.alpaca.cancel_order = Mock()
 
     # min price
@@ -267,11 +267,11 @@ def test_get_trade_qty(testAlgo):
     # volume
     volumeCopy = volume
     volume = maxPosQty - 1
-    g.assets['min']['AAPL'] = DataFrame({'volume': [volume]})
+    g.assets['min']['AAPL'] = DataFrame({'volume': volume}, ['a'])
     testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
     assert testQty == -volume
     volume = volumeCopy
-    g.assets['min']['AAPL'] = DataFrame({'volume': [volume]})
+    g.assets['min']['AAPL'] = DataFrame({'volume': volume}, ['a'])
     
     # zero
     buyPowCopy = testAlgo.buyPow['short']
