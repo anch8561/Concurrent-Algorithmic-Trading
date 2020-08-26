@@ -2,14 +2,12 @@ import config as c
 import globalVariables as g
 from algoClasses import Algo
 
-import json, logging
+import json
 from importlib import reload
 from os import remove
 from pandas import DataFrame
 from pytest import fixture
 from unittest.mock import Mock
-
-logging.basicConfig(level=logging.DEBUG)
 
 @fixture
 def testAlgo():

@@ -1,1 +1,3 @@
-# this file is required for pytest
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
