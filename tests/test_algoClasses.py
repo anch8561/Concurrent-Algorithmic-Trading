@@ -1,6 +1,7 @@
+
+import algoClasses
 import config as c
 import globalVariables as g
-from algoClasses import Algo
 
 import json
 from importlib import reload
@@ -11,15 +12,14 @@ from unittest.mock import Mock
 
 @fixture
 def testAlgo():
-    def null_func(*args): return
-    testAlgo = Algo(null_func, False)
+    testAlgo = algoClasses.Algo(print, False)
     testAlgo.alpaca = Mock()
     testAlgo.allOrders = {}
     testAlgo.allPositions = {}
     return testAlgo
 
 def test_Algo():
-    testAlgo = Algo(print, a=1, b=2)
+    testAlgo = algoClasses.Algo(print, a=1, b=2)
     assert testAlgo.name == '1_2_print'
 
 def test_activate(testAlgo):
@@ -357,4 +357,33 @@ def test_update_equity(testAlgo):
     assert testAlgo.equity == {'long': 222.22, 'short': 111.11}
 
 # NOTE: skip update_history as it depends on timing
-    
+
+def test_NightAlgo_tick():
+    # setup
+    testAlgo = algoClasses.NightAlgo(print, False)
+    def func(self):
+        assert self.ticking == True
+    testAlgo.func = Mock(side_effect=func)
+
+    # too little buying power
+    testAlgo.buyPow = {'long': 0, 'short': 0}
+    testAlgo.tick()
+    testAlgo.func.assert_not_called()
+
+    # enough buying power
+    testAlgo.buyPow = {
+        'long': c.minTradeBuyPow,
+        'short': c.minTradeBuyPow}
+    testAlgo.tick()
+    testAlgo.func.assert_called_once_with(testAlgo)
+
+def test_DayAlgo_tick():
+    # setup
+    testAlgo = algoClasses.DayAlgo(print, False)
+    def func(self):
+        assert self.ticking == True
+    testAlgo.func = Mock(side_effect=func)
+
+    # test
+    testAlgo.tick()
+    testAlgo.func.assert_called_once_with(testAlgo)
