@@ -1,7 +1,7 @@
+import algos
 import config as c
 import globalVariables as g
 from algoClasses import DayAlgo, NightAlgo
-from algos import momentum, momentum_volume, crossover
 
 from importlib import reload
 from pandas import DataFrame
@@ -10,7 +10,7 @@ from unittest.mock import Mock, call
 def test_momentum():
     # setup
     reload(g)
-    testAlgo = DayAlgo(momentum, False,
+    testAlgo = DayAlgo(algos.momentum, False,
         enterNumBars = 3,
         exitNumBars = 2,
         barFreq = 'min')
@@ -92,20 +92,20 @@ def test_momentum():
 def test_momentum_volume():
     # setup
     reload(g)
-    testAlgo = NightAlgo(momentum_volume, False,
+    testAlgo = NightAlgo(algos.momentum_volume, False,
         numBars = 2,
         barFreq = 'day')
     def enter_position(symbol, side):
         longShort = 'long' if side == 'buy' else 'short'
         testAlgo.buyPow[longShort] -= c.minTradeBuyPow
     testAlgo.enter_position = Mock(side_effect=enter_position)
-    bars = {'2_day_volume_num_stdevs': [0.1, 2.2], '2_day_momentum': [-0.3, 0.4]}
+    bars = {'2_day_volume_stdevs': [0.1, 2.2], '2_day_momentum': [-0.3, 0.4]}
     g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b']) # 0.88
-    bars = {'2_day_volume_num_stdevs': [0.4, 3.1], '2_day_momentum': [0.1, -0.2]}
+    bars = {'2_day_volume_stdevs': [0.4, 3.1], '2_day_momentum': [0.1, -0.2]}
     g.assets['day']['GOOG'] = DataFrame(bars, ['a', 'b']) # -0.62
-    bars = {'2_day_volume_num_stdevs': [2.3, 1.3], '2_day_momentum': [0.5, 0.3]}
+    bars = {'2_day_volume_stdevs': [2.3, 1.3], '2_day_momentum': [0.5, 0.3]}
     g.assets['day']['MSFT'] = DataFrame(bars, ['a', 'b']) # 0.39
-    bars = {'2_day_volume_num_stdevs': [1.2, 2.1], '2_day_momentum': [-0.7, -0.4]}
+    bars = {'2_day_volume_stdevs': [1.2, 2.1], '2_day_momentum': [-0.7, -0.4]}
     g.assets['day']['TSLA'] = DataFrame(bars, ['a', 'b']) # -0.84
 
     # metric < 0
@@ -135,7 +135,7 @@ def test_momentum_volume():
 def test_crossover():
     # setup
     reload(g)
-    testAlgo = DayAlgo(crossover, False,
+    testAlgo = DayAlgo(algos.crossover, False,
         barFreq = 'day',
         fastNumBars = 3,
         fastMovAvg = 'SMA',
