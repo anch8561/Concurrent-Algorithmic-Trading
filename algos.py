@@ -55,11 +55,11 @@ def momentum_volume(self): # kwargs: numBars, barFreq
     for symbol, bars in g.assets[self.barFreq].items():
         try: metrics[symbol] = \
             bars[indicatorPrefix + '_momentum'][-1] * \
-            bars[indicatorPrefix + '_volume_num_stdevs'][-1]
+            bars[indicatorPrefix + '_volume_stdevs'][-1]
         except Exception as e:
             if (
                 bars[indicatorPrefix + '_momentum'][-1] != None and
-                bars[indicatorPrefix + '_volume_num_stdevs'][-1] != None
+                bars[indicatorPrefix + '_volume_stdevs'][-1] != None
             ):
                 self.log.exception(e)
             else: self.log.debug(e)

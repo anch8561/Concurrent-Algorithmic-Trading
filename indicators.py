@@ -8,7 +8,7 @@ log = getLogger('indicators')
 
 # TODO: confirm indices have correct timestamps
 
-class Indicator:
+class Indicator: # NOTE: kwargs unused
     def __init__(self, numBars, barFreq, func, **kwargs):
         self.numBars = numBars # int
         self.barFreq = barFreq # 'sec', 'min', or 'day'
@@ -31,53 +31,45 @@ class Indicator:
 
 ## FUNCTIONS
 def momentum(self, bars):
-    openPrice = bars.iloc[-self.numBars].open
-    closePrice = bars.iloc[-1].close
+    openPrice = bars.open[-self.numBars]
+    closePrice = bars.close[-1]
     return (closePrice - openPrice) / openPrice
 
 def volume(self, bars):
     volume = 0
     for i_bar in range(-1, -self.numBars-1, -1):
-        volume += bars.iloc[i_bar].volume
+        volume += bars.volume[i_bar]
     return volume
 
-def volume_stdev(self, bars):
-    volumes = bars.iloc[-self.numBars:].volume
-    try: return stats.stdev(volumes)
+def volume_stdevs(self, bars):
+    volumes = bars.volume[-self.numBars:]
+    mean = stats.mean(volumes)
+    stdev = stats.stdev(volumes, mean)
+    volume = volumes[-1]
+    try: return  (volume - mean) / stdev
     except Exception as e:
-        if len(volumes) > 1:
+        if len(volumes) > 1 and stdev not in (None, 0):
             log.exception(f'{e}\n{volumes}')
 
-def volume_num_stdevs(self, bars):
-    _volume = bars[Indicator(1, self.barFreq, volume).name][-1]
-    volumeStdev = bars[Indicator(self.numBars, self.barFreq, volume_stdev).name][-1]
-    try: return  _volume / volumeStdev
-    except Exception as e:
-        if volumeStdev not in (None, 0):
-            log.exception(f'{e}\n{_volume}\n{volumeStdev}')
-
+# NOTE: typical price unused
 def typical_price(self, bars):
-    data = bars.iloc[-1]
-    high = data.high
-    low = data.low
-    close = data.close
-    for i_bar in range(-2, -self.numBars-1, -1):
-        data = bars.iloc[i_bar]
-        if data.high > high: high = data.high
-        if data.low < low: low = data.low
+    data = bars[-self.numBars:]
+    high = data.high.max()
+    low = data.low.min()
+    close = data.close[-1]
     return (high + low + close) / 3
 
 def SMA(self, bars):
-    prices = bars.iloc[-self.numBars:].close
+    prices = bars.close[-self.numBars:]
     return ta.trend.sma_indicator(prices, self.numBars)[-1]
 
 def EMA(self, bars):
-    prices = bars.iloc[-self.numBars:].close
+    prices = bars.close[-self.numBars:]
     return ta.trend.ema_indicator(prices, self.numBars)[-1]
 
 def KAMA(self, bars):
     # variable EMA from 2 to 30 bars (default)
-    prices = bars.iloc[-self.numBars:].close
+    prices = bars.close[-self.numBars:]
     return ta.momentum.kama(prices, self.numBars)[-1]
 
 
@@ -102,8 +94,7 @@ for numBars in (1, 3, 5, 10, 20):
     indicators[barFreq] += [
         Indicator(numBars, barFreq, momentum),
         Indicator(numBars, barFreq, volume),
-        Indicator(numBars, barFreq, volume_stdev),
-        Indicator(numBars, barFreq, volume_num_stdevs)
+        Indicator(numBars, barFreq, volume_stdevs)
     ]
 
 
@@ -115,8 +106,7 @@ for numBars in (1, 3, 5, 10, 20):
     indicators[barFreq] += [
         Indicator(numBars, barFreq, momentum),
         Indicator(numBars, barFreq, volume),
-        Indicator(numBars, barFreq, volume_stdev),
-        Indicator(numBars, barFreq, volume_num_stdevs)
+        Indicator(numBars, barFreq, volume_stdevs)
     ]
 
 # moving averages
