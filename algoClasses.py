@@ -425,7 +425,10 @@ class Algo:
 
 class NightAlgo(Algo):
     def tick(self):
-        if sum(self.buyPow.values()) > c.minTradeBuyPow * 2:
+        if (
+            self.buyPow['long'] >= c.minTradeBuyPow or
+            self.buyPow['short'] >= c.minTradeBuyPow
+        ):
             self.set_ticking(True)
             try: self.func(self)
             except Exception as e: self.log.exception(e)
