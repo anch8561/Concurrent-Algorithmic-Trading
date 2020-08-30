@@ -18,7 +18,7 @@ def formatDatetime(record, datefmt=None):
         s = self.default_msec_format % (t, record.msecs)
     return s
 
-def init_logging(args):
+def init_logging(logLevel, env):
     # create logPath if needed
     try: mkdir(c.logPath)
     except Exception: pass
@@ -31,7 +31,7 @@ def init_logging(args):
 
     # handlers
     consoleHdlr = logging.StreamHandler()
-    consoleHdlr.setLevel(args.log.upper())
+    consoleHdlr.setLevel(logLevel.upper())
     consoleHdlr.setFormatter(formatter)
 
     debugHdlr = logging.FileHandler(c.logPath + 'debug.log')
@@ -42,7 +42,7 @@ def init_logging(args):
     warningHdlr.setLevel(logging.WARNING)
     warningHdlr.setFormatter(formatter)
 
-    # toaddrs = c.criticalEmails if args.env == 'prod' else email.username
+    # toaddrs = c.criticalEmails if env == 'prod' else email.username
     # emailHdlr = logging.handlers.SMTPHandler(
     #     mailhost = ('smtp.gmail.com', 465),
     #     fromaddr = email.username,

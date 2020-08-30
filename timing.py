@@ -73,3 +73,8 @@ def is_market_day(offset=0):
 
     # today
     return dateStr == calendar[i_today]._raw['date']
+
+def update_time():
+    g.now = get_time()
+    g.TTOpen = get_market_open() - g.now
+    g.TTClose = get_market_close() - g.now

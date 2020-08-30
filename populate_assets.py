@@ -9,7 +9,8 @@ from pandas import DataFrame
 
 log = getLogger()
 
-def populate_assets():
+def populate_assets(numAssets):
+    # numAssets: int or None; number of symbols to stream (None means all)
     log.warning('Populating assets')
 
     # get alpaca assets and polygon tickers

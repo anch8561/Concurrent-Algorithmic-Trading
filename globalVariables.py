@@ -3,6 +3,7 @@ alpacaPaper = None # alpaca trade api REST object with paper credentials
 connLive = None # alpaca trade api StreamConn object with live credentials
 connPaper = None # alpaca trade api StreamConn object with paper credentials
 
+now = None # datetime
 TTOpen = None # timedelta until today's market open (or next market open if today is not a market day)
 TTClose = None # timedelta until today's market close (or next market close if today is not a market day)
 

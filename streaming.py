@@ -170,7 +170,11 @@ def process_all_trades():
         process_trade(trade)
     trades = []
 
-def stream(conn, channels):
+def stream(conn):
+    channels = ['account_updates', 'trade_updates']
+    for symbol in g.assets['min']:
+        channels += [f'AM.{symbol}']
+
     # pylint: disable=unused-variable
     @conn.on('A')
     async def on_second(conn, channel, data):
