@@ -2,7 +2,7 @@ import config as c
 
 from argparse import ArgumentParser
 
-def get_args():
+def parse_args(args):
     parser = ArgumentParser()
     parser.add_argument(
         'env',
@@ -18,9 +18,10 @@ def get_args():
     parser.add_argument(
         '--numAssets',
         default = c.numAssets,
-        help = f'number of symbols to stream (default {c.numAssets}, None means all)')
+        type = int,
+        help = f'number of symbols to stream (default {c.numAssets}, -1 means all)')
     parser.add_argument(
         '--reset',
         action = 'store_true',
         help = 'cancel orders and exit positions before starting')
-    return parser.parse_args()
+    return parser.parse_args(args)

@@ -10,7 +10,7 @@ from pandas import DataFrame
 log = getLogger()
 
 def populate_assets(numAssets):
-    # numAssets: int or None; number of symbols to stream (None means all)
+    # numAssets: int; number of symbols to stream (-1 means all)
     log.warning('Populating assets')
 
     # get alpaca assets and polygon tickers
@@ -36,7 +36,7 @@ def populate_assets(numAssets):
                     break
         
         # check numAssets
-        if c.numAssets != None and len(activeSymbols) == c.numAssets: break
+        if c.numAssets > 0 and len(activeSymbols) == c.numAssets: break
 
     # add active assets
     for ii, symbol in enumerate(activeSymbols):

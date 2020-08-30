@@ -2,22 +2,23 @@ import config as c
 import globalVariables as g
 from algos import allAlgos
 from allocate_buying_power import allocate_buying_power
-from get_args import get_args
 from init_alpaca import init_alpaca
 from init_logging import init_logging
+from parse_args import parse_args
 from populate_assets import populate_assets
 from reset import reset
 from streaming import stream
 from tick_algos import tick_algos
 from timing import init_timing, update_time
 
+import sys
 from datetime import timedelta
 from logging import getLogger
 from threading import Thread
 from time import sleep
 
-# get arguments
-args = get_args()
+# parse arguments
+args = parse_args(sys.argv[1:])
 
 # init logging
 init_logging(args.log, args.env)
@@ -83,5 +84,5 @@ except BaseException as e:
     log.warning('Stopping active algos')
     for algo in allAlgos:
         if algo.active: algo.stop()
-        
+
     pass # removes need for double keyboard interrupt
