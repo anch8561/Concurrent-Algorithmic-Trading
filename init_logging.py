@@ -56,7 +56,8 @@ def init_logging(logLevel, env):
     # loggers
     logging.basicConfig(
         level = logging.DEBUG,
-        handlers = [consoleHdlr, debugHdlr, warningHdlr])
+        handlers = [consoleHdlr, debugHdlr, warningHdlr],
+        force = True)
 
     streamLog = logging.getLogger('stream')
     streamLog.setLevel(logging.DEBUG)
