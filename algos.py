@@ -3,6 +3,7 @@ import globalVariables as g
 from algoClasses import DayAlgo, NightAlgo
 
 # NOTE: kwargs must be in correct order to generate correct name
+# TODO: init_algos()
 
 # intraday
 intradayAlgos = []

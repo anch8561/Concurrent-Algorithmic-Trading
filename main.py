@@ -33,9 +33,10 @@ init_timing()
 
 # init streaming
 populate_assets(args.numAssets)
-Thread(target=stream, args=(g.connPaper)).start()
+Thread(target=stream, args=[g.connPaper]).start()
 
 # init algos
+# TODO: update global positions
 allocate_buying_power()
 for algo in allAlgos: # FIX: no performance data
     algo.buyPow['long'] = 5000
