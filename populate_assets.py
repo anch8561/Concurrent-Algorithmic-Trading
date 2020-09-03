@@ -2,7 +2,7 @@ import config as c
 import globalVariables as g
 from algos import allAlgos
 from indicators import indicators
-from timing import get_market_open, get_date, get_market_date
+import timing
 
 from logging import getLogger
 from pandas import DataFrame
@@ -36,7 +36,7 @@ def populate_assets(numAssets):
                     break
         
         # check numAssets
-        if c.numAssets > 0 and len(activeSymbols) == c.numAssets: break
+        if numAssets > 0 and len(activeSymbols) == numAssets: break
 
     # add active assets
     for ii, symbol in enumerate(activeSymbols):
@@ -44,36 +44,31 @@ def populate_assets(numAssets):
         add_asset(symbol)
 
 
-# list of lists of positions
-positionsList = [g.paperPositions, g.livePositions]
-positionsList += [algo.positions for algo in allAlgos]
-
-
 def add_asset(symbol):
     # add zero positions
-    for positions in positionsList:
+    positionsLists = [g.paperPositions, g.livePositions]
+    positionsLists += [algo.positions for algo in allAlgos]
+    for positions in positionsLists:
         if symbol not in positions:
             positions[symbol] = {'qty': 0, 'basis': 0}
 
     # init second bars
     columns = ['open', 'high', 'low', 'close', 'volume', 'ticked']
     for indicator in indicators['sec']: columns.append(indicator.name)
-    data = {}
-    for column in columns: data[column] = None
-    g.assets['sec'][symbol] = DataFrame(data, [get_market_open()])
+    data = dict.fromkeys(columns, None)
+    g.assets['sec'][symbol] = DataFrame(data, [timing.get_market_open()])
 
     # init minute bars
     columns = ['open', 'high', 'low', 'close', 'volume', 'ticked']
     for indicator in indicators['min']: columns.append(indicator.name)
-    data = {}
-    for column in columns: data[column] = None
-    g.assets['min'][symbol] = DataFrame(data, [get_market_open()])
+    data = dict.fromkeys(columns, None)
+    g.assets['min'][symbol] = DataFrame(data, [timing.get_market_open()])
 
 
-    # GET DAY BARS
+    ## GET DAY BARS
     try: # get historic aggs
-        fromDate = get_market_date(-c.numHistoricDays)
-        toDate = get_date()
+        fromDate = timing.get_market_date(-c.numHistoricDays)
+        toDate = timing.get_date()
         bars = g.alpacaPaper.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
     except Exception as e:
         log.exception(e)
