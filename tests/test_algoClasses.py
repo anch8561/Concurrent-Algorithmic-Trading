@@ -4,7 +4,6 @@ import config as c
 import globalVariables as g
 
 import json
-from importlib import reload
 from os import remove
 from pandas import DataFrame
 from pytest import fixture
@@ -232,16 +231,11 @@ def test_get_limit_price(testAlgo):
 def test_get_metrics(): pass # TODO: WIP function
 
 def test_get_price(testAlgo):
-    # setup
-    reload(g)
     g.assets['min']['AAPL'] = DataFrame({'close': 111.11}, ['a'])
-
-    # test
     assert testAlgo.get_price('AAPL') == 111.11
 
 def test_get_trade_qty(testAlgo):
     # setup
-    reload(g)
     cash = 100 * c.minShortPrice / c.maxPosFrac
     testAlgo.equity['short'] = cash
     testAlgo.buyPow['short'] = cash

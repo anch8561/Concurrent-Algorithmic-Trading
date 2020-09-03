@@ -4,7 +4,6 @@ from indicators import Indicator
 
 import statistics as stats
 import ta, time
-from importlib import reload
 from pandas import DataFrame
 from pytest import fixture
 from unittest.mock import Mock, call

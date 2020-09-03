@@ -3,13 +3,11 @@ import config as c
 import globalVariables as g
 from algoClasses import DayAlgo, NightAlgo
 
-from importlib import reload
 from pandas import DataFrame
 from unittest.mock import Mock, call
 
 def test_momentum():
     # setup
-    reload(g)
     testAlgo = DayAlgo(algos.momentum, False,
         enterNumBars = 3,
         exitNumBars = 2,
@@ -91,7 +89,6 @@ def test_momentum():
 
 def test_momentum_volume():
     # setup
-    reload(g)
     testAlgo = NightAlgo(algos.momentum_volume, False,
         numBars = 2,
         barFreq = 'day')
@@ -134,7 +131,6 @@ def test_momentum_volume():
 
 def test_crossover():
     # setup
-    reload(g)
     testAlgo = DayAlgo(algos.crossover, False,
         barFreq = 'day',
         fastNumBars = 3,

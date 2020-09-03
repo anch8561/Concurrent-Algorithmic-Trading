@@ -91,7 +91,7 @@ def test_add_asset(alpaca):
         minIndicator = indicators.Indicator(1, 'min', indicators.momentum)
         dayIndicator = indicators.Indicator(1, 'day', indicators.momentum)
 
-        # test# TODO: try unindenting
+        # test
         with patch('populate_assets.allAlgos', allAlgos), \
             patch('populate_assets.indicators', {
                 'sec': [secIndicator],
