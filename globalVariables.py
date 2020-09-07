@@ -3,12 +3,6 @@ alpacaPaper = None # alpaca trade api REST object with paper credentials
 connLive = None # alpaca trade api StreamConn object with live credentials
 connPaper = None # alpaca trade api StreamConn object with paper credentials
 
-now = None # datetime
-TTOpen = None # timedelta until today's market open (or next market open if today is not a market day)
-TTClose = None # timedelta until today's market close (or next market close if today is not a market day)
-
-lastBarReceivedTime = None # datetime when last bar was received in streaming
-
 assets = {'sec': {}, 'min': {}, 'day': {}} # dict of dicts of dataframes {barFreq: symbol: df}
 # 'sec': dict of dataframes; second bars and indicators for each symbol
 # 'min': dict of dataframes; minute bars and indicators for each symbol
@@ -21,4 +15,9 @@ liveOrders = {}
 paperPositions = {} # {symbol: {qty, basis}}
 livePositions = {}
 
+now = None # datetime
+TTOpen = None # timedelta until today's market open (or next market open if today is not a market day)
+TTClose = None # timedelta until today's market close (or next market close if today is not a market day)
+
+lastBarReceivedTime = None # datetime when last bar was received in streaming
 processingTrade = False
