@@ -5,7 +5,6 @@ from allocate_buying_power import allocate_buying_power
 
 import numpy as np
 import scipy.optimize as opt
-from unittest.mock import patch
 
 def test_allocate_buying_power(algos):
     # setup alpaca.get_account
