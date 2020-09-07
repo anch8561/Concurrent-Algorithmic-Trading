@@ -10,7 +10,7 @@ from pytest import fixture
 from unittest.mock import Mock
 
 @fixture
-def testAlgo():
+def testAlgo(reloadGlobalVariables):
     testAlgo = algoClasses.Algo(print, False)
     testAlgo.alpaca = Mock()
     testAlgo.allOrders = {}
