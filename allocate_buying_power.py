@@ -1,6 +1,5 @@
 import config as c
 import globalVariables as g
-from algos import intradayAlgos, overnightAlgos, multidayAlgos, allAlgos
 
 from logging import getLogger
 import numpy as np
@@ -8,7 +7,9 @@ import scipy.optimize as opt
 
 log = getLogger()
 
-def allocate_buying_power():
+def allocate_buying_power(algos):
+    # algos: dict of lists of algos (keys: 'intraday', 'overnight', 'multiday', 'all')
+
     log.warning('Allocating buying power')
 
     # get buying power
@@ -20,7 +21,7 @@ def allocate_buying_power():
 
     try: # get performance weights
         w = []
-        for algo in allAlgos:
+        for algo in algos['all']:
             metrics = algo.get_metrics(c.allocMetricDays)
             w.append(metrics['mean']['long'])
             w.append(metrics['mean']['short'])
@@ -31,10 +32,10 @@ def allocate_buying_power():
     except Exception as e: log.exception(e)
 
     try: # get weight region lengths
-        n_all = len(allAlgos) * 2
-        n_intraday = len(intradayAlgos) * 2
-        n_overnight = len(overnightAlgos) * 2
-        n_multiday = len(multidayAlgos) * 2
+        n_all = len(algos['all']) * 2
+        n_intraday = len(algos['intraday']) * 2
+        n_overnight = len(algos['overnight']) * 2
+        n_multiday = len(algos['multiday']) * 2
     except Exception as e: log.exception(e)
 
     try: # set objective function and initial guess
@@ -81,7 +82,7 @@ def allocate_buying_power():
     except Exception as e: log.exception(e)
 
     try: # distribute buying power
-        for ii, algo in enumerate(allAlgos):
+        for ii, algo in enumerate(algos['all']):
             algo.buyPow['long'] = int(allocFrac[ii*2] * buyPow)
             algo.buyPow['short'] = int(allocFrac[ii*2+1] * buyPow)
             algo.log.info(f'Buying power: {algo.buyPow}')

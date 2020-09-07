@@ -1,6 +1,5 @@
 import config as c
 import globalVariables as g
-from algos import allAlgos
 from indicators import indicators
 from timing import get_time, get_market_open, get_time_str
 
@@ -170,7 +169,7 @@ def process_all_trades():
         process_trade(trade)
     trades = []
 
-def stream(conn):
+def stream(conn, allAlgos):
     channels = ['account_updates', 'trade_updates']
     for symbol in g.assets['min']:
         channels += [f'AM.{symbol}']

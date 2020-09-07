@@ -1,16 +1,12 @@
 import config as c
 import globalVariables as g
-from algos import intradayAlgos, overnightAlgos, multidayAlgos
 from streaming import process_all_trades, compile_day_bars
 
 from logging import getLogger
 
 log = getLogger()
 
-state = 'night'
-
-def tick_algos():
-    global state
+def tick_algos(algos, state):
     closingSoon = g.TTClose <= c.marketCloseTransitionPeriod
 
     # tick algos
@@ -18,29 +14,29 @@ def tick_algos():
     try:
         if state == 'night' and not closingSoon:
             log.warning('Deactivating overnight algos')
-            for algo in overnightAlgos: algo.deactivate()
+            for algo in algos['overnight']: algo.deactivate()
             
-            if not any(algo.active for algo in overnightAlgos):
+            if not any(algo.active for algo in algos['overnight']):
                 log.warning('Activating intraday algos')
-                for algo in intradayAlgos: algo.activate()
+                for algo in algos['intraday']: algo.activate()
                 state = 'day'
 
         elif state == 'day' and not closingSoon:
-            for algo in intradayAlgos: algo.tick() # TODO: parallel
+            for algo in algos['intraday']: algo.tick() # TODO: parallel
 
         elif state == 'day' and closingSoon:
             log.warning('Deactivating intraday algos')
-            for algo in intradayAlgos: algo.deactivate()
+            for algo in algos['intraday']: algo.deactivate()
             
-            if not any(algo.active for algo in intradayAlgos):
+            if not any(algo.active for algo in algos['intraday']):
                 log.warning('Activating overnight algos')
-                for algo in overnightAlgos: algo.activate()
+                for algo in algos['overnight']: algo.activate()
                 state = 'night'
                 compile_day_bars()
 
         elif state == 'night' and closingSoon:
-            for algo in overnightAlgos: algo.tick() # TODO: parallel
-            for algo in multidayAlgos: algo.tick() # TODO: parallel
+            for algo in algos['overnight']: algo.tick() # TODO: parallel
+            for algo in algos['multiday']: algo.tick() # TODO: parallel
     except Exception as e: log.exception(e)
 
     # set bars ticked
@@ -53,3 +49,6 @@ def tick_algos():
     # process trade update backlog
     log.info('Processing trade update backlog')
     process_all_trades()
+
+    # exit
+    return state

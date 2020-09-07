@@ -1,11 +1,11 @@
 import config as c
 import globalVariables as g
-from algos import allAlgos
+import init_logs
+from algos import init_algos
 from allocate_buying_power import allocate_buying_power
 from init_alpaca import init_alpaca
-from init_logging import init_logging
+from init_assets import init_assets
 from parse_args import parse_args
-from populate_assets import populate_assets
 from reset import reset
 from streaming import stream
 from tick_algos import tick_algos
@@ -20,33 +20,35 @@ from time import sleep
 # parse arguments
 args = parse_args(sys.argv[1:])
 
-# init logging
-init_logging(args.log, args.env)
+# init logs
+logFormatter = init_logs.init_formatter()
+init_logs.init_primary_logs(args.log, args.env, logFormatter)
 log = getLogger()
 
-# init alpaca
+# init alpaca and timing
 init_alpaca(args.env)
-if args.reset: reset()
-
-# init timing
 init_timing()
 
-# init streaming
-populate_assets(args.numAssets)
-Thread(target=stream, args=[g.connPaper]).start()
-
 # init algos
+algos = init_algos()
+init_logs.init_algo_logs(algos['all'], logFormatter)
 # TODO: update global positions
-allocate_buying_power()
-for algo in allAlgos: # FIX: no performance data
+allocate_buying_power(algos)
+for algo in algos['all']: # FIX: no performance data
     algo.buyPow['long'] = 5000
     algo.buyPow['short'] = 5000
+if args.reset: reset(algos['all'])
 log.warning('Starting active algos')
-for algo in allAlgos:
+for algo in algos['all']:
     if algo.active: algo.start()
+
+# init assets and stream
+init_assets(args.numAssets, algos['all'])
+Thread(target=stream, args=(g.connPaper, algos['all'])).start()
 
 # main loop
 log.warning('Entering main loop')
+state = 'night'
 marketIsOpen = True
 try:
     while True:
@@ -71,7 +73,7 @@ try:
                 isAfterNewBarDelay and
                 any(bars.ticked[-1] == False for bars in g.assets['min'].values())
             ):
-                tick_algos()
+                state = tick_algos(algos, state)
                 log.info('Waiting for bars')
         else:
             # update market state
@@ -83,7 +85,7 @@ except BaseException as e:
     log.exception(e)
 
     log.warning('Stopping active algos')
-    for algo in allAlgos:
+    for algo in algos['all']:
         if algo.active: algo.stop()
 
     pass # removes need for double keyboard interrupt

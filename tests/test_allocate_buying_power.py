@@ -1,4 +1,3 @@
-import algos
 import config as c
 import globalVariables as g
 from algoClasses import Algo
@@ -6,8 +5,9 @@ from allocate_buying_power import allocate_buying_power
 
 import numpy as np
 import scipy.optimize as opt
+from unittest.mock import patch
 
-def test_allocate_buying_power():
+def test_allocate_buying_power(algos):
     # setup alpaca.get_account
     class alpacaPaper:
         class account:
@@ -28,26 +28,10 @@ def test_allocate_buying_power():
         return next(metric(reset))
     Algo.get_metrics = get_metrics
 
-    # setup algos
-    algos.intradayAlgos = [
-        Algo(print, False, n=0),
-        Algo(print, False, n=1)]
-    algos.overnightAlgos = [
-        Algo(print, False, n=2),
-        Algo(print, False, n=3),
-        Algo(print, False, n=4)]
-    algos.multidayAlgos = [
-        Algo(print, False, n=5),
-        Algo(print, False, n=6),
-        Algo(print, False, n=7),
-        Algo(print, False, n=8)]
-    algos.allAlgos = algos.intradayAlgos + \
-        algos.overnightAlgos + algos.multidayAlgos
-
     # test
-    allocate_buying_power()
+    allocate_buying_power(algos)
     testBPs = []
-    for algo in algos.allAlgos:
+    for algo in algos['all']:
         testBPs.append(algo.buyPow)
     
     ## REAL
@@ -59,17 +43,17 @@ def test_allocate_buying_power():
     # get performance weights
     get_metrics(reset=True)
     w = []
-    for algo in algos.allAlgos:
+    for algo in algos['all']:
         metrics = algo.get_metrics(c.allocMetricDays)
         w.append(metrics['mean']['long'])
         w.append(metrics['mean']['short'])
     w = np.array(w)
 
     # get weight region lengths
-    n_all = len(algos.allAlgos) * 2
-    n_intraday = len(algos.intradayAlgos) * 2
-    n_overnight = len(algos.overnightAlgos) * 2
-    n_multiday = len(algos.multidayAlgos) * 2
+    n_all = 18
+    n_intraday = 4
+    n_overnight = 6
+    n_multiday = 8
 
     # set objective function and initial guess
     func = lambda x: - np.dot(x, w)
@@ -111,12 +95,12 @@ def test_allocate_buying_power():
     allocFrac = results.x
 
     # distribute buying power
-    for ii, algo in enumerate(algos.allAlgos):
+    for ii, algo in enumerate(algos['all']):
         algo.buyPow['long'] = int(allocFrac[ii*2] * buyPow)
         algo.buyPow['short'] = int(allocFrac[ii*2+1] * buyPow)
     
     # test
     realBPs = []
-    for algo in algos.allAlgos:
+    for algo in algos['all']:
         realBPs.append(algo.buyPow)
     assert testBPs == realBPs

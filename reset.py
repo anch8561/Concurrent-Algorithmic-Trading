@@ -1,11 +1,10 @@
 import globalVariables as g
-from algos import allAlgos
 
 from logging import getLogger
 
 log = getLogger()
 
-def reset():
+def reset(allAlgos):
     log.warning('Cancelling orders and closing positions')
     # reset account orders and positions
     for alpaca in (g.alpacaLive, g.alpacaPaper):

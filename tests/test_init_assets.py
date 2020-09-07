@@ -1,6 +1,6 @@
 import config as c
 import globalVariables as g
-import populate_assets
+import init_assets
 import indicators
 from algoClasses import Algo
 
@@ -64,19 +64,19 @@ def alpaca():
     
     return alpaca
 
-def test_populate_assets(alpaca):
+def test_init_assets(alpaca, allAlgos):
     g.alpacaPaper = alpaca
 
     # test
-    with patch('populate_assets.add_asset') as add_asset:
-        populate_assets.populate_assets(2)
+    with patch('init_assets.add_asset') as add_asset:
+        init_assets.init_assets(2, allAlgos)
         calls = [
-            call('MSFT'),
-            call('WMT')]
+            call('MSFT', allAlgos),
+            call('WMT', allAlgos)]
         add_asset.assert_has_calls(calls)
         assert add_asset.call_count == 2
 
-def test_add_asset(alpaca):
+def test_add_asset(alpaca, allAlgos):
     ## SETUP
     g.alpacaPaper = alpaca
     g.paperPositions['AAPL'] = {'qty': 3, 'basis': 0}
@@ -92,14 +92,13 @@ def test_add_asset(alpaca):
         dayIndicator = indicators.Indicator(1, 'day', indicators.momentum)
 
         # test
-        with patch('populate_assets.allAlgos', allAlgos), \
-            patch('populate_assets.indicators', {
+        with patch('init_assets.indicators', {
                 'sec': [secIndicator],
                 'min': [minIndicator],
                 'day': [dayIndicator]}), \
-            patch('populate_assets.timing', timing) \
+            patch('init_assets.timing', timing) \
         :
-            populate_assets.add_asset('AAPL')
+            init_assets.add_asset('AAPL', allAlgos)
 
     # positions
     assert g.paperPositions == {'AAPL': {'qty': 3, 'basis': 0}}
