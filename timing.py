@@ -2,15 +2,13 @@ import globalVariables as g
 
 from datetime import datetime, timedelta
 from logging import getLogger
-from pytz import timezone
 
 log = getLogger()
 
 def init_timing():
-    global nyc, calendar, i_today
-    nyc = timezone('America/New_York')
+    global calendar, i_today
     calendar = g.alpacaPaper.get_calendar()
-    todayStr = datetime.now(nyc).strftime('%Y-%m-%d')
+    todayStr = datetime.now(g.nyc).strftime('%Y-%m-%d')
     for ii, date in enumerate(calendar):
         if date._raw['date'] >= todayStr: # current or next market day
             i_today = ii
@@ -18,7 +16,7 @@ def init_timing():
 
 def get_time():
     # returns: current nyc datetime
-    return datetime.now(nyc)
+    return datetime.now(g.nyc)
 
 def get_time_str():
     # returns: nyc time str; e.g. '08:35:41.736216' (HH:MM:SS.US)
@@ -41,7 +39,7 @@ def get_market_close():
 def get_date(offset=0):
     # offset: int, days relative to today (-1 is yesterday)
     # returns: nyc date str; e.g. '2020-05-28' (YYYY-MM-DD)
-    date = datetime.now(nyc) + timedelta(offset)
+    date = datetime.now(g.nyc) + timedelta(offset)
     return date.strftime('%Y-%m-%d')
 
 def get_market_date(offset=0):

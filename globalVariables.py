@@ -1,8 +1,11 @@
+from pytz import timezone
+
 alpacaLive = None # alpaca trade api REST object with live credentials
 alpacaPaper = None # alpaca trade api REST object with paper credentials
 connLive = None # alpaca trade api StreamConn object with live credentials
 connPaper = None # alpaca trade api StreamConn object with paper credentials
 
+nyc = timezone('America/New_York')
 now = None # datetime
 lastBarReceivedTime = None # datetime when last bar was received in streaming
 TTOpen = None # timedelta until today's market open (or next market open if today is not a market day)

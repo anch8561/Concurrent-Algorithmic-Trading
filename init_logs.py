@@ -1,4 +1,5 @@
 import config as c
+import globalVariables as g
 from credentials import email
 from datetime import datetime
 
@@ -7,11 +8,9 @@ from os import mkdir
 from pytz import timezone
 
 def init_formatter():
-    nyc = timezone('America/New_York')
-
     def formatDatetime(record, datefmt=None):
         # pylint: disable=undefined-variable
-        ct = datetime.fromtimestamp(record.created, nyc)
+        ct = datetime.fromtimestamp(record.created, g.nyc)
         if datefmt:
             s = ct.strftime(datefmt)
         else:
