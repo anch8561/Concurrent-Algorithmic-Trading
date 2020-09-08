@@ -1,6 +1,5 @@
 import config as c
 import globalVariables as g
-from indicators import indicators
 import timing
 
 from logging import getLogger
@@ -8,7 +7,7 @@ from pandas import DataFrame
 
 log = getLogger()
 
-def init_assets(numAssets, allAlgos):
+def init_assets(numAssets, allAlgos, indicators):
     # numAssets: int; number of symbols to stream (-1 means all)
     log.warning('Populating assets')
 
@@ -40,10 +39,10 @@ def init_assets(numAssets, allAlgos):
     # add active assets
     for ii, symbol in enumerate(activeSymbols):
         log.info(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
-        add_asset(symbol, allAlgos)
+        add_asset(symbol, allAlgos, indicators)
 
 
-def add_asset(symbol, allAlgos):
+def add_asset(symbol, allAlgos, indicators):
     # add zero positions
     positionsLists = [g.paperPositions, g.livePositions]
     positionsLists += [algo.positions for algo in allAlgos]
@@ -80,7 +79,7 @@ def add_asset(symbol, allAlgos):
         bars[indicator.name] = None
         jj = bars.columns.get_loc(indicator.name)
         for ii in range(len(bars.index)):
-            bars.iloc[ii, jj] = indicator.get(bars.iloc[:ii])
+            bars.iloc[ii, jj] = indicator.get(bars.iloc[:ii+1])
     
     # write to assets
     g.assets['day'][symbol] = bars

@@ -1,26 +1,16 @@
 import globalVariables as g
 import indicators
-from indicators import Indicator
+Indicator = indicators.Indicator
 
 import statistics as stats
-import ta, time
-from pandas import DataFrame
-from pytest import fixture
+import ta
 from unittest.mock import Mock, call
-
-@fixture
-def bars():
-    data = {'open': [232.32, 345.67, 222.22, 543.21],
-        'high': [454.54, 456.78, 444.44, 543.21],
-        'low': [121.21, 123.45, 111.11, 543.21],
-        'close': [343.43, 234.56, 333.33, 543.21],
-        'volume': [9999, 8888, 7777, 6666]}
-    return DataFrame(data, ['a', 'b', 'c', 'd'])
 
 def test_Indicator():
     testInd = Indicator(3, 'min', print)
     # NOTE: skipping unused kwargs
     assert testInd.name == '3_min_print'
+    assert testInd.func == print
 
 def test_Indicator_get():
     # setup
@@ -35,22 +25,23 @@ def test_Indicator_get():
 def test_momentum(bars):
     testInd = Indicator(3, 'min', indicators.momentum)
     val = testInd.get(bars)
-    assert val == (543.21 - 345.67) / 345.67
+    assert val == (575.04 - 345.67) / 345.67
 
 def test_volume(bars):
     testInd = Indicator(3, 'min', indicators.volume)
     val = testInd.get(bars)
-    assert val == 8888 + 7777 + 6666
+    assert val == 8888 + 7777 + 5555
 
 def test_volume_stdevs(bars):
     testInd = Indicator(3, 'min', indicators.volume_stdevs)
     val = testInd.get(bars)
-    assert val == -1
+    expected = -1.091089451179962
+    assert val - expected < 1e-6
 
 def test_typical_price(bars):
     testInd = Indicator(3, 'min', indicators.typical_price)
     val = testInd.get(bars)
-    assert val == (543.21 + 111.11 + 543.21) / 3
+    assert val == (600.02 + 111.11 + 575.04) / 3
 
 def test_SMA(bars):
     testInd = Indicator(3, 'min', indicators.SMA)

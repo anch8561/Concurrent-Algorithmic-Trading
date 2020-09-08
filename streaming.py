@@ -1,7 +1,6 @@
 import config as c
 import globalVariables as g
-from indicators import indicators
-from timing import get_time, get_market_open, get_time_str
+import timing
 
 from datetime import timedelta
 from logging import getLogger
@@ -10,7 +9,7 @@ from pandas import DataFrame
 log = getLogger('stream')
 trades = []
 
-def process_bar(barFreq, data):
+def process_bar(barFreq, data, indicators):
     # barFreq: 'sec', 'min', or 'day'
     # data: raw stream data
 
@@ -35,12 +34,12 @@ def process_bar(barFreq, data):
     
     try: # save bars
         g.assets[barFreq][data.symbol] = bars
-        g.lastBarReceivedTime = get_time()
+        g.lastBarReceivedTime = timing.get_time()
     except Exception as e: log.exception(f'{e}\n{data}')
 
-def compile_day_bars():
+def compile_day_bars(indicators):
     log.warning('Compiling day bars')
-    openTime = get_market_open()
+    openTime = timing.get_market_open()
     for ii, (symbol, minBars) in enumerate(g.assets['min'].items()):
         log.info(f'Compiling bar {ii+1} / {len(g.assets["min"])}\t{symbol}')
         minBars = minBars.loc[openTime:]
@@ -169,7 +168,11 @@ def process_all_trades():
         process_trade(trade)
     trades = []
 
-def stream(conn, allAlgos):
+def stream(conn, allAlgos, indicators):
+    # conn: alpaca_trade_api.StreamConn instance
+    # allAlgos: list of all algos
+    # indicators: dict of lists of indicators (keys: 'sec', 'min', 'day', 'all')
+
     channels = ['account_updates', 'trade_updates']
     for symbol in g.assets['min']:
         channels += [f'AM.{symbol}']
@@ -177,11 +180,11 @@ def stream(conn, allAlgos):
     # pylint: disable=unused-variable
     @conn.on('A')
     async def on_second(conn, channel, data):
-        process_bar('sec', data)
+        process_bar('sec', data, indicators)
 
     @conn.on('AM')
     async def on_minute(conn, channel, data):
-        process_bar('min', data)
+        process_bar('min', data, indicators)
 
     @conn.on('account_updates')
     async def on_account_update(conn, channel, data):

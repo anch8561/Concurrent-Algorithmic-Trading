@@ -3,6 +3,7 @@ import globalVariables as g
 import init_logs
 from algos import init_algos
 from allocate_buying_power import allocate_buying_power
+from indicators import init_indicators
 from init_alpaca import init_alpaca
 from init_assets import init_assets
 from parse_args import parse_args
@@ -42,9 +43,10 @@ log.warning('Starting active algos')
 for algo in algos['all']:
     if algo.active: algo.start()
 
-# init assets and stream
-init_assets(args.numAssets, algos['all'])
-Thread(target=stream, args=(g.connPaper, algos['all'])).start()
+# init indicators, assets, and streaming
+indicators = init_indicators()
+init_assets(args.numAssets, algos['all'], indicators)
+Thread(target=stream, args=(g.connPaper, algos['all'], indicators)).start()
 
 # main loop
 log.warning('Entering main loop')

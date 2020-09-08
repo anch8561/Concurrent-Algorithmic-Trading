@@ -1,7 +1,7 @@
 import globalVariables as g
 
 import statistics as stats
-import ta, time
+import ta
 from logging import getLogger
 
 log = getLogger('indicators')
@@ -73,51 +73,52 @@ def KAMA(self, bars):
     return ta.momentum.kama(prices, self.numBars)[-1]
 
 
-## INDICATORS DICTIONARY
-indicators = {
-    'sec': [],
-    'min': [],
-    'day': [],
-    'all': []
-}
+def init_indicators():
+    indicators = {
+        'sec': [],
+        'min': [],
+        'day': [],
+        'all': []
+    }
 
 
-## SECOND INDICATORS
-barFreq = 'sec'
+    ## SECOND
+    barFreq = 'sec'
 
 
-## MINUTE INDICATORS
-barFreq = 'min'
+    ## MINUTE
+    barFreq = 'min'
 
-# momentum and volume
-for numBars in (1, 3, 5, 10, 20):
-    indicators[barFreq] += [
-        Indicator(numBars, barFreq, momentum),
-        Indicator(numBars, barFreq, volume),
-        Indicator(numBars, barFreq, volume_stdevs)
-    ]
-
-
-## DAY INDICATORS
-barFreq = 'day'
-
-# momentum and volume
-for numBars in (1, 3, 5, 10, 20):
-    indicators[barFreq] += [
-        Indicator(numBars, barFreq, momentum),
-        Indicator(numBars, barFreq, volume),
-        Indicator(numBars, barFreq, volume_stdevs)
-    ]
-
-# moving averages
-for numBars in (3, 5, 10, 20):
-    indicators[barFreq] += [
-        Indicator(numBars, barFreq, SMA),
-        Indicator(numBars, barFreq, EMA),
-        Indicator(numBars, barFreq, KAMA)
-    ]
+    # momentum and volume
+    for numBars in (1, 3, 5, 10, 20):
+        indicators[barFreq] += [
+            Indicator(numBars, barFreq, momentum),
+            Indicator(numBars, barFreq, volume),
+            Indicator(numBars, barFreq, volume_stdevs)
+        ]
 
 
-## ALL INDICATORS
-for barFreq in g.assets:
-    indicators['all'] += indicators[barFreq]
+    ## DAY
+    barFreq = 'day'
+
+    # momentum and volume
+    for numBars in (1, 3, 5, 10, 20):
+        indicators[barFreq] += [
+            Indicator(numBars, barFreq, momentum),
+            Indicator(numBars, barFreq, volume),
+            Indicator(numBars, barFreq, volume_stdevs)
+        ]
+
+    # moving averages
+    for numBars in (3, 5, 10, 20):
+        indicators[barFreq] += [
+            Indicator(numBars, barFreq, SMA),
+            Indicator(numBars, barFreq, EMA),
+            Indicator(numBars, barFreq, KAMA)
+        ]
+
+
+    ## ALL
+    for barFreq in g.assets:
+        indicators['all'] += indicators[barFreq]
+    return indicators
