@@ -2,12 +2,18 @@ import config as c
 import globalVariables as g
 import timing
 
+import asyncio
 from datetime import timedelta
 from logging import getLogger
 from pandas import DataFrame
+from threading import Lock
 
 log = getLogger('stream')
-trades = []
+
+# buffers for when global resources are locked
+barsBacklog = {'sec': [], 'min': []}
+tradesBacklog = []
+backlogLock = Lock()
 
 def process_bar(barFreq, data, indicators):
     # barFreq: 'sec', 'min', or 'day'
@@ -71,9 +77,6 @@ def compile_day_bars(indicators):
         except Exception as e: log.exception(e)
 
 def process_trade(data):
-    g.processingTrade = True
-    # log.debug('processingTrade = True')
-    
     try: # get trade info
         event = data.event
         orderID = data.order['id']
@@ -159,14 +162,38 @@ def process_trade(data):
             algo.orders.pop(orderID)
         except Exception as e: log.exception(f'{e}\n{data}')
 
-    g.processingTrade = False
-    # log.debug('processingTrade = False')
+def process_bars_backlog(indicators):
+    # indicators: dict of lists of indicators (keys: 'sec', 'min', 'day', 'all')
 
-def process_all_trades():
-    global trades
-    for trade in trades:
+    global barsBacklog
+    for barFreq in ('sec', 'min'):
+        for bar in barsBacklog[barFreq]:
+            process_bar(barFreq, bar, indicators)
+        barsBacklog[barFreq] = []
+
+def process_trades_backlog():
+    global tradesBacklog
+    for trade in tradesBacklog:
         process_trade(trade)
-    trades = []
+    tradesBacklog = []
+
+def process_backlogs(indicators):
+    backlogLock.acquire()
+    process_bars_backlog(indicators)
+    process_trades_backlog()
+    backlogLock.release()
+
+async def acquire_thread_lock(conn):
+    await conn.loop.run_in_executor(None, g.lock.acquire())
+
+async def release_thread_lock(conn):
+    await conn.loop.run_in_executor(None, g.lock.release())
+
+async def acquire_backlog_lock(conn):
+    await conn.loop.run_in_executor(None, backlogLock.acquire())
+
+async def release_backlog_lock(conn):
+    await conn.loop.run_in_executor(None, backlogLock.release())
 
 def stream(conn, allAlgos, indicators):
     # conn: alpaca_trade_api.StreamConn instance
@@ -180,11 +207,25 @@ def stream(conn, allAlgos, indicators):
     # pylint: disable=unused-variable
     @conn.on('A')
     async def on_second(conn, channel, data):
-        process_bar('sec', data, indicators)
+        if g.lock.locked():
+            acquire_backlog_lock(conn)
+            barsBacklog['sec'].append(data)
+            release_backlog_lock(conn)
+        else:
+            acquire_thread_lock(conn)
+            process_bar('sec', data, indicators)
+            release_thread_lock(conn)
 
     @conn.on('AM')
     async def on_minute(conn, channel, data):
-        process_bar('min', data, indicators)
+        if g.lock.locked():
+            acquire_backlog_lock(conn)
+            barsBacklog['min'].append(data)
+            release_backlog_lock(conn)
+        else:
+            acquire_thread_lock(conn)
+            process_bar('min', data, indicators)
+            release_thread_lock(conn)
 
     @conn.on('account_updates')
     async def on_account_update(conn, channel, data):
@@ -192,10 +233,14 @@ def stream(conn, allAlgos, indicators):
 
     @conn.on('trade_updates')
     async def on_trade_update(conn, channel, data):
-        if any(algo.ticking for algo in allAlgos):
-            trades.append(data)
+        if g.lock.locked():
+            acquire_backlog_lock(conn)
+            tradesBacklog.append(data)
+            release_backlog_lock(conn)
         else:
+            acquire_thread_lock(conn)
             process_trade(data)
+            release_thread_lock(conn)
 
     log.warning(f'Streaming {len(channels)} channels')
     conn.run(channels)

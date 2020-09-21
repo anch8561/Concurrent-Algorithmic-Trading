@@ -36,7 +36,6 @@ class Algo:
         self.positions = {} # {symbol: {qty, basis}}
         self.orders = {} # {orderID: {symbol, qty, limit, longShort}}
         # qty is positive for buy/long and negative for sell/short
-        self.ticking = False # trade update blocking flag
         self.history = {} # {date: {time: event, equity}}
 
         # attributes to save / load
@@ -59,7 +58,6 @@ class Algo:
     def deactivate(self):
         # NOTE: may take multiple attempts
         # exit all positions then stop
-        self.set_ticking(True)
         if any(position['qty'] for position in self.positions.values()):
             for symbol, position in self.positions.items():
                 if position['qty']:
@@ -67,7 +65,6 @@ class Algo:
         else:
             self.stop()
             self.active = False
-        self.set_ticking(False)
 
     def start(self):
         if not self.active:
@@ -75,11 +72,9 @@ class Algo:
         else:
             self.log.info('starting')
             self.cancel_all_orders()
-            self.set_ticking(True)
             self.update_equity()
             self.update_history('start')
             self.save_data()
-            self.set_ticking(False)
     
     def stop(self):
         if not self.active:
@@ -87,11 +82,9 @@ class Algo:
         else:
             self.log.info('stopping')
             self.cancel_all_orders()
-            self.set_ticking(True)
             self.update_equity()
             self.update_history('stop')
             self.save_data()
-            self.set_ticking(False)
 
     def save_data(self):
         try: # get data
@@ -226,10 +219,8 @@ class Algo:
         except Exception as e: self.log.exception(e)
 
     def cancel_all_orders(self):
-        self.set_ticking(True)
         for orderID in self.orders:
             self.alpaca.cancel_order(orderID)
-        self.set_ticking(False)
         while len(self.orders): pass
 
     def get_limit_price(self, symbol, side):
@@ -366,6 +357,7 @@ class Algo:
 
     def set_live(self, live):
         # live: bool; if algo uses real money
+
         self.live = live
         if live:
             self.alpaca = g.alpacaLive
@@ -376,25 +368,11 @@ class Algo:
             self.allOrders = g.paperOrders
             self.allPositions = g.paperPositions
 
-    def set_ticking(self, ticking):
-        # ticking: bool; if algo is accessing positions or orders
-        # (blocks trade updates)
-        self.ticking = ticking
-        # self.log.debug(f'ticking = {ticking}')
-        if ticking:
-            # waiting = False
-            # if g.processingTrade:
-            #     waiting = True
-            #     self.log.debug('Waiting for processingTrade == False')
-            while g.processingTrade: pass
-            # if waiting: self.log.debug('Done waiting')
-
-    def update_equity(self):
+    def update_equity(self): # NOTE: uses
         # copy buying power
         self.equity = self.buyPow.copy()
 
         # check positions
-        self.set_ticking(True)
         for symbol, position in self.positions.items():
             qty = position['qty']
             if qty: # get position value
@@ -410,8 +388,6 @@ class Algo:
                         self.log.warning(f'Adding estimated value to equity: ${price * abs(qty)}')
                         self.equity[longShort] += price * abs(qty)
                     else: self.log.exception(e)
-
-        self.set_ticking(False)
 
     def update_history(self, event):
         # event: 'start' or 'stop'
@@ -429,14 +405,10 @@ class NightAlgo(Algo):
             self.buyPow['long'] >= c.minTradeBuyPow or
             self.buyPow['short'] >= c.minTradeBuyPow
         ):
-            self.set_ticking(True)
             try: self.func(self)
             except Exception as e: self.log.exception(e)
-            self.set_ticking(False)
 
 class DayAlgo(Algo):
     def tick(self):
-        self.set_ticking(True)
         try: self.func(self)
         except Exception as e: self.log.exception(e)
-        self.set_ticking(False)

@@ -1,4 +1,5 @@
 from pytz import timezone
+from threading import Lock
 
 alpacaLive = None # alpaca trade api REST object with live credentials
 alpacaPaper = None # alpaca trade api REST object with paper credentials
@@ -22,4 +23,5 @@ paperOrders = {}
 livePositions = {} # {symbol: {qty, basis}}
 paperPositions = {}
 
-processingTrade = False
+lock = Lock() # main and stream threads must acquire to access:
+# assets, liveOrders, paperOrders, livePositions, paperPositions, algo.buyPow, algo.orders, algo.positions

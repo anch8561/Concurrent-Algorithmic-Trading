@@ -46,7 +46,9 @@ for algo in algos['all']:
 # init indicators, assets, and streaming
 indicators = init_indicators()
 init_assets(args.numAssets, algos['all'], indicators)
-Thread(target=stream, args=(g.connPaper, algos['all'], indicators)).start()
+conn = g.connPaper # TODO: integrate with env arg
+Thread(target=stream, args=(conn, algos['all'], indicators)).start()
+# NOTE: begin using g.lock
 
 # main loop
 log.warning('Entering main loop')
@@ -75,7 +77,7 @@ try:
                 isAfterNewBarDelay and
                 any(bars.ticked[-1] == False for bars in g.assets['min'].values())
             ):
-                state = tick_algos(algos, state)
+                state = tick_algos(algos, indicators, state)
                 log.info('Waiting for bars')
         else:
             # update market state
@@ -86,8 +88,10 @@ try:
 except BaseException as e:
     log.exception(e)
 
+    g.lock.acquire()
     log.warning('Stopping active algos')
     for algo in algos['all']:
         if algo.active: algo.stop()
+    g.lock.release()
 
     pass # removes need for double keyboard interrupt

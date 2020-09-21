@@ -1,12 +1,13 @@
 import config as c
 import globalVariables as g
-from streaming import process_all_trades, compile_day_bars
+import streaming
 
 from logging import getLogger
 
 log = getLogger()
 
-def tick_algos(algos, state):
+def tick_algos(algos, indicators, state):
+    g.lock.acquire()
     closingSoon = g.TTClose <= c.marketCloseTransitionPeriod
 
     # tick algos
@@ -32,7 +33,7 @@ def tick_algos(algos, state):
                 log.warning('Activating overnight algos')
                 for algo in algos['overnight']: algo.activate()
                 state = 'night'
-                compile_day_bars()
+                streaming.compile_day_bars(indicators)
 
         elif state == 'night' and closingSoon:
             for algo in algos['overnight']: algo.tick() # TODO: parallel
@@ -46,9 +47,10 @@ def tick_algos(algos, state):
             bars.iloc[-1, jj] = True
         except Exception as e: log.exception(e)
 
-    # process trade update backlog
-    log.info('Processing trade update backlog')
-    process_all_trades()
+    # process stream backlog
+    log.info('Processing stream backlog')
+    streaming.process_backlogs(indicators)
 
     # exit
+    g.lock.release()
     return state
