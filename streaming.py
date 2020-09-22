@@ -77,20 +77,16 @@ def compile_day_bars(indicators):
         except Exception as e: log.exception(e)
 
 def process_trade(data):
+    # NOTE: ignore 'new', 'partial_fill', 'done_for_day', and 'replaced' events
+
     try: # get trade info
         event = data.event
         orderID = data.order['id']
-        symbol = data.order['symbol']
         side = data.order['side']
-        qty = int(data.order['qty'])
-        fillQty = int(data.order['filled_qty'])
-        try: limit = float(data.order['limit_price'])
-        except Exception as e:
-            if 'limit_price' not in data.order: limit = None
-            else: log.exception(e)
+        log.info(f'Order {orderID} {event}')
     except Exception as e: log.exception(f'{e}\n{data}')
 
-    try: # paper / live
+    try: # get paper / live, algo, and enterExit
         if orderID in g.paperOrders:
             order = g.paperOrders[orderID]
             allOrders = g.paperOrders
@@ -102,69 +98,57 @@ def process_trade(data):
         else:
             log.warning(f'Unknown order id\n{data}')
             return
-    except Exception as e: log.exception(f'{e}\n{data}')
-        
-    try: # get local data
-        longShort = 'long' if order['qty'] > 0 else 'short'
-        enterExit = order['enterExit']
         algo = order['algo']
+        enterExit = order['enterExit']
     except Exception as e: log.exception(f'{e}\n{data}')
 
-    # check event
-    if event == 'fill':
-        try: # get streamed data
+    try: # process filled order
+        if event == 'fill':
+            # get symbol, fill qty, and price
+            symbol = data.order['symbol']
+            fillQty = int(data.order['filled_qty'])
             if side == 'sell': fillQty *= -1
             fillPrice = float(data.order['filled_avg_price'])
-        except Exception as e: log.exception(f'{e}\n{data}')
 
-        try: # update position basis
+            # update positions
             for positions in (allPositions, algo.positions):
+                # update basis
                 oldQty = positions[symbol]['qty']
                 if oldQty + fillQty == 0:
                     positions[symbol]['basis'] = 0
                 else:
                     oldBasis = positions[symbol]['basis']
                     positions[symbol]['basis'] = \
-                        ((oldBasis * oldQty) + (fillPrice * fillQty)) / (oldQty + fillQty)
-        except Exception as e: log.exception(f'{e}\n{data}')
+                        ((oldQty * oldBasis) + (fillQty * fillPrice)) / (oldQty + fillQty)
+                
+                # update qty
+                positions[symbol]['qty'] += fillQty
         
-        try: # update position qty
-            allPositions[symbol]['qty'] += fillQty
-            algo.positions[symbol]['qty'] += fillQty
-        except Exception as e: log.exception(f'{e}\n{data}')
-
-        try: # update buying power
+            # update buying power
             if enterExit == 'enter':
-                algo.buyPow[longShort] -= abs(fillQty) * fillPrice
-                algo.buyPow[longShort] += abs(qty) * limit
+                longShort = 'long' if side == 'buy' else 'short'
+                algo.buyPow[longShort] += abs(fillQty) * (order['limit'] - fillPrice)
             elif enterExit == 'exit':
+                longShort = 'long' if side == 'sell' else 'short'
                 algo.buyPow[longShort] += abs(fillQty) * fillPrice
-        except Exception as e: log.exception(f'{e}\n{data}')
+            else: log.error(f'Unknown enterExit {enterExit}')
+    except Exception as e: log.exception(f'{e}\n{data}')
 
-        try: # pop order
+    try: # process terminated order
+        if event in ('canceled', 'expired', 'rejected'):
+            if enterExit == 'enter':
+                longShort = 'long' if side == 'buy' else 'short'
+                algo.buyPow[longShort] += abs(order['qty']) * order['limit']
+    except Exception as e: log.exception(f'{e}\n{data}')
+
+    try: # remove completed order
+        if event in ('fill', 'canceled', 'expired', 'rejected'):
             allOrders.pop(orderID)
             algo.orders.pop(orderID)
-        except Exception as e: log.exception(f'{e}\n{data}')
-        
-    elif event in ('canceled', 'expired', 'rejected'):
-        log.info(f'{orderID}: {event}')
-
-        try: # update buying power
-            if enterExit == 'enter':
-                algo.buyPow[longShort] -= abs(fillQty) * fillPrice
-                algo.buyPow[longShort] += abs(qty) * limit
-            elif enterExit == 'exit':
-                algo.buyPow[longShort] += abs(fillQty) * fillPrice
-        except Exception as e: log.exception(f'{e}\n{data}')
-
-        try: # pop order
-            allOrders.pop(orderID)
-            algo.orders.pop(orderID)
-        except Exception as e: log.exception(f'{e}\n{data}')
+    except Exception as e: log.exception(f'{e}\n{data}')
 
 def process_bars_backlog(indicators):
     # indicators: dict of lists of indicators (keys: 'sec', 'min', 'day', 'all')
-
     global barsBacklog
     for barFreq in ('sec', 'min'):
         for bar in barsBacklog[barFreq]:
@@ -183,18 +167,6 @@ def process_backlogs(indicators):
     process_trades_backlog()
     backlogLock.release()
 
-async def acquire_thread_lock(conn):
-    await conn.loop.run_in_executor(None, g.lock.acquire())
-
-async def release_thread_lock(conn):
-    await conn.loop.run_in_executor(None, g.lock.release())
-
-async def acquire_backlog_lock(conn):
-    await conn.loop.run_in_executor(None, backlogLock.acquire())
-
-async def release_backlog_lock(conn):
-    await conn.loop.run_in_executor(None, backlogLock.release())
-
 def stream(conn, allAlgos, indicators):
     # conn: alpaca_trade_api.StreamConn instance
     # allAlgos: list of all algos
@@ -203,29 +175,41 @@ def stream(conn, allAlgos, indicators):
     channels = ['account_updates', 'trade_updates']
     for symbol in g.assets['min']:
         channels += [f'AM.{symbol}']
+    
+    async def acquire_thread_lock():
+        await conn.loop.run_in_executor(None, g.lock.acquire())
+
+    async def release_thread_lock():
+        await conn.loop.run_in_executor(None, g.lock.release())
+
+    async def acquire_backlog_lock():
+        await conn.loop.run_in_executor(None, backlogLock.acquire())
+
+    async def release_backlog_lock():
+        await conn.loop.run_in_executor(None, backlogLock.release())
 
     # pylint: disable=unused-variable
     @conn.on('A')
     async def on_second(conn, channel, data):
         if g.lock.locked():
-            acquire_backlog_lock(conn)
+            acquire_backlog_lock()
             barsBacklog['sec'].append(data)
-            release_backlog_lock(conn)
+            release_backlog_lock()
         else:
-            acquire_thread_lock(conn)
+            acquire_thread_lock()
             process_bar('sec', data, indicators)
-            release_thread_lock(conn)
+            release_thread_lock()
 
     @conn.on('AM')
     async def on_minute(conn, channel, data):
         if g.lock.locked():
-            acquire_backlog_lock(conn)
+            acquire_backlog_lock()
             barsBacklog['min'].append(data)
-            release_backlog_lock(conn)
+            release_backlog_lock()
         else:
-            acquire_thread_lock(conn)
+            acquire_thread_lock()
             process_bar('min', data, indicators)
-            release_thread_lock(conn)
+            release_thread_lock()
 
     @conn.on('account_updates')
     async def on_account_update(conn, channel, data):
@@ -234,13 +218,13 @@ def stream(conn, allAlgos, indicators):
     @conn.on('trade_updates')
     async def on_trade_update(conn, channel, data):
         if g.lock.locked():
-            acquire_backlog_lock(conn)
+            acquire_backlog_lock()
             tradesBacklog.append(data)
-            release_backlog_lock(conn)
+            release_backlog_lock()
         else:
-            acquire_thread_lock(conn)
+            acquire_thread_lock()
             process_trade(data)
-            release_thread_lock(conn)
+            release_thread_lock()
 
     log.warning(f'Streaming {len(channels)} channels')
     conn.run(channels)
