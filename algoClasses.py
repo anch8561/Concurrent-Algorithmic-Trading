@@ -119,8 +119,8 @@ class Algo:
         # symbol: e.g. 'AAPL'
 
         # get price and qty
-        price = self.get_limit_price(symbol, side)
-        qty = self.get_trade_qty(symbol, side, price)
+        limitPrice = self.get_limit_price(symbol, side)
+        qty = self.get_trade_qty(symbol, side, limitPrice)
 
         # get longShort
         if side == 'buy': longShort = 'long'
@@ -129,9 +129,11 @@ class Algo:
             self.log.error(f'unknown side: {side}')
             return
 
-        # submit order and update buying power
-        self.submit_order(symbol, qty, price, 'enter')
-        self.buyPow[longShort] -= abs(qty) * price
+        try: # submit order and update buying power
+            self.submit_order(symbol, qty, limitPrice, 'enter')
+            # TODO: confirm order goes through
+            self.buyPow[longShort] -= abs(qty) * limitPrice
+        except Exception as e: self.log.exception(e)
 
     def exit_position(self, symbol):
         # symbol: e.g. 'AAPL'
