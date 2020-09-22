@@ -8,6 +8,7 @@ from importlib import reload
 from pandas import DataFrame
 from pytest import fixture
 from pytz import timezone
+from unittest.mock import Mock
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -18,6 +19,14 @@ logging.basicConfig(level=logging.DEBUG)
 @fixture(autouse=True)
 def reloadGlobalVariables():
     reload(g) # NOTE: reload does not update existing objects
+
+@fixture
+def testAlgo(reloadGlobalVariables):
+    testAlgo = Algo(print, False)
+    testAlgo.alpaca = Mock()
+    testAlgo.allOrders = {}
+    testAlgo.allPositions = {}
+    return testAlgo
 
 @fixture
 def algos(reloadGlobalVariables):

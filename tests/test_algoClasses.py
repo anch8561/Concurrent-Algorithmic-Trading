@@ -6,16 +6,7 @@ import globalVariables as g
 import json
 from os import remove
 from pandas import DataFrame
-from pytest import fixture
 from unittest.mock import Mock
-
-@fixture
-def testAlgo(reloadGlobalVariables):
-    testAlgo = algoClasses.Algo(print, False)
-    testAlgo.alpaca = Mock()
-    testAlgo.allOrders = {}
-    testAlgo.allPositions = {}
-    return testAlgo
 
 def test_Algo():
     testAlgo = algoClasses.Algo(print, a=1, b=2)
@@ -243,7 +234,6 @@ def test_get_trade_qty(testAlgo):
     maxPosQty = -int(c.maxPosFrac * cash / price)
     volume = int(cash / c.minShortPrice)
     g.assets['min']['AAPL'] = DataFrame({'volume': volume}, ['a'])
-    testAlgo.alpaca.cancel_order = Mock()
 
     # min price
     priceCopy = price
@@ -324,8 +314,6 @@ def test_set_live(testAlgo):
     assert testAlgo.alpaca == g.alpacaLive
     assert testAlgo.allOrders == g.liveOrders
     assert testAlgo.allPositions == g.livePositions
-
-# NOTE: skip set_ticking as it depends on streaming
 
 def test_update_equity(testAlgo):
     # setup
