@@ -7,7 +7,7 @@ from pandas.testing import assert_frame_equal
 from pytest import fixture
 from pytz import timezone
 from threading import Thread
-from unittest.mock import patch
+from unittest.mock import patch, call
 
 def test_process_bar(bars, indicators):
     # setup
@@ -140,13 +140,44 @@ def test_process_trade_REJECTED(tradeSetup):
     assert '54321' not in g.paperOrders
     assert '54321' not in testAlgo.orders
 
-def test_process_bars_backlog():
-    pass
+def test_process_bars_backlog(indicators):
+    # setup
+    calls = []
+    for ii in range(2):
+        streaming.barsBacklog['sec'].append(ii)
+        streaming.barsBacklog['min'].append(ii)
+        calls.append(call('sec', ii, indicators))
+        calls.append(call('min', ii, indicators))
+
+    # test
+    with patch('streaming.process_bar') as process_bar:
+        streaming.process_bars_backlog(indicators)
+        process_bar.assert_has_calls(calls, True)
+        assert process_bar.call_count == 4
+        assert streaming.barsBacklog == {'sec': [], 'min': []}
 
 def test_process_trades_backlog():
-    pass
+    # setup
+    calls = []
+    for ii in range(5):
+        streaming.tradesBacklog.append(ii)
+        calls.append(call(ii))
 
-def test_process_backlogs():
-    pass
+    # test
+    with patch('streaming.process_trade') as process_trade:
+        streaming.process_trades_backlog()
+        process_trade.assert_has_calls(calls, True)
+        assert process_trade.call_count == 5
+        assert streaming.tradesBacklog == []
+
+def test_process_backlogs(indicators):
+    with patch('streaming.backlogLock') as backlogLock, \
+    patch('streaming.process_bars_backlog') as process_bars_backlog, \
+    patch('streaming.process_trades_backlog') as process_trades_backlog:
+        streaming.process_backlogs(indicators)
+        backlogLock.acquire.assert_called_once_with()
+        process_bars_backlog.assert_called_once_with(indicators)
+        process_trades_backlog.assert_called_once_with()
+        backlogLock.release.assert_called_once_with()
 
 # NOTE: skip stream as it depends on websockets

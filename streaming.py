@@ -153,13 +153,13 @@ def process_bars_backlog(indicators):
     for barFreq in ('sec', 'min'):
         for bar in barsBacklog[barFreq]:
             process_bar(barFreq, bar, indicators)
-        barsBacklog[barFreq] = []
+        barsBacklog[barFreq][:] = []
 
 def process_trades_backlog():
     global tradesBacklog
     for trade in tradesBacklog:
         process_trade(trade)
-    tradesBacklog = []
+    tradesBacklog[:] = []
 
 def process_backlogs(indicators):
     backlogLock.acquire()
