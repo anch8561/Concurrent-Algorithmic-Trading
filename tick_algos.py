@@ -11,33 +11,43 @@ def tick_algos(algos, indicators, state):
     closingSoon = g.TTClose <= c.marketCloseTransitionPeriod
 
     # tick algos
-    log.info('Ticking algos')
     try:
         if state == 'night' and not closingSoon:
             log.warning('Deactivating overnight algos')
             for algo in algos['overnight']: algo.deactivate()
             
-            if not any(algo.active for algo in algos['overnight']):
+            if any(algo.active for algo in algos['overnight']):
+                log.info('Some overnight algos are still active')
+            else:
+                log.info('All overnight algos are deactivated')
                 log.warning('Activating intraday algos')
                 for algo in algos['intraday']: algo.activate()
                 state = 'day'
 
         elif state == 'day' and not closingSoon:
+            log.info('Ticking intraday algos')
             for algo in algos['intraday']: algo.tick() # TODO: parallel
 
         elif state == 'day' and closingSoon:
             log.warning('Deactivating intraday algos')
             for algo in algos['intraday']: algo.deactivate()
             
-            if not any(algo.active for algo in algos['intraday']):
+            if any(algo.active for algo in algos['intraday']):
+                log.info('Some intraday algos are still active')
+            else:
+                log.info('All intraday algos are deactivated')
                 log.warning('Activating overnight algos')
                 for algo in algos['overnight']: algo.activate()
                 state = 'night'
                 streaming.compile_day_bars(indicators)
 
         elif state == 'night' and closingSoon:
+            log.info('Ticking overnight algos')
             for algo in algos['overnight']: algo.tick() # TODO: parallel
-            for algo in algos['multiday']: algo.tick() # TODO: parallel
+        
+        
+        log.info('Ticking multiday algos')
+        for algo in algos['multiday']: algo.tick() # TODO: parallel
     except Exception as e: log.exception(e)
 
     # set bars ticked
