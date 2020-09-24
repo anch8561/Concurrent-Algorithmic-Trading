@@ -85,6 +85,7 @@ def test_add_asset(alpaca, allAlgos, indicators):
         get_market_date = Mock()
         get_date = Mock()
 
+    ## TEST
     with patch('init_assets.timing', timing), \
     patch('indicators.Indicator.get', return_value=123):
         init_assets.add_asset('AAPL', allAlgos, indicators)
