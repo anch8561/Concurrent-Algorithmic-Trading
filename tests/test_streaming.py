@@ -5,8 +5,6 @@ from datetime import datetime
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
 from pytest import fixture
-from pytz import timezone
-from threading import Thread
 from unittest.mock import patch, call
 
 def test_process_bar(bars, indicators):
