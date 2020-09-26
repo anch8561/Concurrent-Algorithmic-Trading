@@ -8,13 +8,13 @@ import scipy.optimize as opt
 
 def test_allocate_buying_power(algos):
     # setup alpaca.get_account
-    class alpacaPaper:
+    class alpaca:
         class account:
             daytrading_buying_power = '123456.78'
             regt_buying_power = '45678.90'
         def get_account(): # pylint: disable=no-method-argument
-            return alpacaPaper.account
-    g.alpacaPaper = alpacaPaper
+            return alpaca.account
+    g.alpacaPaper = alpaca
 
     # setup algo.get_metrics
     def metric(reset=False):
@@ -36,8 +36,8 @@ def test_allocate_buying_power(algos):
     ## REAL
 
     # get buying power
-    buyPow = float(alpacaPaper.account.daytrading_buying_power)
-    regTBuyPow = float(alpacaPaper.account.regt_buying_power)
+    buyPow = float(alpaca.account.daytrading_buying_power)
+    regTBuyPow = float(alpaca.account.regt_buying_power)
 
     # get performance weights
     get_metrics(reset=True)
