@@ -370,7 +370,7 @@ class Algo:
             self.allOrders = g.paperOrders
             self.allPositions = g.paperPositions
 
-    def update_equity(self): # NOTE: uses
+    def update_equity(self):
         # copy buying power
         self.equity = self.buyPow.copy()
 

@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.DEBUG)
 # NOTE: be careful of Mock scope
 # NOTE: be careful of fixture order
 # TODO: patch config
+# TODO: replace patch classes w/ alpaca entities (e.g. Calendar in timing)
 
 @fixture(autouse=True)
 def reloadGlobalVariables():
