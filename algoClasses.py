@@ -12,7 +12,7 @@ try: mkdir(c.algoPath)
 except Exception: pass
 
 class Algo:
-    def __init__(self, func, **kwargs):
+    def __init__(self, func, loadData=True, **kwargs):
         self.func = func # function to determine when to enter and exit positions
 
         # kwargs, name, and self.log
@@ -36,7 +36,6 @@ class Algo:
         self.positions = {} # {symbol: {qty, basis}}
         self.orders = {} # {orderID: {symbol, qty, limit, longShort}}
         # qty is positive for buy/long and negative for sell/short
-        self.ticking = False # trade update blocking flag
         self.history = {} # {date: {time: event, equity}}
 
         # attributes to save / load
@@ -50,7 +49,7 @@ class Algo:
         ]
 
         # load data
-        self.load_data()
+        if loadData: self.load_data()
 
     def activate(self):
         self.active = True
@@ -59,7 +58,6 @@ class Algo:
     def deactivate(self):
         # NOTE: may take multiple attempts
         # exit all positions then stop
-        self.set_ticking(True)
         if any(position['qty'] for position in self.positions.values()):
             for symbol, position in self.positions.items():
                 if position['qty']:
@@ -67,7 +65,6 @@ class Algo:
         else:
             self.stop()
             self.active = False
-        self.set_ticking(False)
 
     def start(self):
         if not self.active:
@@ -75,11 +72,9 @@ class Algo:
         else:
             self.log.info('starting')
             self.cancel_all_orders()
-            self.set_ticking(True)
             self.update_equity()
             self.update_history('start')
             self.save_data()
-            self.set_ticking(False)
     
     def stop(self):
         if not self.active:
@@ -87,17 +82,16 @@ class Algo:
         else:
             self.log.info('stopping')
             self.cancel_all_orders()
-            self.set_ticking(True)
             self.update_equity()
             self.update_history('stop')
             self.save_data()
-            self.set_ticking(False)
 
     def save_data(self):
         try: # get data
             data = {}
             for field in self.dataFields:
-                data[field] = self.__getattribute__(field)
+                try: data[field] = self.__getattribute__(field)
+                except Exception as e: self.log.exception(e)
         except Exception as e: self.log.exception(e)
         
         try: # write data
@@ -117,23 +111,29 @@ class Algo:
              
         try: # set data
             for field in self.dataFields:
-                self.__setattr__(field, data[field])
+                try: self.__setattr__(field, data[field])
+                except Exception as e: self.log.exception(e)
         except Exception as e: self.log.exception(e)
 
     def enter_position(self, symbol, side):
         # symbol: e.g. 'AAPL'
 
         # get price and qty
-        price = self.get_limit_price(symbol, side)
-        qty = self.get_trade_qty(symbol, side, price)
+        limitPrice = self.get_limit_price(symbol, side)
+        qty = self.get_trade_qty(symbol, side, limitPrice)
 
         # get longShort
         if side == 'buy': longShort = 'long'
         elif side == 'sell': longShort = 'short'
+        else:
+            self.log.error(f'unknown side: {side}')
+            return
 
-        # submit order and update buying power
-        self.submit_order(symbol, qty, price, longShort, 'enter')
-        self.buyPow[longShort] -= abs(qty) * price
+        try: # submit order and update buying power
+            self.submit_order(symbol, qty, limitPrice, 'enter')
+            # TODO: confirm order goes through
+            self.buyPow[longShort] -= abs(qty) * limitPrice
+        except Exception as e: self.log.exception(e)
 
     def exit_position(self, symbol):
         # symbol: e.g. 'AAPL'
@@ -144,36 +144,35 @@ class Algo:
             self.log.warning(f'{symbol}\tno position to exit')
             return
 
-        # get side and longShort
-        if qty > 0:
-            side = 'buy'
-            longShort = 'short'
-        elif qty < 0:
-            side = 'sell'
-            longShort = 'long'
-        else: return
-
         # get price and submit order
-        price = self.get_limit_price(symbol, side)
-        self.submit_order(symbol, qty, price, longShort, 'exit')
+        if qty > 0: side = 'buy'
+        elif qty < 0: side = 'sell'
+        else:
+            self.log.warning(f'{symbol}\tno position to exit')
+            return
 
-    def submit_order(self, symbol, qty, limitPrice, longShort, enterExit):
+        price = self.get_limit_price(symbol, side)
+        self.submit_order(symbol, qty, price, 'exit')
+
+    def submit_order(self, symbol, qty, limitPrice, enterExit):
         # symbol: e.g. 'AAPL'
         # qty: int; signed # of shares to trade (positive buy, negative sell)
-        # longShort: 'long' or 'short'
-        # limitPrice: float or None for configured price collar
+        # limitPrice: float or None for market order
+        # enterExit: 'enter' or 'exit'
 
-        if qty == 0: return
-
-        if limitPrice == None: orderType = 'market'
-        else: orderType = 'limit'
+        # get side
+        if qty > 0: side = 'buy'
+        elif qty < 0: side = 'sell'
+        else:
+            self.log.warning(f'{symbol}\torder quantity is zero')
+            return
 
         # check allPositions for zero crossing
         if symbol in self.allPositions:
             allPosQty = self.allPositions[symbol]['qty']
             if (allPosQty + qty) * allPosQty < 0: # trade will swap position
                 qty = -allPosQty # exit position
-                self.log.debug(f'{symbol}\texiting global position of {qty}')
+                self.log.debug(f'{symbol}\texiting global position of {allPosQty}')
         else:
             allPosQty = 0
 
@@ -184,42 +183,46 @@ class Algo:
                     self.log.debug(f'{symbol}\topposing global order {orderID}')
                     return
 
-        # get side
-        side = 'buy' if qty > 0 else 'sell'
-
         try:
             self.log.info(f'{symbol}\tordering {qty} shares')
 
             # submit order
-            order = self.alpaca.submit_order(
-                symbol = symbol,
-                qty = abs(qty),
-                side = side,
-                type = orderType,
-                time_in_force = 'day',
-                limit_price = limitPrice)
+            if limitPrice == None:
+                if enterExit == 'enter':
+                    self.log.warning('cannot enter position with market order')
+                    return
+                order = self.alpaca.submit_order(
+                    symbol = symbol,
+                    qty = abs(qty),
+                    side = side,
+                    type = 'market',
+                    time_in_force = 'day')
+            else:
+                order = self.alpaca.submit_order(
+                    symbol = symbol,
+                    qty = abs(qty),
+                    side = side,
+                    type = 'limit',
+                    time_in_force = 'day',
+                    limit_price = limitPrice)
 
             # add to orders and allOrders
             self.orders[order.id] = {
                 'symbol': symbol,
                 'qty': qty,
                 'limit': limitPrice,
-                'longShort': longShort,
                 'enterExit': enterExit}
             self.allOrders[order.id] = {
                 'symbol': symbol,
                 'qty': qty,
                 'limit': limitPrice,
-                'longShort': longShort,
                 'enterExit': enterExit,
                 'algo': self}
         except Exception as e: self.log.exception(e)
 
     def cancel_all_orders(self):
-        self.set_ticking(True)
         for orderID in self.orders:
             self.alpaca.cancel_order(orderID)
-        self.set_ticking(False)
         while len(self.orders): pass
 
     def get_limit_price(self, symbol, side):
@@ -234,11 +237,12 @@ class Algo:
             elif side == 'sell':
                 price *= 1 - c.limitPriceFrac
             else:
-                self.log.exception(f'unknown side: {side}')
+                self.log.error(f'unknown side: {side}')
 
             return price
         except Exception as e:
             if price != None: self.log.exception(e)
+            # else place market order (limitPrice == None)
 
     def get_metrics(self, numDays):
         try: # calculate growth # FIX: overnight algos start and stop on different days
@@ -355,6 +359,7 @@ class Algo:
 
     def set_live(self, live):
         # live: bool; if algo uses real money
+
         self.live = live
         if live:
             self.alpaca = g.alpacaLive
@@ -365,25 +370,11 @@ class Algo:
             self.allOrders = g.paperOrders
             self.allPositions = g.paperPositions
 
-    def set_ticking(self, ticking):
-        # ticking: bool; if algo is accessing positions or orders
-        # (blocks trade updates)
-        self.ticking = ticking
-        # self.log.debug(f'ticking = {ticking}')
-        if ticking:
-            # waiting = False
-            # if g.processingTrade:
-            #     waiting = True
-            #     self.log.debug('Waiting for processingTrade == False')
-            while g.processingTrade: pass
-            # if waiting: self.log.debug('Done waiting')
-
     def update_equity(self):
         # copy buying power
         self.equity = self.buyPow.copy()
 
         # check positions
-        self.set_ticking(True)
         for symbol, position in self.positions.items():
             qty = position['qty']
             if qty: # get position value
@@ -400,8 +391,6 @@ class Algo:
                         self.equity[longShort] += price * abs(qty)
                     else: self.log.exception(e)
 
-        self.set_ticking(False)
-
     def update_history(self, event):
         # event: 'start' or 'stop'
         date = get_date()
@@ -414,15 +403,14 @@ class Algo:
 
 class NightAlgo(Algo):
     def tick(self):
-        if sum(self.buyPow.values()) > c.minTradeBuyPow * 2:
-            self.set_ticking(True)
+        if (
+            self.buyPow['long'] >= c.minTradeBuyPow or
+            self.buyPow['short'] >= c.minTradeBuyPow
+        ):
             try: self.func(self)
             except Exception as e: self.log.exception(e)
-            self.set_ticking(False)
 
 class DayAlgo(Algo):
     def tick(self):
-        self.set_ticking(True)
         try: self.func(self)
         except Exception as e: self.log.exception(e)
-        self.set_ticking(False)
