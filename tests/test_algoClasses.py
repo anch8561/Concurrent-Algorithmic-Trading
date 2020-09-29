@@ -88,13 +88,20 @@ def test_enter_position(testAlgo):
     testAlgo.buyPow = {'long': 0, 'short': 0}
     testAlgo.get_limit_price = Mock(return_value=111.11)
     testAlgo.get_trade_qty = Mock(return_value=-2)
-    testAlgo.submit_order = Mock()
+    testAlgo.submit_order = Mock(side_effect=[False, True])
 
-    # test
+    # order rejected
     testAlgo.enter_position('AAPL', 'sell')
     testAlgo.submit_order.assert_called_once_with(
         'AAPL', -2, 111.11, 'enter')
-    assert testAlgo.buyPow == {'long': 0, 'short': -2*111.11}
+    assert testAlgo.buyPow == {'long': 0, 'short': 0}
+
+    # order accepted
+    testAlgo.submit_order.reset_mock()
+    testAlgo.enter_position('AAPL', 'sell')
+    testAlgo.submit_order.assert_called_once_with(
+        'AAPL', -2, 111.11, 'enter')
+    assert testAlgo.buyPow == {'long': 0, 'short': -222.22}
 
 def test_exit_position(testAlgo):
     # setup
@@ -116,15 +123,16 @@ def test_submit_order(testAlgo):
     
     # zero quantity
     testAlgo.alpaca.submit_order.reset_mock()
-    testAlgo.submit_order('AAPL', 0, 111.11, 'enter')
+    accepted = testAlgo.submit_order('AAPL', 0, 111.11, 'enter')
     testAlgo.alpaca.submit_order.assert_not_called()
+    assert accepted == False
     testAlgo.orders = {}
     testAlgo.allOrders = {}
 
     # allPositions zero crossing
     testAlgo.alpaca.submit_order.reset_mock()
     testAlgo.allPositions['AAPL'] = {'qty': 1}
-    testAlgo.submit_order('AAPL', -2, 111.11, 'enter')
+    accepted = testAlgo.submit_order('AAPL', -2, 111.11, 'enter')
     testAlgo.alpaca.submit_order.assert_called_once_with(
         symbol = 'AAPL',
         qty = 1,
@@ -132,6 +140,7 @@ def test_submit_order(testAlgo):
         type = 'limit',
         time_in_force = 'day',
         limit_price = 111.11)
+    assert accepted == True
     testAlgo.orders = {}
     testAlgo.allOrders = {}
     testAlgo.allPositions = {}
@@ -144,21 +153,23 @@ def test_submit_order(testAlgo):
                 'limit': 111.11,
                 'enterExit': 'enter',
                 'algo': testAlgo}
-    testAlgo.submit_order('AAPL', 2, 111.11, 'enter')
+    accepted = testAlgo.submit_order('AAPL', 2, 111.11, 'enter')
     testAlgo.alpaca.submit_order.assert_not_called()
+    assert accepted == False
     testAlgo.orders = {}
     testAlgo.allOrders = {}
 
     # market order (enter)
     testAlgo.alpaca.submit_order.reset_mock()
-    testAlgo.submit_order('AAPL', -2, None, 'enter')
+    accepted = testAlgo.submit_order('AAPL', -2, None, 'enter')
     testAlgo.alpaca.submit_order.assert_not_called()
+    assert accepted == False
     testAlgo.orders = {}
     testAlgo.allOrders = {}
     
     # market order (exit)
     testAlgo.alpaca.submit_order.reset_mock()
-    testAlgo.submit_order('AAPL', -2, None, 'exit')
+    accepted = testAlgo.submit_order('AAPL', -2, None, 'exit')
     testAlgo.alpaca.submit_order.assert_called_once_with(
         symbol = 'AAPL',
         qty = 2,
@@ -176,12 +187,13 @@ def test_submit_order(testAlgo):
         'limit': None,
         'enterExit': 'exit',
         'algo': testAlgo}
+    assert accepted == True
     testAlgo.orders = {}
     testAlgo.allOrders = {}
 
     # typical
     testAlgo.alpaca.submit_order.reset_mock()
-    testAlgo.submit_order('AAPL', -2, 111.11, 'enter')
+    accepted = testAlgo.submit_order('AAPL', -2, 111.11, 'enter')
     testAlgo.alpaca.submit_order.assert_called_once_with(
         symbol = 'AAPL',
         qty = 2,
@@ -200,6 +212,7 @@ def test_submit_order(testAlgo):
         'limit': 111.11,
         'enterExit': 'enter',
         'algo': testAlgo}
+    assert accepted == True
     testAlgo.orders = {}
     testAlgo.allOrders = {}
 

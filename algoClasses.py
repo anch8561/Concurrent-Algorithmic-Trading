@@ -4,6 +4,7 @@ from timing import get_time_str, get_date
 
 import json
 import statistics as stats
+from alpaca_trade_api.rest import APIError
 from logging import getLogger
 from os import mkdir
 
@@ -118,70 +119,83 @@ class Algo:
     def enter_position(self, symbol, side):
         # symbol: e.g. 'AAPL'
 
-        # get price and qty
-        limitPrice = self.get_limit_price(symbol, side)
-        qty = self.get_trade_qty(symbol, side, limitPrice)
+        try: # get price and qty
+            limitPrice = self.get_limit_price(symbol, side)
+            qty = self.get_trade_qty(symbol, side, limitPrice)
+        except Exception as e: self.log.exception(e)
 
-        # get longShort
-        if side == 'buy': longShort = 'long'
-        elif side == 'sell': longShort = 'short'
-        else:
-            self.log.error(f'unknown side: {side}')
-            return
+        try: # get longShort
+            if side == 'buy': longShort = 'long'
+            elif side == 'sell': longShort = 'short'
+            else:
+                self.log.error(f'unknown side: {side}')
+                return
+        except Exception as e: self.log.exception(e)
 
         try: # submit order and update buying power
-            self.submit_order(symbol, qty, limitPrice, 'enter')
-            # TODO: confirm order goes through
-            self.buyPow[longShort] -= abs(qty) * limitPrice
+            if self.submit_order(symbol, qty, limitPrice, 'enter'):
+                self.buyPow[longShort] -= abs(qty) * limitPrice
         except Exception as e: self.log.exception(e)
 
     def exit_position(self, symbol):
         # symbol: e.g. 'AAPL'
 
-        # get qty
-        try: qty = -self.positions[symbol]['qty']
+        try: # get qty
+            qty = -self.positions[symbol]['qty']
         except Exception:
             self.log.warning(f'{symbol}\tno position to exit')
             return
 
-        # get price and submit order
-        if qty > 0: side = 'buy'
-        elif qty < 0: side = 'sell'
-        else:
-            self.log.warning(f'{symbol}\tno position to exit')
-            return
+        try: # get price and submit order
+            if qty > 0: side = 'buy'
+            elif qty < 0: side = 'sell'
+            else:
+                self.log.warning(f'{symbol}\tno position to exit')
+                return
 
-        price = self.get_limit_price(symbol, side)
-        self.submit_order(symbol, qty, price, 'exit')
+            price = self.get_limit_price(symbol, side)
+            self.submit_order(symbol, qty, price, 'exit')
+
+        except Exception as e: self.log.exception(e)
 
     def submit_order(self, symbol, qty, limitPrice, enterExit):
         # symbol: e.g. 'AAPL'
         # qty: int; signed # of shares to trade (positive buy, negative sell)
         # limitPrice: float or None for market order
         # enterExit: 'enter' or 'exit'
+        # returns: bool; whether order was accepted
 
-        # get side
-        if qty > 0: side = 'buy'
-        elif qty < 0: side = 'sell'
-        else:
-            self.log.warning(f'{symbol}\torder quantity is zero')
-            return
+        try: # get side
+            if qty > 0: side = 'buy'
+            elif qty < 0: side = 'sell'
+            else:
+                self.log.warning(f'{symbol}\torder quantity is zero')
+                return False
+        except Exception as e:
+            self.log.exception(e)
+            return False
 
-        # check allPositions for zero crossing
-        if symbol in self.allPositions:
-            allPosQty = self.allPositions[symbol]['qty']
-            if (allPosQty + qty) * allPosQty < 0: # trade will swap position
-                qty = -allPosQty # exit position
-                self.log.debug(f'{symbol}\texiting global position of {allPosQty}')
-        else:
-            allPosQty = 0
+        try: # check allPositions for zero crossing
+            if symbol in self.allPositions:
+                allPosQty = self.allPositions[symbol]['qty']
+                if (allPosQty + qty) * allPosQty < 0: # trade will swap position
+                    qty = -allPosQty # exit position
+                    self.log.debug(f'{symbol}\texiting global position of {allPosQty}')
+            else:
+                allPosQty = 0
+        except Exception as e:
+            self.log.exception(e)
+            return False
 
-        # check allOrders for opposing short
-        if qty > 0 and allPosQty == 0: # buying from zero position
-            for orderID, order in self.allOrders.items():
-                if order['symbol'] == symbol and order['qty'] < 0: # pending short
-                    self.log.debug(f'{symbol}\topposing global order {orderID}')
-                    return
+        try: # check allOrders for opposing short
+            if qty > 0 and allPosQty == 0: # buying from zero position
+                for orderID, order in self.allOrders.items():
+                    if order['symbol'] == symbol and order['qty'] < 0: # pending short
+                        self.log.debug(f'{symbol}\topposing global order {orderID}')
+                        return False
+        except Exception as e:
+            self.log.exception(e)
+            return False
 
         try:
             self.log.info(f'{symbol}\tordering {qty} shares')
@@ -190,7 +204,7 @@ class Algo:
             if limitPrice == None:
                 if enterExit == 'enter':
                     self.log.warning('cannot enter position with market order')
-                    return
+                    return False
                 order = self.alpaca.submit_order(
                     symbol = symbol,
                     qty = abs(qty),
@@ -218,12 +232,25 @@ class Algo:
                 'limit': limitPrice,
                 'enterExit': enterExit,
                 'algo': self}
-        except Exception as e: self.log.exception(e)
+            
+            # exit
+            return True
+
+        except Exception as e:
+            if isinstance(e, APIError):
+                self.log.warning(f'{e}\nOrder: {symbol}\t\t\t{qty}\n' +
+                f'Algo Position:\t\t{self.positions[symbol]["qty"]}\n' +
+                f'Global Position:\t{self.allPositions[symbol]["qty"]}')
+            else:
+                self.log.exception(f'{e}\nOrder: {symbol}\t\t\t{qty}\n' +
+                f'Algo Position:\t\t{self.positions[symbol]["qty"]}\n' +
+                f'Global Position:\t{self.allPositions[symbol]["qty"]}')
+            return False
 
     def cancel_all_orders(self):
         for orderID in self.orders:
             self.alpaca.cancel_order(orderID)
-        while len(self.orders): pass
+        while len(self.orders): pass # FIX: will max out CPU
 
     def get_limit_price(self, symbol, side):
         # symbol: e.g. 'AAPL'
@@ -282,76 +309,101 @@ class Algo:
     def get_trade_qty(self, symbol, side, price, volumeMult=1, barFreq='min'):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
-        # limitPrice: float or None for configured price collar
+        # price: float
         # volumeMult: float; volume limit multiplier
         # barFreq: 'sec', 'min', or 'day'; bar frequency for checking volume limit
         # returns: int; signed # of shares to trade (positive buy, negative sell)
 
-        # get buying power and equity
-        if side == 'buy':
-            equity = self.equity['long']
-            buyPow = self.buyPow['long']
-        elif side == 'sell':
-            equity = self.equity['short']
-            buyPow = self.buyPow['short']
-
-        # check price
-        if side == 'buy' and price < c.minLongPrice:
-            self.log.debug(f'{symbol}\tshare price < {c.minLongPrice}')
-            return 0
-        elif side == 'sell' and price < c.minShortPrice:
-            self.log.debug(f'{symbol}\tshare price < {c.minShortPrice}')
-            return 0
-
-        # set quantity
-        qty = int(c.maxPosFrac * equity / price)
-        reason = 'max position fraction'
-
-        # check buying power
-        if qty * price > buyPow:
-            qty = int(buyPow / price)
-            reason = 'buying power'
-        
-        # check volume
-        try:
-            volume = g.assets[barFreq][symbol].volume.iloc[-1]
+        try: # get buying power and equity
+            if side == 'buy':
+                equity = self.equity['long']
+                buyPow = self.buyPow['long']
+            elif side == 'sell':
+                equity = self.equity['short']
+                buyPow = self.buyPow['short']
         except Exception as e:
             self.log.exception(e)
-            volume = 0
-        if qty > volume * volumeMult:
-            qty = volume * volumeMult
-            reason = 'volume'
+            return 0
+
+        try: # check price
+            if side == 'buy' and price < c.minLongPrice:
+                self.log.debug(f'{symbol}\tshare price < {c.minLongPrice}')
+                return 0
+            elif side == 'sell' and price < c.minShortPrice:
+                self.log.debug(f'{symbol}\tshare price < {c.minShortPrice}')
+                return 0
+        except Exception as e:
+            # NOTE: possibly triggered by missing 1st bar (price == None)
+            self.log.exception(e)
+            return 0
+
+        try: # set quantity
+            qty = int(c.maxPosFrac * equity / price)
+            reason = 'max position fraction'
+        except Exception as e:
+            self.log.exception(e)
+            return 0
+
+        try: # check buying power
+            if qty * price > buyPow:
+                qty = int(buyPow / price)
+                reason = 'buying power'
+        except Exception as e:
+            self.log.exception(e)
+            return 0
+        
+        try: # check volume
+            try:
+                volume = g.assets[barFreq][symbol].volume.iloc[-1]
+            except Exception as e:
+                self.log.exception(e)
+                volume = 0
+            if qty > volume * volumeMult:
+                qty = volume * volumeMult
+                reason = 'volume'
+        except Exception as e:
+            self.log.exception(e)
+            return 0
 
         # check zero
         if qty == 0: return 0
 
-        # set sell quantity negative
-        if side == 'sell': qty *= -1
-        self.log.debug(f'{symbol}\t{reason} qty limit: {qty}')
+        try: # set sell quantity negative
+            if side == 'sell': qty *= -1
+            self.log.debug(f'{symbol}\t{reason} qty limit: {qty}')
+        except Exception as e:
+            self.log.exception(e)
+            return 0
 
-        # check for existing position
-        if symbol in self.positions:
-            posQty = self.positions[symbol]['qty']
-            if posQty * qty > 0: # same side as position
-                if abs(posQty) < abs(qty): # position is smaller than order
-                    qty -= posQty # add to position
-                    self.log.debug(f'{symbol}\tadding {qty} to position of {posQty}')
-                else: # position is large enough
-                    self.log.debug(f'{symbol}\tposition of {posQty} is large enough')
-                    return 0
-            elif posQty * qty < 0: # opposite side from position
-                qty = -posQty # exit position
-                self.log.debug(f'{symbol}\texiting position of {posQty}')
+        try: # check for existing position
+            if symbol in self.positions:
+                posQty = self.positions[symbol]['qty']
+                if posQty * qty > 0: # same side as position
+                    if abs(posQty) < abs(qty): # position is smaller than order
+                        qty -= posQty # add to position
+                        self.log.debug(f'{symbol}\tadding {qty} to position of {posQty}')
+                    else: # position is large enough
+                        self.log.debug(f'{symbol}\tposition of {posQty} is large enough')
+                        return 0
+                elif posQty * qty < 0: # opposite side from position
+                    qty = -posQty # exit position
+                    self.log.debug(f'{symbol}\texiting position of {posQty}')
+        except Exception as e:
+            self.log.exception(e)
+            return 0
 
-        # check for existing orders
-        for orderID, order in self.orders.items():
-            if order['symbol'] == symbol:
-                if order['qty'] * qty < 0: # opposite side
-                    self.alpaca.cancel_order(orderID)
-                    self.log.debug(f'{symbol}\tcancelling opposing order {orderID}')
-                else: # same side
-                    self.log.debug(f'{symbol}\talready placed order for {order["qty"]}')
-                    return 0
+        try: # check for existing orders
+            for orderID, order in self.orders.items():
+                if order['symbol'] == symbol:
+                    if order['qty'] * qty < 0: # opposite side
+                        self.alpaca.cancel_order(orderID)
+                        self.log.debug(f'{symbol}\tcancelling opposing order {orderID}')
+                    else: # same side
+                        self.log.debug(f'{symbol}\talready placed order for {order["qty"]}')
+                        return 0
+        except Exception as e:
+            self.log.exception(e)
+            return 0
 
         # TODO: check risk
 
