@@ -8,6 +8,8 @@ log = getLogger('main')
 
 def init_alpaca(environment):
     # environment: 'dev', 'test', or 'prod'; which credentials to use
+
+    log.warning(f'Entering {environment} environment')
     
     try: # get credentials
         creds = getattr(credentials, environment)

@@ -29,7 +29,7 @@ def process_bar(barFreq, data, indicators):
             'ticked': False
         }, index=[data.start])
         bars = g.assets[barFreq][data.symbol].append(newBar)
-        log.debug(newBar)
+        log.debug(f'New {data.symbol} bar:\n{newBar}')
     except Exception as e: log.exception(f'{e}\n{data}')
     
     try: # get indicators
