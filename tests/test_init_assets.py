@@ -110,5 +110,6 @@ def test_add_asset(alpaca, allAlgos, indicators):
 
     # day asset
     bars = g.alpacaPaper.polygon.historic_agg_v2().df
+    bars['ticked'] = False
     bars['1_day_momentum'] = 123
     assert_frame_equal(g.assets['day']['AAPL'], bars, False)

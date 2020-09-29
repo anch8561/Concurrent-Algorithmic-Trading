@@ -75,6 +75,7 @@ def add_asset(symbol, allAlgos, indicators):
         return
 
     # get indicators
+    bars['ticked'] = False
     for indicator in indicators['day']:
         bars[indicator.name] = None
         jj = bars.columns.get_loc(indicator.name)
