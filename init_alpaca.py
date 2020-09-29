@@ -17,11 +17,6 @@ def init_alpaca(environment):
     g.alpacaLive = tradeapi.REST(*creds.live)
     g.alpacaPaper = tradeapi.REST(*creds.paper)
 
-    # get polygon access for old paper accounts
-    polyAccess = tradeapi.REST(*credentials.prod.live)
-    g.alpacaLive.polygon = polyAccess.polygon
-    g.alpacaPaper.polygon = polyAccess.polygon
-
     # initialize StreamConn
     g.connLive = tradeapi.StreamConn(*creds.live, data_stream='polygon')
     g.connPaper = tradeapi.StreamConn(*creds.paper, data_stream='polygon')

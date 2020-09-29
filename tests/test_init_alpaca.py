@@ -19,10 +19,9 @@ def test_init_alpaca():
         # REST
         calls = [
             call(*credentials.dev.live),
-            call(*credentials.dev.paper),
-            call(*credentials.prod.live)]
+            call(*credentials.dev.paper)]
         tradeapi.REST.assert_has_calls(calls)
-        assert tradeapi.REST.call_count == 3
+        assert tradeapi.REST.call_count == 2
 
         # StreamConn
         calls = [
