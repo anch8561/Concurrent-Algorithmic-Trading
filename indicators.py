@@ -42,11 +42,12 @@ def volume(self, bars):
     return volume
 
 def volume_stdevs(self, bars):
-    volumes = bars.volume[-self.numBars:]
-    mean = stats.mean(volumes)
-    stdev = stats.stdev(volumes, mean)
-    volume = volumes[-1]
-    try: return  (volume - mean) / stdev
+    try: 
+        volumes = bars.volume[-self.numBars:]
+        mean = stats.mean(volumes)
+        stdev = stats.stdev(volumes, mean)
+        volume = volumes[-1]
+        return  (volume - mean) / stdev
     except Exception as e:
         if len(volumes) > 1 and stdev not in (None, 0):
             log.exception(f'{e}\n{volumes}')
@@ -93,10 +94,12 @@ def init_indicators():
     for numBars in (1, 3, 5, 10, 20):
         indicators[barFreq] += [
             Indicator(numBars, barFreq, momentum),
-            Indicator(numBars, barFreq, volume),
-            Indicator(numBars, barFreq, volume_stdevs)
-        ]
+            Indicator(numBars, barFreq, volume)]
 
+    # volume stdevs
+    for numBars in (3, 5, 10, 20):
+        indicators[barFreq] += [
+            Indicator(numBars, barFreq, volume_stdevs)]
 
     ## DAY
     barFreq = 'day'
@@ -105,17 +108,19 @@ def init_indicators():
     for numBars in (1, 3, 5, 10, 20):
         indicators[barFreq] += [
             Indicator(numBars, barFreq, momentum),
-            Indicator(numBars, barFreq, volume),
-            Indicator(numBars, barFreq, volume_stdevs)
-        ]
+            Indicator(numBars, barFreq, volume)]
+
+    # volume stdevs
+    for numBars in (3, 5, 10, 20):
+        indicators[barFreq] += [
+            Indicator(numBars, barFreq, volume_stdevs)]
 
     # moving averages
     for numBars in (3, 5, 10, 20):
         indicators[barFreq] += [
             Indicator(numBars, barFreq, SMA),
             Indicator(numBars, barFreq, EMA),
-            Indicator(numBars, barFreq, KAMA)
-        ]
+            Indicator(numBars, barFreq, KAMA)]
 
 
     ## ALL
