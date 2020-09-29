@@ -5,7 +5,7 @@ from logging import getLogger
 import numpy as np
 import scipy.optimize as opt
 
-log = getLogger()
+log = getLogger('main')
 
 def allocate_buying_power(algos):
     # algos: dict of lists of algos (keys: 'intraday', 'overnight', 'multiday', 'all')

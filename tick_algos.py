@@ -4,7 +4,7 @@ import streaming
 
 from logging import getLogger
 
-log = getLogger()
+log = getLogger('main')
 
 def tick_algos(algos, indicators, state):
     g.lock.acquire()

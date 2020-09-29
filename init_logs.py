@@ -63,6 +63,9 @@ def init_primary_logs(logLevel, env, fmtr):
         handlers = [consoleHdlr, debugHdlr, warningHdlr],
         force = True)
 
+    streamLog = logging.getLogger('main')
+    streamLog.setLevel(logging.DEBUG)
+
     streamLog = logging.getLogger('stream')
     streamLog.setLevel(logging.DEBUG)
 

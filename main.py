@@ -24,7 +24,7 @@ args = parse_args(sys.argv[1:])
 # init logs
 logFormatter = init_logs.init_formatter()
 init_logs.init_primary_logs(args.log, args.env, logFormatter)
-log = getLogger()
+log = getLogger('main')
 
 # init alpaca and timing
 init_alpaca(args.env)

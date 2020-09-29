@@ -3,7 +3,7 @@ import globalVariables as g
 from datetime import datetime, timedelta
 from logging import getLogger
 
-log = getLogger()
+log = getLogger('main')
 
 def init_timing():
     global calendar, i_today

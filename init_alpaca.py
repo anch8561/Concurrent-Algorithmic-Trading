@@ -4,7 +4,7 @@ import globalVariables as g
 import alpaca_trade_api as tradeapi
 from logging import getLogger
 
-log = getLogger()
+log = getLogger('main')
 
 def init_alpaca(environment):
     # environment: 'dev', 'test', or 'prod'; which credentials to use

@@ -2,7 +2,7 @@ import globalVariables as g
 
 from logging import getLogger
 
-log = getLogger()
+log = getLogger('main')
 
 def reset(allAlgos):
     log.warning('Cancelling orders and closing positions')

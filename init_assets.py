@@ -5,7 +5,7 @@ import timing
 from logging import getLogger
 from pandas import DataFrame
 
-log = getLogger()
+log = getLogger('main')
 
 def init_assets(numAssets, allAlgos, indicators):
     # numAssets: int; number of symbols to stream (-1 means all)
