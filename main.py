@@ -39,9 +39,6 @@ for algo in algos['all']: # FIX: no performance data
     algo.buyPow['long'] = 5000
     algo.buyPow['short'] = 5000
 if args.reset: reset(algos['all'])
-log.warning('Starting active algos')
-for algo in algos['all']:
-    if algo.active: algo.start()
 
 # init indicators, assets, and streaming
 indicators = init_indicators()
@@ -50,6 +47,12 @@ Thread(target=stream, args=(g.connPaper, algos['all'], indicators)).start()
 # TODO: add connLive thread
 # NOTE: begin using g.lock
 # TODO: combine orders
+# TODO: fix unknown order id
+
+# start algos
+log.warning('Starting active algos')
+for algo in algos['all']:
+    if algo.active: algo.start()
 
 # main loop
 log.warning('Entering main loop')
@@ -71,15 +74,25 @@ try:
             # update new bar delay
             try: isAfterNewBarDelay = g.now - g.lastBarReceivedTime > c.tickDelay
             except Exception as e:
-                if g.lastBarReceivedTime == None:isAfterNewBarDelay = False
+                if g.lastBarReceivedTime == None: # no bars received yet
+                    isAfterNewBarDelay = False
                 else: log.exception(e)
             
-            if ( # new bars
-                isAfterNewBarDelay and
-                any(bars.ticked[-1] == False for bars in g.assets['min'].values())
-            ):
-                state = tick_algos(algos, indicators, state)
-                log.info('Waiting for bars')
+            try: # check for unticked bars
+                if (
+                    isAfterNewBarDelay and
+                    any(bars.ticked[-1] == False for bars in g.assets['min'].values())
+                ):
+                    state = tick_algos(algos, indicators, state)
+                    log.info('Waiting for bars')
+
+            except Exception as e: # handle empty dataframes
+                if not all(len(bars.index) for bars in g.assets['min'].values()):
+                    for symbol, bars in g.assets['min'].items():
+                        if not len(bars.index):
+                            log.warning(f'No bars for {symbol}')
+                else: log.exception(e)
+
         else:
             # update market state
             if marketIsOpen:
