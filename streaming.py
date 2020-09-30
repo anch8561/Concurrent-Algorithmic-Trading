@@ -177,39 +177,39 @@ def stream(conn, allAlgos, indicators):
         channels += [f'AM.{symbol}']
     
     async def acquire_thread_lock():
-        await conn.loop.run_in_executor(None, g.lock.acquire())
+        await conn.loop.run_in_executor(None, g.lock.acquire)
 
     async def release_thread_lock():
-        await conn.loop.run_in_executor(None, g.lock.release())
+        await conn.loop.run_in_executor(None, g.lock.release)
 
     async def acquire_backlog_lock():
-        await conn.loop.run_in_executor(None, backlogLock.acquire())
+        await conn.loop.run_in_executor(None, backlogLock.acquire)
 
     async def release_backlog_lock():
-        await conn.loop.run_in_executor(None, backlogLock.release())
+        await conn.loop.run_in_executor(None, backlogLock.release)
 
     # pylint: disable=unused-variable
     @conn.on('A')
     async def on_second(conn, channel, data):
         if g.lock.locked():
-            acquire_backlog_lock()
+            await acquire_backlog_lock()
             barsBacklog['sec'].append(data)
-            release_backlog_lock()
+            await release_backlog_lock()
         else:
-            acquire_thread_lock()
+            await acquire_thread_lock()
             process_bar('sec', data, indicators)
-            release_thread_lock()
+            await release_thread_lock()
 
     @conn.on('AM')
     async def on_minute(conn, channel, data):
         if g.lock.locked():
-            acquire_backlog_lock()
+            await acquire_backlog_lock()
             barsBacklog['min'].append(data)
-            release_backlog_lock()
+            await release_backlog_lock()
         else:
-            acquire_thread_lock()
+            await acquire_thread_lock()
             process_bar('min', data, indicators)
-            release_thread_lock()
+            await release_thread_lock()
 
     @conn.on('account_updates')
     async def on_account_update(conn, channel, data):
@@ -218,13 +218,13 @@ def stream(conn, allAlgos, indicators):
     @conn.on('trade_updates')
     async def on_trade_update(conn, channel, data):
         if g.lock.locked():
-            acquire_backlog_lock()
+            await acquire_backlog_lock()
             tradesBacklog.append(data)
-            release_backlog_lock()
+            await release_backlog_lock()
         else:
-            acquire_thread_lock()
+            await acquire_thread_lock()
             process_trade(data)
-            release_thread_lock()
+            await release_thread_lock()
 
     log.warning(f'Streaming {len(channels)} channels')
     conn.run(channels)

@@ -46,9 +46,10 @@ for algo in algos['all']:
 # init indicators, assets, and streaming
 indicators = init_indicators()
 init_assets(args.numAssets, algos['all'], indicators)
-conn = g.connPaper # TODO: integrate with env arg
-Thread(target=stream, args=(conn, algos['all'], indicators)).start()
+Thread(target=stream, args=(g.connPaper, algos['all'], indicators)).start()
+# TODO: add connLive thread
 # NOTE: begin using g.lock
+# TODO: combine orders
 
 # main loop
 log.warning('Entering main loop')
