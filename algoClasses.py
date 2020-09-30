@@ -198,7 +198,7 @@ class Algo:
             return False
 
         try:
-            self.log.info(f'{symbol}\tordering {qty} shares')
+            self.log.info(f'{symbol}\tordering {qty} shares ({enterExit})')
 
             # submit order
             if limitPrice == None:
@@ -237,12 +237,8 @@ class Algo:
             return True
 
         except Exception as e:
-            if isinstance(e, APIError):
-                self.log.warning(f'{e}\nOrder: {symbol}\t\t\t{qty}\n' +
-                f'Algo Position:\t\t{self.positions[symbol]["qty"]}\n' +
-                f'Global Position:\t{self.allPositions[symbol]["qty"]}')
-            else:
-                self.log.exception(f'{e}\nOrder: {symbol}\t\t\t{qty}\n' +
+            # TODO: address HTB shorts
+            self.log.exception(f'{e}\nOrder: {symbol}\t\t\t{qty}\n' +
                 f'Algo Position:\t\t{self.positions[symbol]["qty"]}\n' +
                 f'Global Position:\t{self.allPositions[symbol]["qty"]}')
             return False
@@ -303,8 +299,16 @@ class Algo:
         return metrics
 
     def get_price(self, symbol):
-        try: return g.assets['min'][symbol].close.iloc[-1] # TODO: secBars
-        except Exception as e: self.log.exception(e)
+        # symbol: e.g. 'AAPL'
+        try: return g.assets['min'][symbol].close[-1] # TODO: secBars
+        except Exception as e:
+            if (
+                symbol in g.assets['min'] and # ignore missing key (old asset)
+                len(g.assets['min'][symbol].index) # ignore empty dataframe (startup)
+            ):
+                self.log.exception(e, stack_info=True)
+            else:
+                self.log.debug(e)
 
     def get_trade_qty(self, symbol, side, price, volumeMult=1, barFreq='min'):
         # symbol: e.g. 'AAPL'
@@ -333,8 +337,8 @@ class Algo:
                 self.log.debug(f'{symbol}\tshare price < {c.minShortPrice}')
                 return 0
         except Exception as e:
-            # NOTE: possibly triggered by missing 1st bar (price == None)
-            self.log.exception(e)
+            if price == None: self.log.debug(e)
+            else: self.log.exception(e)
             return 0
 
         try: # set quantity
@@ -354,7 +358,7 @@ class Algo:
         
         try: # check volume
             try:
-                volume = g.assets[barFreq][symbol].volume.iloc[-1]
+                volume = g.assets[barFreq][symbol].volume[-1]
             except Exception as e:
                 self.log.exception(e)
                 volume = 0
