@@ -11,7 +11,7 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
     
     for symbol, bars in g.assets[self.barFreq].items(): # TODO: parallel
         try: # check for new bar
-            if not bars.ticked.iloc[-1]:
+            if not bars.ticked[-1]:
                 # enter position
                 if self.positions[symbol]['qty'] == 0: # no position
                     if all(ii >= 0 for ii in bars[indicator][-self.enterNumBars:]): # momentum up
@@ -30,7 +30,13 @@ def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
                     )
                 ):
                     self.exit_position(symbol)
-        except Exception as e: self.log.exception(f'{symbol}\t{e}\n{bars.iloc[-1]}')
+
+        except Exception as e:
+            if any(bars[indicator][-self.enterNumBars:] == None):
+                self.log.debug(f'{symbol}\tMissing indicator (None)')
+            else:
+                numBars = max(self.enterNumBars, self.exitNumBars)
+                self.log.exception(f'{symbol}\t{e}\n{bars.iloc[-numBars:]}')
 
 def init_intraday_algos():
     intradayAlgos = []
@@ -52,16 +58,16 @@ def momentum_volume(self): # kwargs: numBars, barFreq
     indicatorPrefix = str(self.numBars) + '_' + self.barFreq
     metrics = {}
     for symbol, bars in g.assets[self.barFreq].items():
-        try: metrics[symbol] = \
-            bars[indicatorPrefix + '_momentum'][-1] * \
-            bars[indicatorPrefix + '_volume_stdevs'][-1]
+        try:
+            metrics[symbol] = \
+                bars[indicatorPrefix + '_momentum'][-1] * \
+                bars[indicatorPrefix + '_volume_stdevs'][-1]
         except Exception as e:
-            if (
-                bars[indicatorPrefix + '_momentum'][-1] != None and
-                bars[indicatorPrefix + '_volume_stdevs'][-1] != None
-            ):
+            if (bars[indicatorPrefix + '_momentum'][-1] == None or
+                bars[indicatorPrefix + '_volume_stdevs'][-1] == None):
+                self.log.debug(f'{symbol}\tMissing indicator (None)')
+            else:
                 self.log.exception(e)
-            else: self.log.debug(e)
     sortedSymbols = sorted(metrics, key=lambda symbol: metrics[symbol])
 
     # enter long
@@ -92,7 +98,7 @@ def crossover(self): # kwargs: barFreq, fastNumBars, fastMovAvg, slowNumBars, sl
 
     for symbol, bars in g.assets[self.barFreq].items(): # TODO: parallel
         try: # check for new bar
-            if not bars.ticked.iloc[-1]:
+            if not bars.ticked[-1]:
                 # enter position
                 if self.positions[symbol]['qty'] == 0: # no position
                     if bars[fastInd][-1] < bars[slowInd][-1]: # oversold
@@ -111,7 +117,15 @@ def crossover(self): # kwargs: barFreq, fastNumBars, fastMovAvg, slowNumBars, sl
                     )
                 ):
                     self.exit_position(symbol)
-        except Exception as e: self.log.exception(f'{symbol}\t{e}\n{bars.iloc[-1]}')
+
+        except Exception as e:
+            if (
+                bars[fastInd][-1] == None or
+                bars[slowInd][-1] == None
+            ):
+                self.log.debug(f'{symbol}\tMissing indicator (None)')
+            else:
+                self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
 def init_multiday_algos():
     multidayAlgos = []

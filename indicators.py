@@ -24,7 +24,7 @@ class Indicator: # NOTE: kwargs unused
         try: val = self.func(self, bars)
         except Exception as e:
             if len(bars.index) >= self.numBars:
-                log.exception(f'{e}\n{bars}')
+                log.exception(f'{self.name}\n{e}\n{bars}')
             val = None
         return val
 
@@ -49,7 +49,10 @@ def volume_stdevs(self, bars):
         volume = volumes[-1]
         return  (volume - mean) / stdev
     except Exception as e:
-        if len(volumes) > 1 and stdev not in (None, 0):
+        if (
+            len(bars.index) >= self.numBars and
+            stdev not in (None, 0)
+        ):
             log.exception(f'{e}\n{volumes}')
 
 # NOTE: typical price unused
