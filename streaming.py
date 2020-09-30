@@ -52,10 +52,10 @@ def compile_day_bars(indicators):
 
         try: # compile bar
             newDayBar = {}
-            newDayBar['open'] = minBars.open.iloc[0]
+            newDayBar['open'] = minBars.open[0]
             newDayBar['high'] = minBars.high.max()
             newDayBar['low'] = minBars.low.min()
-            newDayBar['close'] = minBars.close.iloc[-1]
+            newDayBar['close'] = minBars.close[-1]
             newDayBar['volume'] = minBars.volume.sum()
             newDayBar['ticked'] = False
         except Exception as e: log.exception(e)
@@ -167,6 +167,7 @@ def process_backlogs(indicators):
     process_trades_backlog()
     backlogLock.release()
 
+# TODO: move process_trade/bar to executors while ensuring threadlock
 def stream(conn, allAlgos, indicators):
     # conn: alpaca_trade_api.StreamConn instance
     # allAlgos: list of all algos
