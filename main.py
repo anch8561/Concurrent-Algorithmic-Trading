@@ -85,13 +85,7 @@ try:
                 ):
                     state = tick_algos(algos, indicators, state)
                     log.info('Waiting for bars')
-
-            except Exception as e: # handle empty dataframes
-                if not all(len(bars.index) for bars in g.assets['min'].values()):
-                    for symbol, bars in g.assets['min'].items():
-                        if not len(bars.index):
-                            log.warning(f'No bars for {symbol}')
-                else: log.exception(e)
+            except Exception as e: log.exception(e)
 
         else:
             # update market state

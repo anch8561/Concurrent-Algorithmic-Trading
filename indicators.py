@@ -23,13 +23,14 @@ class Indicator: # NOTE: kwargs unused
         # bars: DataFrame
         try: val = self.func(self, bars)
         except Exception as e:
-            if len(bars.index) >= self.numBars:
+            if len(bars.index) > self.numBars: # bars[0] values may be None
                 log.exception(f'{self.name}\n{e}\n{bars}')
             val = None
         return val
 
 
 ## FUNCTIONS
+
 def momentum(self, bars):
     openPrice = bars.open[-self.numBars]
     closePrice = bars.close[-1]
@@ -42,18 +43,11 @@ def volume(self, bars):
     return volume
 
 def volume_stdevs(self, bars):
-    try: 
-        volumes = bars.volume[-self.numBars:]
-        mean = stats.mean(volumes)
-        stdev = stats.stdev(volumes, mean)
-        volume = volumes[-1]
-        return  (volume - mean) / stdev
-    except Exception as e:
-        if (
-            len(bars.index) >= self.numBars and
-            stdev not in (None, 0)
-        ):
-            log.exception(f'{e}\n{volumes}')
+    volumes = bars.volume[-self.numBars:]
+    mean = stats.mean(volumes)
+    stdev = stats.stdev(volumes, mean)
+    volume = volumes[-1]
+    return  (volume - mean) / stdev
 
 # NOTE: typical price unused
 def typical_price(self, bars):
