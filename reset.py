@@ -13,12 +13,12 @@ def reset(allAlgos):
     
     # reset algo orders and positions
     for algo in allAlgos:
-        algo.orders = {}
-        algo.positions = {}
+        algo.orders.clear()
+        algo.positions.clear()
 
     # reset global orders and positions
-    g.liveOrders = {}
-    g.paperOrders = {}
+    g.liveOrders.clear()
+    g.paperOrders.clear()
 
-    g.livePositions = {}
-    g.paperPositions = {}
+    g.livePositions.clear()
+    g.paperPositions.clear()
