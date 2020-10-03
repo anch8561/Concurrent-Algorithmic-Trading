@@ -1,15 +1,15 @@
 from datetime import timedelta
 
-algoPath = 'algos/'
-logPath = 'logs/'
+algoPath = 'algos/' # path for algo data files
+logPath = 'logs/' # path for log files
 
 numAssets = 10 # number of symbols to stream (-1 means all)
 
-minAllocBuyPow = 10000
-maxAllocFrac = 0.1
+minAllocBuyPow = 10000 # min buying power to allocate to any algo
+maxAllocFrac = 0.1 # max fraction of total buying power to allocate to any algo
 
-minLongShortFrac = 0.3
-maxLongShortFrac = 0.7
+minLongShortFrac = 0.3 # min fraction of total buying power to allocate to longs
+maxLongShortFrac = 0.7 # max fraction of total buying power to allocate to longs
 
 allocMetricDays = 1
 
@@ -21,7 +21,7 @@ minSharePrice = 20
 minDayVolume = 200000
 leverageStrings = ('leveraged', '1.5x', '2x', '3x')
 
-minTradeBuyPow = 100
+minTradeBuyPow = 100 # must be < minAllocBuyPow * maxPosFrac
 minLongPrice = 3
 minShortPrice = 17
 
@@ -33,6 +33,7 @@ numHistoricDays = 20
 marketCloseTransitionPeriod = timedelta(minutes=10)
 
 limitPriceFrac = 0.02
+volumeLimitMult = 0.1 # max order qty relative to prev bar volume
 
 # logging
 defaultLogLevel = 'info' # for printing to stderr

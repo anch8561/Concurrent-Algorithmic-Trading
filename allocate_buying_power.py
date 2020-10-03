@@ -87,3 +87,5 @@ def allocate_buying_power(algos):
             algo.buyPow['short'] = int(allocFrac[ii*2+1] * buyPow)
             algo.log.info(f'Buying power: {algo.buyPow}')
     except Exception as e: log.exception(e)
+
+    # TODO: add c.minAllocBuyPow threshold

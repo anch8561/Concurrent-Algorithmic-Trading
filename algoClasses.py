@@ -35,8 +35,8 @@ class Algo:
         self.buyPow = {'long': 0, 'short': 0} # updated continuously
         self.equity = {'long': 0, 'short': 0} # updated daily
         self.positions = {} # {symbol: {qty, basis}}
-        self.orders = {} # {orderID: {symbol, qty, limit, longShort}}
-        # qty is positive for buy/long and negative for sell/short
+        self.orders = {} # {orderID: {symbol, qty, enterExit}}
+        self.orderQueue = [] # {symbol, qty, enterExit}
         self.history = {} # {date: {time: event, equity}}
 
         # attributes to save / load
@@ -149,14 +149,18 @@ class Algo:
         try: # get price and submit order
             if qty > 0: side = 'buy'
             elif qty < 0: side = 'sell'
-            else:
-                self.log.warning(f'{symbol}\tno position to exit')
-                return
+            else: return
 
             price = self.get_limit_price(symbol, side)
             self.submit_order(symbol, qty, price, 'exit')
 
         except Exception as e: self.log.exception(e)
+
+    def queue_order(self, symbol, qty, enterExit):
+        self.orderQueue.append({
+            'symbol': symbol,
+            'qty': qty,
+            'enterExit': enterExit})
 
     def submit_order(self, symbol, qty, limitPrice, enterExit):
         # symbol: e.g. 'AAPL'
@@ -168,21 +172,16 @@ class Algo:
         try: # get side
             if qty > 0: side = 'buy'
             elif qty < 0: side = 'sell'
-            else:
-                self.log.warning(f'{symbol}\torder quantity is zero')
-                return False
+            else: return False
         except Exception as e:
             self.log.exception(e)
             return False
 
         try: # check allPositions for zero crossing
-            if symbol in self.allPositions:
-                allPosQty = self.allPositions[symbol]['qty']
-                if (allPosQty + qty) * allPosQty < 0: # trade will swap position
-                    qty = -allPosQty # exit position
-                    self.log.debug(f'{symbol}\texiting global position of {allPosQty}')
-            else:
-                allPosQty = 0
+            allPosQty = self.allPositions[symbol]['qty']
+            if (allPosQty + qty) * allPosQty < 0: # trade will swap position
+                qty = -allPosQty # exit position
+                self.log.debug(f'{symbol}\texiting global position of {allPosQty}')
         except Exception as e:
             self.log.exception(e)
             return False
@@ -232,6 +231,8 @@ class Algo:
                 'limit': limitPrice,
                 'enterExit': enterExit,
                 'algo': self}
+
+            # update global position
             
             # exit
             return True
@@ -355,19 +356,6 @@ class Algo:
         except Exception as e:
             self.log.exception(e)
             return 0
-        
-        try: # check volume
-            try:
-                volume = g.assets[barFreq][symbol].volume[-1]
-            except Exception as e:
-                self.log.exception(e)
-                volume = 0
-            if qty > volume * volumeMult:
-                qty = volume * volumeMult
-                reason = 'volume'
-        except Exception as e:
-            self.log.exception(e)
-            return 0
 
         # check zero
         if qty == 0: return 0
@@ -404,7 +392,7 @@ class Algo:
                         self.log.debug(f'{symbol}\tcancelling opposing order {orderID}')
                     else: # same side
                         self.log.debug(f'{symbol}\talready placed order for {order["qty"]}')
-                        return 0
+                        return 0 # FIX: still place order?
         except Exception as e:
             self.log.exception(e)
             return 0
@@ -470,3 +458,7 @@ class DayAlgo(Algo):
     def tick(self):
         try: self.func(self)
         except Exception as e: self.log.exception(e)
+
+# TODO: replace enter/exit_positions w/ queue_order(symbol, side)
+# reduce complexity of algo.func by moving position check to Algo
+# add c.minTradeBuyPow check to reduce CPU load
