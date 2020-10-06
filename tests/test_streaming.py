@@ -54,18 +54,18 @@ def test_compile_day_bars(bars, indicators):
 @fixture
 def tradeSetup(testAlgo):
     # global
-    g.paperOrders['54321'] = {
+    g.orders['54321'] = {
         'symbol': 'AAPL',
         'qty': -12,
         'limit': 222.22,
         'enterExit': 'enter',
         'algo': testAlgo}
-    g.paperPositions['AAPL'] = {'qty': 23, 'basis': 221.02}
+    g.positions['AAPL'] = {'qty': 23}
 
     # algo
     testAlgo.buyPow = {'long': 10000, 'short': 10000}
-    testAlgo.orders = g.paperOrders.copy()
-    testAlgo.positions['AAPL'] = {'qty': 0, 'basis': 0}
+    testAlgo.orders = g.orders.copy()
+    testAlgo.positions['AAPL'] = {'qty': 0}
 
     # websocket
     class data:
@@ -84,58 +84,52 @@ def tradeSetup(testAlgo):
 def test_process_trade_ENTER(tradeSetup):
     data, testAlgo = tradeSetup
     streaming.process_trade(data)
-    assert g.paperPositions['AAPL']['qty'] == 11
-    assert g.paperPositions['AAPL']['basis'] - 219.830909 < 1e-6
-    # (23 * 221.02 - 12 * 222.11) / (23 - 12)
-    assert testAlgo.positions['AAPL'] == {'qty': -12, 'basis': 222.11}
+    assert g.positions['AAPL'] == 11
+    assert testAlgo.positions['AAPL'] == -12
     assert testAlgo.buyPow == {'long': 10000, 'short': 10001.32}
     # 10000 + 12 * (222.11 - 222.22)
-    assert '54321' not in g.paperOrders
+    assert '54321' not in g.orders
     assert '54321' not in testAlgo.orders
 
 def test_process_trade_EXIT_NO_LIMIT(tradeSetup):
     data, testAlgo = tradeSetup
 
     # setup
-    g.paperOrders['54321']['enterExit'] = 'exit'
+    g.orders['54321']['enterExit'] = 'exit'
     testAlgo.orders['54321']['enterExit'] = 'exit'
-    testAlgo.positions['AAPL'] = {'qty': 12, 'basis': 222.01}
+    testAlgo.positions['AAPL'] = 12
     
-    g.paperOrders['54321']['limit'] = None
+    g.orders['54321']['limit'] = None
     testAlgo.orders['54321']['limit'] = None
     data.order.pop('limit_price')
 
     # test
     streaming.process_trade(data)
-    assert g.paperPositions['AAPL']['qty'] == 11
-    assert g.paperPositions['AAPL']['basis'] - 219.830909 < 1e-6
-    # (23 * 221.02 - 12 * 222.11) / (23 - 12)
-    assert testAlgo.positions['AAPL'] == {'qty': 0, 'basis': 0}
+    assert g.positions['AAPL']['qty'] == 11
+    assert testAlgo.positions['AAPL'] == 0
     assert testAlgo.buyPow == {'long': 12665.32, 'short': 10000}
     # 10000 + 12 * 222.11
-    assert '54321' not in g.paperOrders
+    assert '54321' not in g.orders
     assert '54321' not in testAlgo.orders
 
 def test_process_trade_PARTIAL_FILL(tradeSetup):
     data, testAlgo = tradeSetup
     data.event = 'partial_fill'
     streaming.process_trade(data)
-    assert g.paperPositions['AAPL']['qty'] == 23
-    assert g.paperPositions['AAPL']['basis'] == 221.02
-    assert testAlgo.positions['AAPL'] == {'qty': 0, 'basis': 0}
+    assert g.positions['AAPL'] == 23
+    assert testAlgo.positions['AAPL'] == 0
     assert testAlgo.buyPow == {'long': 10000, 'short': 10000}
-    assert '54321' in g.paperOrders
+    assert '54321' in g.orders
     assert '54321' in testAlgo.orders
 
 def test_process_trade_REJECTED(tradeSetup):
     data, testAlgo = tradeSetup
     data.event = 'rejected'
     streaming.process_trade(data)
-    assert g.paperPositions['AAPL']['qty'] == 23
-    assert g.paperPositions['AAPL']['basis'] == 221.02
-    assert testAlgo.positions['AAPL'] == {'qty': 0, 'basis': 0}
+    assert g.positions['AAPL'] == 23
+    assert testAlgo.positions['AAPL'] == 0
     assert testAlgo.buyPow == {'long': 10000, 'short': 12666.64}
-    assert '54321' not in g.paperOrders
+    assert '54321' not in g.orders
     assert '54321' not in testAlgo.orders
 
 def test_process_bars_backlog(indicators):

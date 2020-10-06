@@ -1,10 +1,8 @@
 from pytz import timezone
 from threading import Lock
 
-alpacaLive = None # alpaca trade api REST object with live credentials
-alpacaPaper = None # alpaca trade api REST object with paper credentials
-connLive = None # alpaca trade api StreamConn object with live credentials
-connPaper = None # alpaca trade api StreamConn object with paper credentials
+alpaca = None # alpaca_trade_api.REST
+conn = None # alpaca_trade_api.StreamConn
 
 nyc = timezone('America/New_York')
 now = None # datetime
@@ -18,10 +16,8 @@ assets = {'sec': {}, 'min': {}, 'day': {}} # dict of dicts of dataframes {barFre
 # 'day': dict of dataframes; day bars and indicators for each symbol
 # e.g. assets['day']['AAPL'].columns = open, close, high, low, volume, <indicator_1>, etc
 
-liveOrders = {} # {orderID: {symbol, qty, limit, longShort, enterExit, algo}}
-paperOrders = {}
-livePositions = {} # {symbol: {qty, basis}}
-paperPositions = {}
+orders = {} # {orderID: {symbol, qty, price, algoOrders}}
+positions = {} # {symbol: {qty, basis}}
 
 lock = Lock() # main and stream threads must acquire to access:
-# assets, liveOrders, paperOrders, livePositions, paperPositions, algo.buyPow, algo.orders, algo.positions
+# assets, orders, positions, algo.buyPow, algo.orders, algo.positions

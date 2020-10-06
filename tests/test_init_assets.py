@@ -78,7 +78,7 @@ def test_init_assets(alpaca, allAlgos, indicators):
 def test_add_asset(alpaca, allAlgos, indicators):
     ## SETUP
     g.alpacaPaper = alpaca
-    g.paperPositions['AAPL'] = {'qty': 3, 'basis': 0}
+    g.positions['AAPL'] = 3
     allAlgos = [Algo(print, False)]
     class timing:
         get_market_open = Mock(return_value='a')
@@ -91,10 +91,9 @@ def test_add_asset(alpaca, allAlgos, indicators):
         init_assets.add_asset('AAPL', allAlgos, indicators)
 
     # positions
-    assert g.paperPositions == {'AAPL': {'qty': 3, 'basis': 0}}
-    assert g.livePositions == {'AAPL': {'qty': 0, 'basis': 0}}
+    assert g.positions == {'AAPL': 3}
     for algo in allAlgos:
-        assert algo.positions == {'AAPL': {'qty': 0, 'basis': 0}}
+        assert algo.positions == {'AAPL': 0}
     
     # sec asset
     columns = ['open', 'high', 'low', 'close', 'volume', 'ticked', '1_sec_momentum']

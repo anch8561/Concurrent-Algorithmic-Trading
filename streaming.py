@@ -44,6 +44,8 @@ def process_bar(barFreq, data, indicators):
     except Exception as e: log.exception(f'{e}\n{data}')
 
 def compile_day_bars(indicators):
+    # indicators: dict of lists of indicators; {sec, min, day, all}
+
     log.warning('Compiling day bars')
     openTime = timing.get_market_open()
     for ii, (symbol, minBars) in enumerate(g.assets['min'].items()):
@@ -76,6 +78,27 @@ def compile_day_bars(indicators):
             g.assets['day'][symbol] = dayBars
         except Exception as e: log.exception(e)
 
+def process_algo_trade(algoOrder, symbol, orderPrice, fillPrice):
+    # unpack algo order
+    algo = algoOrder['algo']
+    longShort = algoOrder['longShort']
+    algoQty = algoOrder['qty']
+
+    # update algo position
+    algo.positions[symbol] += algoQty
+
+    # update algo buying power
+    if (( # enter
+        algoQty > 0 and
+        longShort == 'long'
+    ) or (
+        algoQty < 0 and
+        longShort == 'short'
+    )):
+        algo.buyPow[longShort] += abs(algoQty) * (orderPrice - fillPrice)
+    else: # exit
+        algo.buyPow[longShort] += abs(algoQty) * fillPrice
+
 def process_trade(data):
     # NOTE: ignore 'new', 'partial_fill', 'done_for_day', and 'replaced' events
 
@@ -83,72 +106,74 @@ def process_trade(data):
         event = data.event
         orderID = data.order['id']
         side = data.order['side']
+        fillQty = int(data.order['filled_qty'])
+        if side == 'sell': fillQty *= -1
+        fillPrice = float(data.order['filled_avg_price'])
         log.info(f'Order {orderID} {event}')
-    except Exception as e: log.exception(f'{e}\n{data}')
+    except Exception as e:
+        log.exception(f'{e}\n{data}')
+        return
 
-    try: # get paper / live, algo, and enterExit
-        if orderID in g.paperOrders:
-            order = g.paperOrders[orderID]
-            allOrders = g.paperOrders
-            allPositions = g.paperPositions
-        elif orderID in g.liveOrders:
-            order = g.liveOrders[orderID]
-            allOrders = g.liveOrders
-            allPositions = g.livePositions
-        else:
-            log.warning(f'Unknown order id\n{data}')
+    if event in ('fill', 'canceled', 'expired', 'rejected'):
+        try: # get order info
+            order = g.orders[orderID]
+            symbol = order['symbol']
+            orderPrice = order['price']
+            algoOrders = order['algoOrders']
+        except:
+            if orderID == 'internal':
+                symbol = data.symbol
+                orderPrice = data.price
+                algoOrders = data.algoOrders
+            else:
+                log.warning(f'Unknown order id\n{data}')
+                return
+
+        try: # update global position
+            g.positions[symbol] += fillQty
+        except:
+            log.exception(f'{e}\n{data}')
             return
-        algo = order['algo']
-        enterExit = order['enterExit']
-    except Exception as e: log.exception(f'{e}\n{data}')
-
-    try: # process filled order
-        if event == 'fill':
-            # get symbol, fill qty, and price
-            symbol = data.order['symbol']
-            fillQty = int(data.order['filled_qty'])
-            if side == 'sell': fillQty *= -1
-            fillPrice = float(data.order['filled_avg_price'])
-
-            # update positions
-            for positions in (allPositions, algo.positions):
-                # update basis
-                oldQty = positions[symbol]['qty']
-                if oldQty + fillQty == 0:
-                    positions[symbol]['basis'] = 0
-                else:
-                    oldBasis = positions[symbol]['basis']
-                    positions[symbol]['basis'] = \
-                        ((oldQty * oldBasis) + (fillQty * fillPrice)) / (oldQty + fillQty)
+            
+        try: # add opposing trades to fill qty
+            for algoOrder in algoOrders:
+                algoQty = algoOrder['qty']
+                if algoQty * fillQty < 0: # opposite side
+                    fillQty -= algoQty # increase fill qty
+                    process_algo_trade(algoOrder, symbol, orderPrice, fillPrice)
+        except:
+            log.exception(f'{e}\n{data}')
+            return
+            
+        try: # process all trades
+            for algoOrder in algoOrders:
+                # process remaining trades
+                algoQty = algoOrder['qty']
+                if algoQty * fillQty > 0: # same side (and fillQty != 0)
+                    if abs(algoQty) > abs(fillQty): # zero crossing
+                        algoOrder['qty'] = fillQty
+                        fillQty = 0
+                    else:
+                        fillQty -= algoQty
+                    process_algo_trade(algoOrder, symbol, orderPrice, fillPrice)
                 
-                # update qty
-                positions[symbol]['qty'] += fillQty
-        
-            # update buying power
-            if enterExit == 'enter':
-                longShort = 'long' if side == 'buy' else 'short'
-                algo.buyPow[longShort] += abs(fillQty) * (order['limit'] - fillPrice)
-            elif enterExit == 'exit':
-                longShort = 'long' if side == 'sell' else 'short'
-                algo.buyPow[longShort] += abs(fillQty) * fillPrice
-            else: log.error(f'Unknown enterExit {enterExit}')
-    except Exception as e: log.exception(f'{e}\n{data}')
+                # remove algo orders
+                algo = algoOrder['algo']
+                longShort = algoOrder['longShort']
+                algo.pendingOrders[longShort].pop(symbol)
+        except Exception as e:
+            log.exception(f'{e}\n{data}')
+            return
 
-    try: # process terminated order
-        if event in ('canceled', 'expired', 'rejected'):
-            if enterExit == 'enter':
-                longShort = 'long' if side == 'buy' else 'short'
-                algo.buyPow[longShort] += abs(order['qty']) * order['limit']
-    except Exception as e: log.exception(f'{e}\n{data}')
-
-    try: # remove completed order
-        if event in ('fill', 'canceled', 'expired', 'rejected'):
-            allOrders.pop(orderID)
-            algo.orders.pop(orderID)
-    except Exception as e: log.exception(f'{e}\n{data}')
+        try: # remove order
+            g.orders.pop(orderID)
+        except Exception as e:
+            if orderID != 'internal':
+                log.exception(f'{e}\n{data}')
+                return
 
 def process_bars_backlog(indicators):
-    # indicators: dict of lists of indicators (keys: 'sec', 'min', 'day', 'all')
+    # indicators: dict of lists of indicators; {sec, min, day, all}
     global barsBacklog
     for barFreq in ('sec', 'min'):
         for bar in barsBacklog[barFreq]:
@@ -171,7 +196,7 @@ def process_backlogs(indicators):
 def stream(conn, allAlgos, indicators):
     # conn: alpaca_trade_api.StreamConn instance
     # allAlgos: list of all algos
-    # indicators: dict of lists of indicators (keys: 'sec', 'min', 'day', 'all')
+    # indicators: dict of lists of indicators; {sec, min, day, all}
 
     channels = ['account_updates', 'trade_updates']
     for symbol in g.assets['min']:

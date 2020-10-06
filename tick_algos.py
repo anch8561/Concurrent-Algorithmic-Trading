@@ -8,129 +8,223 @@ from logging import getLogger
 
 log = getLogger('main')
 
-def set_order_qty(newQty,combinedOrder):
+# TODO: tick assets in order of volatility? (better use of BP but must use OrderedDict)
+
+def set_order_qty(newQty, combinedOrder):
     # TODO: unit test (random seed)
     # newQty: int
-    # combinedOrder: dict; {symbol: str, qty: int, algos: list}
+    # combinedOrder: dict; {symbol, qty, price, algoOrders}
     # returns: bool; success
     
-    # unpack order
+    # unpack combined order
     symbol = combinedOrder['symbol']
     oldQty = combinedOrder['qty']
-    algos = combinedOrder['algos'].copy()
-    random.shuffle(algos)
+    price = combinedOrder['price']
+    algoOrders = combinedOrder['algoOrders']
 
     # check newQty
-    if (
+    if newQty == oldQty: return
+    elif (
         newQty * oldQty < 0 or # opposite signs
         abs(oldQty) < abs(newQty) # zero crossing
     ):
         log.error(f'Cannot change combined order qty to {newQty}\n' +
             f'{symbol}: {combinedOrder}')
-        return False
+        return
 
-    # reduce random order qty until combined order qty == newQty
+    # reduce random algo qty until combined qty == newQty
     delta = newQty - oldQty
-    for algo in algos:
-        algoQty = algo.orders[symbol]['qty']
+    cancelledOrders = []
+    for order in algoOrders:
+        algoQty = order['qty']
         if algoQty * delta < 0: # opposite signs
-            if abs(algoQty) < abs(delta): # zero crossing
-                algo.orders[symbol]['qty'] = 0
+            longShort = order['longShort']
+            if abs(algoQty) <= abs(delta): # zero crossing
+                order['algo'].buyPow[longShort] += abs(algoQty) * price
+                cancelledOrders.append(order)
+                order['qty'] = 0
                 delta += algoQty
             else:
-                algo.orders[symbol]['qty'] += delta
+                order['algo'].buyPow[longShort] += abs(delta) * price
+                order['qty'] += delta
                 combinedOrder['qty'] = newQty
-                return True
+                break
     
-    # TODO: update algo.buyPow
-    # TODO: tick assets in order of volatility? (better use of BP but must use OrderedDict)
+    # remove cancelled orders
+    for order in cancelledOrders: algoOrders.remove(order)
 
-def submit_order(order):
-    # order: dict; {symbol
-    orderQty = order['qty']
+def get_price(symbol):
+    # symbol: e.g. 'AAPL'
 
-    # get limit price
-    price = get_limit_price(symbol, side)
+    try:
+        return g.assets['min'][symbol].close[-1]
+    except Exception as e:
+        if (
+            symbol in g.assets['min'] and # ignore missing key (old asset)
+            len(g.assets['min'][symbol].index) # ignore empty dataframe (startup)
+        ):
+            log.exception(e, stack_info=True)
+        else:
+            log.debug(e)
 
+def get_limit_price(symbol, side):
+    # symbol: e.g. 'AAPL'
+    # side: 'buy' or 'sell'
+    
+    try:
+        price = get_price(symbol)
+        if side == 'buy':
+            return price * (1 + c.limitPriceFrac)
+        elif side == 'sell':
+            return price * (1 - c.limitPriceFrac)
+        else:
+            log.error(f'Unknown side: {side}')
+    except Exception as e:
+        if price == None: log.debug(e)
+        else: log.exception(e, stack_info=True)
+            
+def tab(text, numSpaces):
+    text = str(text)
+    return text + ' ' * (numSpaces - len(text) - 1) + ' '
+    
+def submit_order(combinedOrder):
+    # combinedOrder: dict; {symbol, qty, price, algoOrders}
 
-def process_queued_orders(algos):
-    # TODO: sec and min
-    barFreq = 'min'
+    # unpack combined order
+    symbol = combinedOrder['symbol']
+    orderQty = combinedOrder['qty']
+    price = combinedOrder['price']
+    algoOrders = combinedOrder['algoOrders']
+
+    # get side
+    side = 'buy' if orderQty > 0 else 'sell'
+    posQty = g.positions[symbol]['qty']
+    logMsg = tab(symbol, 6) + 'Have ' + tab(posQty, 6) + \
+        'Ordering ' + tab(orderQty, 6) + f'@ {price}'
+
+    # update buying power
+    for order in algoOrders.values():
+        longShort = order['longShort']
+        qty = order['qty']
+        if (( # enter
+            qty > 0 and
+            longShort == 'long'
+        ) or (
+            qty < 0 and
+            longShort == 'short'
+        )):
+            algoQty = algo.queuedOrders[symbol]['qty']
+            longShort = 'long' if algoQty > 0 else 'short'
+            algo.buyPow[longShort] -= abs(algoQty) * price
+            algoPosQty = algo.positions[symbol]['qty']
+            logMsg += tab(algo.name, 30) + 'Have ' + tab(algoPosQty, 6) + \
+                'Ordering ' + tab(algoQty, 6)
+
+    # submit order
+    log.info(logMsg)
+    if price == None:
+        if enterExit == 'enter':
+            log.warning('cannot enter position with market order')
+            return False
+        order = g.alpaca.submit_order(
+            symbol = symbol,
+            qty = abs(orderQty),
+            side = side,
+            type = 'market',
+            time_in_force = 'day')
+    else:
+        order = g.alpaca.submit_order(
+            symbol = symbol,
+            qty = abs(orderQty),
+            side = side,
+            type = 'limit',
+            time_in_force = 'day',
+            limit_price = price)
+
+    # add to orders and allOrders
+    g.orders[order.id] = {
+        'symbol': symbol,
+        'qty': orderQty,
+        'limit': price,
+        'enterExit': enterExit,
+        'algos': algos}
+    for algo in algos:
+        algo.openOrders[order.id] = {
+            'symbol': symbol,
+            'qty': orderQty,
+            'limit': price,
+            'enterExit': enterExit}
+
+class TradeData: # for combinedOrders w/ zero qty
+    def __init__(self, combinedOrder):
+        # combinedOrder: dict; {symbol, qty, price, algoOrders}
+        self.event = 'fill'
+        self.order = {
+            'id': 'internal',
+            'side': 'buy', # zero
+            'fillQty': 0}
+        self.symbol = combinedOrder['symbol']
+        self.price = combinedOrder['price']
+        self.algoOrders = combinedOrder['algoOrders']
+
+def process_queued_orders(allAlgos):
+    # allAlgos: list of all algos
+
+    log.info('Processing queued orders')
 
     # combine orders
     globalOrderQueue = {}
-    for algo in algos:
-        for algoOrder in algo.orderQueue:
-            symbol = algoOrder['symbol']
-            if symbol in globalOrderQueue:
-                globalOrderQueue[symbol]['qty'] += algoOrder['qty']
-                globalOrderQueue[symbol]['algos'].append(algo)
-            else:
-                globalOrderQueue[symbol] = {
-                    'symbol': symbol,
-                    'qty': algoOrder['qty'],
-                    'algos': [algo]}
+    for algo in allAlgos:
+        for longShort in ('long', 'short'):
+            for algoOrder in algo.queuedOrders[longShort]:
+                symbol = algoOrder['symbol']
+                if symbol in globalOrderQueue:
+                    globalOrderQueue[symbol]['qty'] += algoOrder['qty']
+                    globalOrderQueue[symbol]['algoOrders'].append(algoOrder)
+                else:
+                    globalOrderQueue[symbol] = {
+                        'symbol': symbol,
+                        'qty': algoOrder['qty'],
+                        'price': None, # don't know side yet
+                        'algoOrders': [algoOrder]}
 
-    # check order qty
-    cancelledOrders = []
+    # check order qty and submit
     for symbol, order in globalOrderQueue:
-        orderQty = order['qty']
-        positionQty = g.positions[symbol]['qty']
-
-        try: # check for volume limit
-            volumeLimit = g.assets[barFreq][symbol].volume[-1] * c.volumeLimitMult
-            if abs(orderQty) > volumeLimit:
-                log.debug(f'{symbol}\tReducing order qty from {orderQty} to {volumeLimit} (volume limit)')
-                orderQty = volumeLimit
-        except Exception as e:
-            log.exception(e)
-            continue
-
         try: # check for zero crossing
+            orderQty = order['qty']
+            positionQty = g.positions[symbol]['qty']
             if (positionQty + orderQty) * positionQty < 0: # zero crossing
                 log.debug(f'{symbol}\tReducing order qty from {orderQty} to {-positionQty} (zero crossing)')
                 orderQty = -positionQty
-        except Exception as e:
-            log.exception(e)
-            continue
-            
-        try: # check for opposing short
-            if ( # buying from zero position
-                orderQty > 0 and
-                positionQty == 0
-            ):
-                for pendingOrderID, pendingOrder in g.orders.items():
-                    if ( # pending short
-                        pendingOrder['symbol'] == symbol and
-                        pendingOrder['qty'] < 0
-                    ):
-                        log.debug(f'{algo.name}\t{symbol}\n' +
-                            f'Reducing order qty from {orderQty} to 0 (pending short {pendingOrderID})')
-                        orderQty = 0
+                # TODO: create follow-up order
         except Exception as e:
             log.exception(e)
             continue
 
-        # update orders
-        set_order_qty(orderQty, order)
+        try: # update algo orders and submit
+            if orderQty: # send to alpaca
+                side = 'buy' if orderQty > 0 else 'sell'
+                order['price'] = get_limit_price(symbol, side)
+                random.shuffle(order['algos']) # for qty adjustments and partial fills
+                set_order_qty(orderQty, order)
+                submit_order(order)
+            else: # process internally
+                order['price'] = get_price(symbol)
+                streaming.process_trade(TradeData(order))
+        except Exception as e:
+            log.exception(e)
+            continue
 
-        # submit orders
-        if orderQty == 0:
-            cancelledOrders.append(symbol)
-        else:
-            submit_order(order)
-       
-        
-    
-    # remove cancelled orders
-    for symbol in cancelledOrders:
-        globalOrderQueue.pop(symbol)
-        # TODO: process algo trades
-        # TODO: check that real trades work with circular (algo to algo) trades
-        
+        globalOrderQueue.clear()
 
 def tick_algos(algos, indicators, state):
+    # algos: dict of lists of algos; {intraday, overnight, multiday, all}
+    # indicators: dict of lists of indicators; {sec, min, day, all}
+    # state: str; 'day' or 'night'
+    # returns: state
+
     g.lock.acquire()
+    g.alpaca.cancel_all_orders()
     closingSoon = g.TTClose <= c.marketCloseTransitionPeriod
 
     # tick algos
@@ -168,9 +262,10 @@ def tick_algos(algos, indicators, state):
             log.info('Ticking overnight algos')
             for algo in algos['overnight']: algo.tick() # TODO: parallel
         
-        
         log.info('Ticking multiday algos')
         for algo in algos['multiday']: algo.tick() # TODO: parallel
+
+        process_queued_orders(algos['all'])
     except Exception as e: log.exception(e)
 
     # set bars ticked

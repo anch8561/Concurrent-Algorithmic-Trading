@@ -32,9 +32,9 @@ numHistoricDays = 20
 
 marketCloseTransitionPeriod = timedelta(minutes=10)
 
-limitPriceFrac = 0.02
 volumeLimitMult = 0.1 # max order qty relative to prev bar volume
+limitPriceFrac = 0.001
 
 # logging
-defaultLogLevel = 'info' # for printing to stderr
+defaultLogLevel = 'info' # min log level sent to stderr
 criticalEmails = ['ancharters@gmail.com']

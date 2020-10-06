@@ -1,5 +1,6 @@
 import config as c
 import globalVariables as g
+from tick_algos import get_limit_price
 from timing import get_time_str, get_date
 
 import json
@@ -16,7 +17,7 @@ class Algo:
     def __init__(self, func, loadData=True, **kwargs):
         self.func = func # function to determine when to enter and exit positions
 
-        # kwargs, name, and self.log
+        # kwargs, name, and log
         self.name = ''
         for key, val in kwargs.items():
             self.__setattr__(key, val)
@@ -24,30 +25,24 @@ class Algo:
         self.name += self.func.__name__
         self.log = getLogger(self.name)
 
-        # paper / live
-        self.live = False # if using real money
-        self.alpaca = g.alpacaPaper # always call alpaca through self.alpaca
-        self.allOrders = g.paperOrders # have to be careful not to break these references
-        self.allPositions = g.paperPositions
-
         # state variables
         self.active = True # if algo might have open positions
+        self.livePaper = 'paper' # TODO: concurrent live/paper
         self.buyPow = {'long': 0, 'short': 0} # updated continuously
         self.equity = {'long': 0, 'short': 0} # updated daily
         self.positions = {} # {symbol: {qty, basis}}
-        self.orders = {} # {orderID: {symbol, qty, enterExit}}
-        self.orderQueue = [] # {symbol, qty, enterExit}
+        self.pendingOrders = {'long': {}, 'short': {}} # {symbol: {algo, longShort, qty}}
+        self.queuedOrders = {'long': {}, 'short': {}} # {symbol: {algo, longShort, qty}}
         self.history = {} # {date: {time: event, equity}}
 
         # attributes to save / load
         self.dataFields = [
-            'live',
+            'livePaper',
             'buyPow',
             'equity',
             'positions',
             'orders',
-            'history'
-        ]
+            'history']
 
         # load data
         if loadData: self.load_data()
@@ -57,13 +52,18 @@ class Algo:
         self.start()
 
     def deactivate(self):
-        # NOTE: may take multiple attempts
         # exit all positions then stop
-        if any(position['qty'] for position in self.positions.values()):
-            for symbol, position in self.positions.items():
-                if position['qty']:
-                    self.exit_position(symbol)
-        else:
+        # NOTE: may take multiple attempts
+        noPositions = True
+        for symbol, position in self.positions.items():
+            if position['qty']:
+                noPositions = False
+                longShort = 'long' if position['qty'] > 0 else 'short'
+                self.queuedOrders[longShort][symbol] = {
+                    'algo': self,
+                    'longShort': longShort,
+                    'qty': -position['qty']}
+        if noPositions:
             self.stop()
             self.active = False
 
@@ -72,7 +72,6 @@ class Algo:
             self.log.exception(f'cannot start while inactive')
         else:
             self.log.info('starting')
-            self.cancel_all_orders()
             self.update_equity()
             self.update_history('start')
             self.save_data()
@@ -82,7 +81,6 @@ class Algo:
             self.log.exception(f'cannot stop while inactive')
         else:
             self.log.info('stopping')
-            self.cancel_all_orders()
             self.update_equity()
             self.update_history('stop')
             self.save_data()
@@ -116,157 +114,128 @@ class Algo:
                 except Exception as e: self.log.exception(e)
         except Exception as e: self.log.exception(e)
 
-    def enter_position(self, symbol, side):
-        # symbol: e.g. 'AAPL'
-
-        try: # get price and qty
-            limitPrice = self.get_limit_price(symbol, side)
-            qty = self.get_trade_qty(symbol, side, limitPrice)
-        except Exception as e: self.log.exception(e)
-
-        try: # get longShort
-            if side == 'buy': longShort = 'long'
-            elif side == 'sell': longShort = 'short'
-            else:
-                self.log.error(f'unknown side: {side}')
-                return
-        except Exception as e: self.log.exception(e)
-
-        try: # submit order and update buying power
-            if self.submit_order(symbol, qty, limitPrice, 'enter'):
-                self.buyPow[longShort] -= abs(qty) * limitPrice
-        except Exception as e: self.log.exception(e)
-
-    def exit_position(self, symbol):
-        # symbol: e.g. 'AAPL'
-
-        try: # get qty
-            qty = -self.positions[symbol]['qty']
-        except Exception:
-            self.log.warning(f'{symbol}\tno position to exit')
-            return
-
-        try: # get price and submit order
-            if qty > 0: side = 'buy'
-            elif qty < 0: side = 'sell'
-            else: return
-
-            price = self.get_limit_price(symbol, side)
-            self.submit_order(symbol, qty, price, 'exit')
-
-        except Exception as e: self.log.exception(e)
-
-    def queue_order(self, symbol, qty, enterExit):
-        self.orderQueue.append({
-            'symbol': symbol,
-            'qty': qty,
-            'enterExit': enterExit})
-
-    def submit_order(self, symbol, qty, limitPrice, enterExit):
-        # symbol: e.g. 'AAPL'
-        # qty: int; signed # of shares to trade (positive buy, negative sell)
-        # limitPrice: float or None for market order
-        # enterExit: 'enter' or 'exit'
-        # returns: bool; whether order was accepted
-
-        try: # get side
-            if qty > 0: side = 'buy'
-            elif qty < 0: side = 'sell'
-            else: return False
-        except Exception as e:
-            self.log.exception(e)
-            return False
-
-        try: # check allPositions for zero crossing
-            allPosQty = self.allPositions[symbol]['qty']
-            if (allPosQty + qty) * allPosQty < 0: # trade will swap position
-                qty = -allPosQty # exit position
-                self.log.debug(f'{symbol}\texiting global position of {allPosQty}')
-        except Exception as e:
-            self.log.exception(e)
-            return False
-
-        try: # check allOrders for opposing short
-            if qty > 0 and allPosQty == 0: # buying from zero position
-                for orderID, order in self.allOrders.items():
-                    if order['symbol'] == symbol and order['qty'] < 0: # pending short
-                        self.log.debug(f'{symbol}\topposing global order {orderID}')
-                        return False
-        except Exception as e:
-            self.log.exception(e)
-            return False
-
-        try:
-            self.log.info(f'{symbol}\tordering {qty} shares ({enterExit})')
-
-            # submit order
-            if limitPrice == None:
-                if enterExit == 'enter':
-                    self.log.warning('cannot enter position with market order')
-                    return False
-                order = self.alpaca.submit_order(
-                    symbol = symbol,
-                    qty = abs(qty),
-                    side = side,
-                    type = 'market',
-                    time_in_force = 'day')
-            else:
-                order = self.alpaca.submit_order(
-                    symbol = symbol,
-                    qty = abs(qty),
-                    side = side,
-                    type = 'limit',
-                    time_in_force = 'day',
-                    limit_price = limitPrice)
-
-            # add to orders and allOrders
-            self.orders[order.id] = {
-                'symbol': symbol,
-                'qty': qty,
-                'limit': limitPrice,
-                'enterExit': enterExit}
-            self.allOrders[order.id] = {
-                'symbol': symbol,
-                'qty': qty,
-                'limit': limitPrice,
-                'enterExit': enterExit,
-                'algo': self}
-
-            # update global position
-            
-            # exit
-            return True
-
-        except Exception as e:
-            # TODO: address HTB shorts
-            self.log.exception(f'{e}\nOrder: {symbol}\t\t\t{qty}\n' +
-                f'Algo Position:\t\t{self.positions[symbol]["qty"]}\n' +
-                f'Global Position:\t{self.allPositions[symbol]["qty"]}')
-            return False
-
-    def cancel_all_orders(self):
-        for orderID in self.orders:
-            self.alpaca.cancel_order(orderID)
-        while len(self.orders): pass # FIX: will max out CPU
-
-    def get_limit_price(self, symbol, side):
+    def get_trade_qty(self, symbol, side, price):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
+        # price: float; limit price
+        # returns: int; signed # of shares to trade
 
-        try:
-            price = self.get_price(symbol)
-
+        try: # get buying power and equity
             if side == 'buy':
-                price *= 1 + c.limitPriceFrac
+                equity = self.equity['long']
+                buyPow = self.buyPow['long']
             elif side == 'sell':
-                price *= 1 - c.limitPriceFrac
+                equity = self.equity['short']
+                buyPow = self.buyPow['short']
             else:
-                self.log.error(f'unknown side: {side}')
-
-            return price
+                self.log.error(f'Unknown side: {side}')
+                return 0
         except Exception as e:
-            if price != None: self.log.exception(e)
-            # else place market order (limitPrice == None)
+            self.log.exception(e)
+            return 0
+
+        try: # check price
+            if side == 'buy' and price < c.minLongPrice:
+                self.log.debug(f'{symbol}\tshare price < {c.minLongPrice}')
+                return 0
+            elif side == 'sell' and price < c.minShortPrice:
+                self.log.debug(f'{symbol}\tshare price < {c.minShortPrice}')
+                return 0
+        except Exception as e:
+            if price == None: self.log.debug(e)
+            else: self.log.exception(e)
+            return 0
+
+        try: # set quantity
+            qty = int(c.maxPosFrac * equity / price)
+            reason = 'max position'
+        except Exception as e:
+            self.log.exception(e)
+            return 0
+
+        try: # check buying power
+            if qty * price > buyPow:
+                qty = int(buyPow / price)
+                reason = 'buying power'
+        except Exception as e:
+            self.log.exception(e)
+            return 0
+
+        # check zero
+        if qty == 0: return 0
+
+        try: # set sell quantity negative
+            if side == 'sell': qty *= -1
+            self.log.debug(f'{symbol}\t{reason} qty limit: {qty}')
+        except Exception as e:
+            self.log.exception(e)
+            return 0
+
+        try: # check for position (same side)
+            positionQty = self.positions[symbol]['qty']
+            if positionQty * qty > 0: # same side
+                if abs(positionQty) < abs(qty): # position smaller than order
+                    qty -= positionQty # add to position
+                    self.log.debug(f'{symbol}\tadding {qty} to position of {positionQty}')
+                else: # position large enough
+                    self.log.debug(f'{symbol}\tposition of {positionQty} is large enough')
+                    return 0
+        except Exception as e:
+            self.log.exception(e)
+            return 0
+
+        except Exception as e:
+            self.log.exception(e)
+            return 0
+
+        # TODO: check risk
+
+        return qty
+
+    def queue_order(self, symbol, side):
+        try: # exit position
+            positionQty = self.positions[symbol]['qty']
+            if ((
+                side == 'buy' and
+                positionQty < 0
+            ) or (
+                side == 'sell' and
+                positionQty > 0
+            )):
+                longShort = 'long' if positionQty > 0 else 'short'
+                if symbol in self.pendingOrders[longShort]:
+                    self.log.debug(f'Pending order to exit {symbol} {longShort}')
+                else:
+                    self.log.debug(f'Queuing order to exit {symbol} {longShort}')
+                    self.queuedOrders[symbol] = {
+                        'algo': self,
+                        'longShort': longShort,
+                        'qty': -positionQty}
+        except Exception as e: self.log.exception(e)
+        
+        try: # enter position
+            if ((
+                side == 'buy' and
+                self.buyPow['long'] > c.minTradeBuyPow
+            ) or (
+                side == 'sell' and
+                self.buyPow['short'] > c.minTradeBuyPow
+            )):
+                # TODO: replace side w/ longShort
+                price = get_limit_price(symbol, side)
+                qty = self.get_trade_qty(symbol, side, price)
+                if qty:
+                    longShort = 'long' if qty > 0 else 'short'
+                    if symbol in self.pendingOrders[longShort]:
+                        self.log.debug(f'Pending order to enter {symbol} {longShort}')
+                    else:
+                        self.log.debug(f'Queuing order to enter {symbol} {longShort}')
+                        self.queuedOrders[symbol] = {
+                            'algo': self,
+                            'longShort': longShort,
+                            'qty': qty}
+                        self.buyPow[longShort] -= abs(qty) * price
+        except Exception as e: self.log.exception(e)
 
     def get_metrics(self, numDays):
         try: # calculate growth # FIX: overnight algos start and stop on different days
@@ -299,122 +268,8 @@ class Algo:
             except Exception: metrics['stdev'][longShort] = None
         return metrics
 
-    def get_price(self, symbol):
-        # symbol: e.g. 'AAPL'
-        try: return g.assets['min'][symbol].close[-1] # TODO: secBars
-        except Exception as e:
-            if (
-                symbol in g.assets['min'] and # ignore missing key (old asset)
-                len(g.assets['min'][symbol].index) # ignore empty dataframe (startup)
-            ):
-                self.log.exception(e, stack_info=True)
-            else:
-                self.log.debug(e)
-
-    def get_trade_qty(self, symbol, side, price, volumeMult=1, barFreq='min'):
-        # symbol: e.g. 'AAPL'
-        # side: 'buy' or 'sell'
-        # price: float
-        # volumeMult: float; volume limit multiplier
-        # barFreq: 'sec', 'min', or 'day'; bar frequency for checking volume limit
-        # returns: int; signed # of shares to trade (positive buy, negative sell)
-
-        try: # get buying power and equity
-            if side == 'buy':
-                equity = self.equity['long']
-                buyPow = self.buyPow['long']
-            elif side == 'sell':
-                equity = self.equity['short']
-                buyPow = self.buyPow['short']
-        except Exception as e:
-            self.log.exception(e)
-            return 0
-
-        try: # check price
-            if side == 'buy' and price < c.minLongPrice:
-                self.log.debug(f'{symbol}\tshare price < {c.minLongPrice}')
-                return 0
-            elif side == 'sell' and price < c.minShortPrice:
-                self.log.debug(f'{symbol}\tshare price < {c.minShortPrice}')
-                return 0
-        except Exception as e:
-            if price == None: self.log.debug(e)
-            else: self.log.exception(e)
-            return 0
-
-        try: # set quantity
-            qty = int(c.maxPosFrac * equity / price)
-            reason = 'max position fraction'
-        except Exception as e:
-            self.log.exception(e)
-            return 0
-
-        try: # check buying power
-            if qty * price > buyPow:
-                qty = int(buyPow / price)
-                reason = 'buying power'
-        except Exception as e:
-            self.log.exception(e)
-            return 0
-
-        # check zero
-        if qty == 0: return 0
-
-        try: # set sell quantity negative
-            if side == 'sell': qty *= -1
-            self.log.debug(f'{symbol}\t{reason} qty limit: {qty}')
-        except Exception as e:
-            self.log.exception(e)
-            return 0
-
-        try: # check for existing position
-            if symbol in self.positions:
-                posQty = self.positions[symbol]['qty']
-                if posQty * qty > 0: # same side as position
-                    if abs(posQty) < abs(qty): # position is smaller than order
-                        qty -= posQty # add to position
-                        self.log.debug(f'{symbol}\tadding {qty} to position of {posQty}')
-                    else: # position is large enough
-                        self.log.debug(f'{symbol}\tposition of {posQty} is large enough')
-                        return 0
-                elif posQty * qty < 0: # opposite side from position
-                    qty = -posQty # exit position
-                    self.log.debug(f'{symbol}\texiting position of {posQty}')
-        except Exception as e:
-            self.log.exception(e)
-            return 0
-
-        try: # check for existing orders
-            for orderID, order in self.orders.items():
-                if order['symbol'] == symbol:
-                    if order['qty'] * qty < 0: # opposite side
-                        self.alpaca.cancel_order(orderID)
-                        self.log.debug(f'{symbol}\tcancelling opposing order {orderID}')
-                    else: # same side
-                        self.log.debug(f'{symbol}\talready placed order for {order["qty"]}')
-                        return 0 # FIX: still place order?
-        except Exception as e:
-            self.log.exception(e)
-            return 0
-
-        # TODO: check risk
-
-        return qty
-
-    def set_live(self, live):
-        # live: bool; if algo uses real money
-
-        self.live = live
-        if live:
-            self.alpaca = g.alpacaLive
-            self.allOrders = g.liveOrders
-            self.allPositions = g.livePositions
-        else:
-            self.alpaca = g.alpacaPaper
-            self.allOrders = g.paperOrders
-            self.allPositions = g.paperPositions
-
     def update_equity(self):
+        # TODO: add pending orders
         # copy buying power
         self.equity = self.buyPow.copy()
 
@@ -458,7 +313,3 @@ class DayAlgo(Algo):
     def tick(self):
         try: self.func(self)
         except Exception as e: self.log.exception(e)
-
-# TODO: replace enter/exit_positions w/ queue_order(symbol, side)
-# reduce complexity of algo.func by moving position check to Algo
-# add c.minTradeBuyPow check to reduce CPU load

@@ -8,12 +8,12 @@ import scipy.optimize as opt
 log = getLogger('main')
 
 def allocate_buying_power(algos):
-    # algos: dict of lists of algos (keys: 'intraday', 'overnight', 'multiday', 'all')
+    # algos: dict of lists of algos; {intraday, overnight, multiday, all}
 
     log.warning('Allocating buying power')
 
     # get buying power
-    account = g.alpacaPaper.get_account() # FIX: paper
+    account = g.alpaca.get_account()
     buyPow = float(account.daytrading_buying_power)
     regTBuyPow = float(account.regt_buying_power)
     log.warning(f'Daytrading buying power: {buyPow}')

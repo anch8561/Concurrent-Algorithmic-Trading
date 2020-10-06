@@ -5,49 +5,33 @@ from algoClasses import DayAlgo, NightAlgo
 # NOTE: kwargs must be in correct order to generate correct name
 
 # intraday
-def momentum(self): # kwargs: enterNumBars, exitNumBars, barFreq
+def momentum(self): # kwargs: numBars, barFreq
     indicator = str(1) + '_' + self.barFreq + '_momentum'
     # NOTE: could use multibar momentum also
     
     for symbol, bars in g.assets[self.barFreq].items(): # TODO: parallel
-        try: # check for new bar
+        try:
             if not bars.ticked[-1]:
-                # enter position
-                if self.positions[symbol]['qty'] == 0: # no position
-                    if all(ii >= 0 for ii in bars[indicator][-self.enterNumBars:]): # momentum up
-                        self.enter_position(symbol, 'buy')
-                    elif all(ii <= 0 for ii in bars[indicator][-self.enterNumBars:]): # momentum down
-                        self.enter_position(symbol, 'sell')
-                
-                # exit position
-                if (
-                    (
-                        self.positions[symbol]['qty'] > 0 and # long
-                        all(ii <= 0 for ii in bars[indicator][-self.exitNumBars:]) # momentum down
-                    ) or (
-                        self.positions[symbol]['qty'] < 0 and # short
-                        all(ii >= 0 for ii in bars[indicator][-self.exitNumBars:]) # momentum up
-                    )
-                ):
-                    self.exit_position(symbol)
-
+                if all(ii >= 0 for ii in bars[indicator][-self.numUpBars:]): # momentum up
+                    self.queue_trade(symbol, 'buy')
+                elif all(ii <= 0 for ii in bars[indicator][-self.numDownBars:]): # momentum down
+                    self.queue_trade(symbol, 'sell')
         except Exception as e:
             if any(bars[indicator][-self.enterNumBars:] == None):
                 self.log.debug(f'{symbol}\tMissing indicator (None)')
             else:
-                numBars = max(self.enterNumBars, self.exitNumBars)
+                numBars = max(self.numUpBars, self.numDownBars)
                 self.log.exception(f'{symbol}\t{e}\n{bars.iloc[-numBars:]}')
 
 def init_intraday_algos():
     intradayAlgos = []
-    for exitNumBars in (1, 2, 3):
-        for enterNumBars in (1, 2, 3):
-            if enterNumBars >= exitNumBars:
-                intradayAlgos += [
-                    DayAlgo(momentum,
-                        enterNumBars = enterNumBars,
-                        exitNumBars = exitNumBars,
-                        barFreq = 'min')]
+    for numUpBars in (1, 2, 3):
+        for numDownBars in (1, 2, 3):
+            intradayAlgos += [
+                DayAlgo(momentum,
+                    numUpBars = numUpBars,
+                    numDownBars = numDownBars,
+                    barFreq = 'min')]
     return intradayAlgos
 
 # TODO: momentumMACD
@@ -63,8 +47,10 @@ def momentum_volume(self): # kwargs: numBars, barFreq
                 bars[indicatorPrefix + '_momentum'][-1] * \
                 bars[indicatorPrefix + '_volume_stdevs'][-1]
         except Exception as e:
-            if (bars[indicatorPrefix + '_momentum'][-1] == None or
-                bars[indicatorPrefix + '_volume_stdevs'][-1] == None):
+            if (
+                bars[indicatorPrefix + '_momentum'][-1] == None or
+                bars[indicatorPrefix + '_volume_stdevs'][-1] == None
+            ):
                 self.log.debug(f'{symbol}\tMissing indicator (None)')
             else:
                 self.log.exception(e)
@@ -74,13 +60,13 @@ def momentum_volume(self): # kwargs: numBars, barFreq
     for symbol in reversed(sortedSymbols):
         if self.buyPow['long'] < c.minTradeBuyPow: break
         if metrics[symbol] <= 0: break
-        self.enter_position(symbol, 'buy')
+        self.queue_trade(symbol, 'buy')
 
     # enter short
     for symbol in sortedSymbols:
         if self.buyPow['short'] < c.minTradeBuyPow: break
         if metrics[symbol] >= 0: break
-        self.enter_position(symbol, 'sell')
+        self.queue_trade(symbol, 'sell')
 
 def init_overnight_algos():
     overnightAlgos = []
@@ -97,27 +83,12 @@ def crossover(self): # kwargs: barFreq, fastNumBars, fastMovAvg, slowNumBars, sl
     slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_' + self.slowMovAvg
 
     for symbol, bars in g.assets[self.barFreq].items(): # TODO: parallel
-        try: # check for new bar
+        try:
             if not bars.ticked[-1]:
-                # enter position
-                if self.positions[symbol]['qty'] == 0: # no position
-                    if bars[fastInd][-1] < bars[slowInd][-1]: # oversold
-                        self.enter_position(symbol, 'buy')
-                    elif bars[fastInd][-1] > bars[slowInd][-1]: # overbought
-                        self.enter_position(symbol, 'sell')
-                
-                # exit position
-                if (
-                    (
-                        self.positions[symbol]['qty'] > 0 and # long
-                        bars[fastInd][-1] > bars[slowInd][-1] # overbought
-                    ) or (
-                        self.positions[symbol]['qty'] < 0 and # short
-                        bars[fastInd][-1] < bars[slowInd][-1] # oversold
-                    )
-                ):
-                    self.exit_position(symbol)
-
+                if bars[fastInd][-1] < bars[slowInd][-1]: # oversold
+                    self.queue_trade(symbol, 'buy')
+                elif bars[fastInd][-1] > bars[slowInd][-1]: # overbought
+                    self.queue_trade(symbol, 'sell')
         except Exception as e:
             if (
                 bars[fastInd][-1] == None or

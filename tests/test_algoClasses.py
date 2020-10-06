@@ -322,12 +322,6 @@ def test_get_trade_qty(testAlgo):
     assert testQty == 0
     testAlgo.orders = {}
 
-def test_set_live(testAlgo):
-    testAlgo.set_live(True)
-    assert testAlgo.alpaca == g.alpacaLive
-    assert testAlgo.allOrders == g.liveOrders
-    assert testAlgo.allPositions == g.livePositions
-
 def test_update_equity(testAlgo):
     # setup
     testAlgo.buyPow = {'long': 0, 'short': 0}
