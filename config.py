@@ -22,8 +22,7 @@ minDayVolume = 200000
 leverageStrings = ('leveraged', '1.5x', '2x', '3x')
 
 minTradeBuyPow = 100 # must be < minAllocBuyPow * maxPosFrac
-minLongPrice = 3
-minShortPrice = 17
+minPrice = {'long': 3, 'short': 17}
 
 barTimeout = 2.5 # number of bar periods without new bar before asset is removed
 tickDelay = timedelta(seconds=0.1) # time between last bar received and ticking algos

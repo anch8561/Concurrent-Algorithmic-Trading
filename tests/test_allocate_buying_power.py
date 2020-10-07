@@ -14,7 +14,7 @@ def test_allocate_buying_power(algos):
             regt_buying_power = '45678.90'
         def get_account(): # pylint: disable=no-method-argument
             return alpaca.account
-    g.alpacaPaper = alpaca
+    g.alpaca = alpaca
 
     # setup algo.get_metrics
     def metric(reset=False):

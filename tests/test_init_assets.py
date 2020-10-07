@@ -64,7 +64,7 @@ def alpaca():
     return alpaca
 
 def test_init_assets(alpaca, allAlgos, indicators):
-    g.alpacaPaper = alpaca
+    g.alpaca = alpaca
 
     # test
     with patch('init_assets.add_asset') as add_asset:
@@ -77,7 +77,7 @@ def test_init_assets(alpaca, allAlgos, indicators):
 
 def test_add_asset(alpaca, allAlgos, indicators):
     ## SETUP
-    g.alpacaPaper = alpaca
+    g.alpaca = alpaca
     g.positions['AAPL'] = 3
     allAlgos = [Algo(print, False)]
     class timing:
@@ -108,7 +108,7 @@ def test_add_asset(alpaca, allAlgos, indicators):
     assert g.assets['min']['AAPL'].equals(expectedAsset)
 
     # day asset
-    bars = g.alpacaPaper.polygon.historic_agg_v2().df
+    bars = g.alpaca.polygon.historic_agg_v2().df
     bars['ticked'] = False
     bars['1_day_momentum'] = 123
     assert_frame_equal(g.assets['day']['AAPL'], bars, False)

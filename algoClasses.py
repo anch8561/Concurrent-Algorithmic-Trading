@@ -1,6 +1,6 @@
 import config as c
 import globalVariables as g
-from tick_algos import get_limit_price
+from tick_algos import get_price, get_limit_price
 from timing import get_time_str, get_date
 
 import json
@@ -56,13 +56,9 @@ class Algo:
         # NOTE: may take multiple attempts
         noPositions = True
         for symbol, position in self.positions.items():
-            if position['qty']:
+            if position:
                 noPositions = False
-                longShort = 'long' if position['qty'] > 0 else 'short'
-                self.queuedOrders[longShort][symbol] = {
-                    'algo': self,
-                    'longShort': longShort,
-                    'qty': -position['qty']}
+                self.queue_order(symbol, 'exit')
         if noPositions:
             self.stop()
             self.active = False
@@ -114,118 +110,92 @@ class Algo:
                 except Exception as e: self.log.exception(e)
         except Exception as e: self.log.exception(e)
 
-    def get_trade_qty(self, symbol, side, price):
+    def get_trade_qty(self, symbol, longShort, price):
         # symbol: e.g. 'AAPL'
-        # side: 'buy' or 'sell'
+        # longShort: 'long' or 'short'
         # price: float; limit price
         # returns: int; signed # of shares to trade
 
         try: # get buying power and equity
-            if side == 'buy':
-                equity = self.equity['long']
-                buyPow = self.buyPow['long']
-            elif side == 'sell':
-                equity = self.equity['short']
-                buyPow = self.buyPow['short']
-            else:
-                self.log.error(f'Unknown side: {side}')
-                return 0
+            equity = self.equity[longShort]
+            buyPow = self.buyPow[longShort]
         except Exception as e:
-            self.log.exception(e)
-            return 0
+            self.log.exception(e); return 0
 
         try: # check price
-            if side == 'buy' and price < c.minLongPrice:
-                self.log.debug(f'{symbol}\tshare price < {c.minLongPrice}')
-                return 0
-            elif side == 'sell' and price < c.minShortPrice:
-                self.log.debug(f'{symbol}\tshare price < {c.minShortPrice}')
+            if price < c.minPrice[longShort]:
+                self.log.debug(f'{symbol}\tshare price < {c.minPrice[longShort]}')
                 return 0
         except Exception as e:
             if price == None: self.log.debug(e)
-            else: self.log.exception(e)
-            return 0
+            else: self.log.exception(e); return 0
 
-        try: # set quantity
+        try: # max position
             qty = int(c.maxPosFrac * equity / price)
             reason = 'max position'
         except Exception as e:
-            self.log.exception(e)
-            return 0
+            self.log.exception(e); return 0
 
         try: # check buying power
             if qty * price > buyPow:
                 qty = int(buyPow / price)
                 reason = 'buying power'
         except Exception as e:
-            self.log.exception(e)
-            return 0
+            self.log.exception(e); return 0
 
-        # check zero
-        if qty == 0: return 0
-
-        try: # set sell quantity negative
-            if side == 'sell': qty *= -1
+        try: # set short quantity negative
+            if longShort == 'short': qty *= -1
             self.log.debug(f'{symbol}\t{reason} qty limit: {qty}')
         except Exception as e:
-            self.log.exception(e)
-            return 0
+            self.log.exception(e); return 0
 
         try: # check for position (same side)
-            positionQty = self.positions[symbol]['qty']
-            if positionQty * qty > 0: # same side
-                if abs(positionQty) < abs(qty): # position smaller than order
-                    qty -= positionQty # add to position
-                    self.log.debug(f'{symbol}\tadding {qty} to position of {positionQty}')
+            position = self.positions[symbol]
+            if position * qty > 0: # same side
+                if abs(position) < abs(qty): # position smaller than order
+                    qty -= position # add to position
+                    self.log.debug(f'{symbol}\tadding {qty} to position of {position}')
                 else: # position large enough
-                    self.log.debug(f'{symbol}\tposition of {positionQty} is large enough')
+                    self.log.debug(f'{symbol}\tposition of {position} is large enough')
                     return 0
         except Exception as e:
-            self.log.exception(e)
-            return 0
-
-        except Exception as e:
-            self.log.exception(e)
-            return 0
+            self.log.exception(e); return 0
 
         # TODO: check risk
 
         return qty
 
-    def queue_order(self, symbol, side):
+    def queue_order(self, symbol, longShort):
+        # symbol: e.g. 'AAPL'
+        # longShort: 'long', 'short', or 'exit'
+
         try: # exit position
-            positionQty = self.positions[symbol]['qty']
+            position = self.positions[symbol]
             if ((
-                side == 'buy' and
-                positionQty < 0
+                longShort == 'long' and
+                position < 0
             ) or (
-                side == 'sell' and
-                positionQty > 0
+                longShort == 'short' and
+                position > 0
+            ) or (
+                longShort == 'exit'
             )):
-                longShort = 'long' if positionQty > 0 else 'short'
-                if symbol in self.pendingOrders[longShort]:
-                    self.log.debug(f'Pending order to exit {symbol} {longShort}')
+                shortLong = 'short' if position > 0 else 'long' # reversed bc exit
+                if symbol in self.pendingOrders[shortLong]:
+                    self.log.debug(f'Pending order to exit {symbol} {shortLong}')
                 else:
-                    self.log.debug(f'Queuing order to exit {symbol} {longShort}')
+                    self.log.debug(f'Queuing order to exit {symbol} {shortLong}')
                     self.queuedOrders[symbol] = {
                         'algo': self,
-                        'longShort': longShort,
-                        'qty': -positionQty}
+                        'longShort': shortLong,
+                        'qty': -position}
         except Exception as e: self.log.exception(e)
         
         try: # enter position
-            if ((
-                side == 'buy' and
-                self.buyPow['long'] > c.minTradeBuyPow
-            ) or (
-                side == 'sell' and
-                self.buyPow['short'] > c.minTradeBuyPow
-            )):
-                # TODO: replace side w/ longShort
-                price = get_limit_price(symbol, side)
-                qty = self.get_trade_qty(symbol, side, price)
+            if self.buyPow[longShort] > c.minTradeBuyPow:
+                price = get_limit_price(symbol, longShort)
+                qty = self.get_trade_qty(symbol, longShort, price)
                 if qty:
-                    longShort = 'long' if qty > 0 else 'short'
                     if symbol in self.pendingOrders[longShort]:
                         self.log.debug(f'Pending order to enter {symbol} {longShort}')
                     else:
@@ -235,7 +205,9 @@ class Algo:
                             'longShort': longShort,
                             'qty': qty}
                         self.buyPow[longShort] -= abs(qty) * price
-        except Exception as e: self.log.exception(e)
+        except Exception as e:
+            if longShort != 'exit':
+                self.log.exception(e)
 
     def get_metrics(self, numDays):
         try: # calculate growth # FIX: overnight algos start and stop on different days
@@ -275,19 +247,18 @@ class Algo:
 
         # check positions
         for symbol, position in self.positions.items():
-            qty = position['qty']
-            if qty: # get position value
-                longShort = 'long' if qty > 0 else 'short'
-                price = self.get_price(symbol)
-                try: self.equity[longShort] += price * abs(qty)
+            if position: # get position value
+                longShort = 'long' if position > 0 else 'short'
+                price = get_price(symbol)
+                try: self.equity[longShort] += price * abs(position)
                 except Exception as e:
                     if price == None: # exit position of unknown value
-                        self.log.warning(f'Exiting untracked position: {qty} {symbol}')
-                        self.exit_position(symbol)
+                        self.log.warning(f'Exiting untracked position: {position} {symbol}')
+                        self.queue_order(symbol, 'exit')
 
-                        price = self.alpaca.get_last_trade(symbol).price
-                        self.log.warning(f'Adding estimated value to equity: ${price * abs(qty)}')
-                        self.equity[longShort] += price * abs(qty)
+                        price = g.alpaca.get_last_trade(symbol).price
+                        self.log.warning(f'Adding estimated value to equity: ${price * abs(position)}')
+                        self.equity[longShort] += price * abs(position)
                     else: self.log.exception(e)
 
     def update_history(self, event):

@@ -16,9 +16,7 @@ def init_alpaca(environment):
     except Exception as e: log.exception(e)
 
     # initialize tradeapi
-    g.alpacaLive = tradeapi.REST(*creds.live)
-    g.alpacaPaper = tradeapi.REST(*creds.paper)
+    g.alpaca = tradeapi.REST(*creds.paper)
 
     # initialize StreamConn
-    g.connLive = tradeapi.StreamConn(*creds.live, data_stream='polygon')
-    g.connPaper = tradeapi.StreamConn(*creds.paper, data_stream='polygon')
+    g.conn = tradeapi.StreamConn(*creds.paper, data_stream='polygon')

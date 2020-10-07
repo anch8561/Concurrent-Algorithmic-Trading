@@ -67,18 +67,18 @@ def get_price(symbol):
         else:
             log.debug(e)
 
-def get_limit_price(symbol, side):
+def get_limit_price(symbol, longShort):
     # symbol: e.g. 'AAPL'
-    # side: 'buy' or 'sell'
+    # longShort: 'long' or 'short'
     
     try:
         price = get_price(symbol)
-        if side == 'buy':
+        if longShort == 'long':
             return price * (1 + c.limitPriceFrac)
-        elif side == 'sell':
+        elif longShort == 'short':
             return price * (1 - c.limitPriceFrac)
         else:
-            log.error(f'Unknown side: {side}')
+            log.error(f'Unknown longShort: {longShort}')
     except Exception as e:
         if price == None: log.debug(e)
         else: log.exception(e, stack_info=True)
@@ -96,32 +96,18 @@ def submit_order(combinedOrder):
     price = combinedOrder['price']
     algoOrders = combinedOrder['algoOrders']
 
-    # get side
-    side = 'buy' if orderQty > 0 else 'sell'
-    posQty = g.positions[symbol]['qty']
+    # log message
+    posQty = g.positions[symbol]
     logMsg = tab(symbol, 6) + 'Have ' + tab(posQty, 6) + \
         'Ordering ' + tab(orderQty, 6) + f'@ {price}'
-
-    # update buying power
-    for order in algoOrders.values():
-        longShort = order['longShort']
-        qty = order['qty']
-        if (( # enter
-            qty > 0 and
-            longShort == 'long'
-        ) or (
-            qty < 0 and
-            longShort == 'short'
-        )):
-            algoQty = algo.queuedOrders[symbol]['qty']
-            longShort = 'long' if algoQty > 0 else 'short'
-            algo.buyPow[longShort] -= abs(algoQty) * price
-            algoPosQty = algo.positions[symbol]['qty']
-            logMsg += tab(algo.name, 30) + 'Have ' + tab(algoPosQty, 6) + \
-                'Ordering ' + tab(algoQty, 6)
+    for order in algoOrders:
+        algoPosQty = order['algo'].positions[symbol]
+        logMsg += tab(algo.name, 30) + 'Have ' + tab(algoPosQty, 6) + \
+            'Ordering ' + tab(order['qty'], 6) + order['longShort']
+    log.info(logMsg)
 
     # submit order
-    log.info(logMsg)
+    side = 'buy' if orderQty > 0 else 'sell'
     if price == None:
         if enterExit == 'enter':
             log.warning('cannot enter position with market order')
@@ -192,7 +178,7 @@ def process_queued_orders(allAlgos):
     for symbol, order in globalOrderQueue:
         try: # check for zero crossing
             orderQty = order['qty']
-            positionQty = g.positions[symbol]['qty']
+            positionQty = g.positions[symbol]
             if (positionQty + orderQty) * positionQty < 0: # zero crossing
                 log.debug(f'{symbol}\tReducing order qty from {orderQty} to {-positionQty} (zero crossing)')
                 orderQty = -positionQty

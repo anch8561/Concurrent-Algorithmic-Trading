@@ -13,9 +13,9 @@ def momentum(self): # kwargs: numBars, barFreq
         try:
             if not bars.ticked[-1]:
                 if all(ii >= 0 for ii in bars[indicator][-self.numUpBars:]): # momentum up
-                    self.queue_trade(symbol, 'buy')
+                    self.queue_order(symbol, 'long')
                 elif all(ii <= 0 for ii in bars[indicator][-self.numDownBars:]): # momentum down
-                    self.queue_trade(symbol, 'sell')
+                    self.queue_order(symbol, 'short')
         except Exception as e:
             if any(bars[indicator][-self.enterNumBars:] == None):
                 self.log.debug(f'{symbol}\tMissing indicator (None)')
@@ -60,13 +60,13 @@ def momentum_volume(self): # kwargs: numBars, barFreq
     for symbol in reversed(sortedSymbols):
         if self.buyPow['long'] < c.minTradeBuyPow: break
         if metrics[symbol] <= 0: break
-        self.queue_trade(symbol, 'buy')
+        self.queue_order(symbol, 'long')
 
     # enter short
     for symbol in sortedSymbols:
         if self.buyPow['short'] < c.minTradeBuyPow: break
         if metrics[symbol] >= 0: break
-        self.queue_trade(symbol, 'sell')
+        self.queue_order(symbol, 'short')
 
 def init_overnight_algos():
     overnightAlgos = []
@@ -86,9 +86,9 @@ def crossover(self): # kwargs: barFreq, fastNumBars, fastMovAvg, slowNumBars, sl
         try:
             if not bars.ticked[-1]:
                 if bars[fastInd][-1] < bars[slowInd][-1]: # oversold
-                    self.queue_trade(symbol, 'buy')
+                    self.queue_order(symbol, 'long')
                 elif bars[fastInd][-1] > bars[slowInd][-1]: # overbought
-                    self.queue_trade(symbol, 'sell')
+                    self.queue_order(symbol, 'short')
         except Exception as e:
             if (
                 bars[fastInd][-1] == None or

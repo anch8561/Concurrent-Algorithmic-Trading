@@ -60,12 +60,12 @@ def tradeSetup(testAlgo):
         'limit': 222.22,
         'enterExit': 'enter',
         'algo': testAlgo}
-    g.positions['AAPL'] = {'qty': 23}
+    g.positions['AAPL'] = 23
 
     # algo
     testAlgo.buyPow = {'long': 10000, 'short': 10000}
     testAlgo.orders = g.orders.copy()
-    testAlgo.positions['AAPL'] = {'qty': 0}
+    testAlgo.positions['AAPL'] = 0
 
     # websocket
     class data:
@@ -105,7 +105,7 @@ def test_process_trade_EXIT_NO_LIMIT(tradeSetup):
 
     # test
     streaming.process_trade(data)
-    assert g.positions['AAPL']['qty'] == 11
+    assert g.positions['AAPL'] == 11
     assert testAlgo.positions['AAPL'] == 0
     assert testAlgo.buyPow == {'long': 12665.32, 'short': 10000}
     # 10000 + 12 * 222.11

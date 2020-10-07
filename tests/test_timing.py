@@ -45,7 +45,7 @@ def now(reloadGlobalVariables):
 
 def test_init_timing(alpaca):
     # setup
-    g.alpacaPaper = alpaca
+    g.alpaca = alpaca
     class timedate(datetime):
         _now = None
         def now(self): return timedate._now

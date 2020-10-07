@@ -4,7 +4,24 @@ import globalVariables as g
 import tick_algos
 
 from datetime import timedelta
+from pandas import DataFrame
 from unittest.mock import Mock, patch
+
+def test_get_price():
+    g.assets['min']['AAPL'] = DataFrame({'close': 111.11}, ['a'])
+    assert tick_algos.get_price('AAPL') == 111.11
+
+def test_get_limit_price():
+    with patch('tick_algos.get_price', return_value=111.11), \
+        patch('tick_algos.c.limitPriceFrac', 0.1):
+
+        # buy
+        price = tick_algos.get_limit_price('AAPL', 'long')
+        assert price == 122.221
+
+        # sell
+        price = tick_algos.get_limit_price('AAPL', 'short')
+        assert price == 99.999
 
 def test_tick_algos_NIGHT(algos, bars, indicators):
     # setup

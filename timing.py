@@ -7,7 +7,7 @@ log = getLogger('main')
 
 def init_timing():
     global calendar, i_today
-    calendar = g.alpacaPaper.get_calendar()
+    calendar = g.alpaca.get_calendar()
     todayStr = datetime.now(g.nyc).strftime('%Y-%m-%d')
     for ii, date in enumerate(calendar):
         if date._raw['date'] >= todayStr: # current or next market day

@@ -6,7 +6,7 @@ import globalVariables as g
 import json
 from os import remove
 from pandas import DataFrame
-from unittest.mock import Mock
+from unittest.mock import call, Mock, patch
 
 def test_Algo():
     testAlgo = algoClasses.Algo(print, a=1, b=2)
@@ -29,25 +29,61 @@ def test_deactivate(testAlgo):
 
     # open position
     testAlgo.positions = {
-        'AAPL': {'qty': 0},
-        'MSFT': {'qty': -1},
-        'TSLA': {'qty': 0}
-    }
+        'AAPL': 0,
+        'MSFT': -1,
+        'TSLA': 0}
     testAlgo.deactivate()
     testAlgo.stop.assert_not_called()
     assert testAlgo.active == True
 
     # typical
     testAlgo.positions = {
-        'AAPL': {'qty': 0},
-        'MSFT': {'qty': 0},
-        'TSLA': {'qty': 0}
-    }
+        'AAPL': 0,
+        'MSFT': 0,
+        'TSLA': 0}
     testAlgo.deactivate()
     testAlgo.stop.assert_called_once()
     assert testAlgo.active == False
 
-# NOTE: skip start and stop as they only call other methods
+def test_start(testAlgo):
+    # setup
+    testAlgo.update_equity = Mock()
+    testAlgo.update_history = Mock()
+    testAlgo.save_data = Mock()
+
+    # inactive
+    testAlgo.active = False
+    testAlgo.start()
+    testAlgo.update_equity.assert_not_called()
+    testAlgo.update_history.assert_not_called()
+    testAlgo.save_data.assert_not_called()
+
+    # active
+    testAlgo.active = True
+    testAlgo.start()
+    testAlgo.update_equity.assert_called_once()
+    testAlgo.update_history.assert_called_once_with('start')
+    testAlgo.save_data.assert_called_once()
+
+def test_stop(testAlgo):
+    # setup
+    testAlgo.update_equity = Mock()
+    testAlgo.update_history = Mock()
+    testAlgo.save_data = Mock()
+
+    # inactive
+    testAlgo.active = False
+    testAlgo.stop()
+    testAlgo.update_equity.assert_not_called()
+    testAlgo.update_history.assert_not_called()
+    testAlgo.save_data.assert_not_called()
+
+    # active
+    testAlgo.active = True
+    testAlgo.stop()
+    testAlgo.update_equity.assert_called_once()
+    testAlgo.update_history.assert_called_once_with('stop')
+    testAlgo.save_data.assert_called_once()
 
 def test_save_data(testAlgo):
     fileName = c.algoPath + testAlgo.name + '.data'
@@ -83,269 +119,99 @@ def test_load_data(testAlgo):
     testAlgo.load_data()
     assert testAlgo.equity == data['equity']
 
-def test_enter_position(testAlgo):
-    # setup
-    testAlgo.buyPow = {'long': 0, 'short': 0}
-    testAlgo.get_limit_price = Mock(return_value=111.11)
-    testAlgo.get_trade_qty = Mock(return_value=-2)
-    testAlgo.submit_order = Mock(side_effect=[False, True])
-
-    # order rejected
-    testAlgo.enter_position('AAPL', 'sell')
-    testAlgo.submit_order.assert_called_once_with(
-        'AAPL', -2, 111.11, 'enter')
-    assert testAlgo.buyPow == {'long': 0, 'short': 0}
-
-    # order accepted
-    testAlgo.submit_order.reset_mock()
-    testAlgo.enter_position('AAPL', 'sell')
-    testAlgo.submit_order.assert_called_once_with(
-        'AAPL', -2, 111.11, 'enter')
-    assert testAlgo.buyPow == {'long': 0, 'short': -222.22}
-
-def test_exit_position(testAlgo):
-    # setup
-    testAlgo.buyPow = {'long': 0, 'short': 0}
-    testAlgo.positions['AAPL'] = {'qty': -2}
-    testAlgo.get_limit_price = Mock(return_value=111.11)
-    testAlgo.submit_order = Mock()
-
-    # test
-    testAlgo.exit_position('AAPL')
-    testAlgo.submit_order.assert_called_once_with(
-        'AAPL', 2, 111.11, 'exit')
-
-def test_submit_order(testAlgo):
-    # setup
-    order = Mock()
-    order.id = '1234'
-    testAlgo.alpaca.submit_order = Mock(return_value=order)
-    
-    # zero quantity
-    testAlgo.alpaca.submit_order.reset_mock()
-    accepted = testAlgo.submit_order('AAPL', 0, 111.11, 'enter')
-    testAlgo.alpaca.submit_order.assert_not_called()
-    assert accepted == False
-    testAlgo.orders = {}
-    testAlgo.allOrders = {}
-
-    # allPositions zero crossing
-    testAlgo.alpaca.submit_order.reset_mock()
-    testAlgo.allPositions['AAPL'] = {'qty': 1}
-    accepted = testAlgo.submit_order('AAPL', -2, 111.11, 'enter')
-    testAlgo.alpaca.submit_order.assert_called_once_with(
-        symbol = 'AAPL',
-        qty = 1,
-        side = 'sell',
-        type = 'limit',
-        time_in_force = 'day',
-        limit_price = 111.11)
-    assert accepted == True
-    testAlgo.orders = {}
-    testAlgo.allOrders = {}
-    testAlgo.allPositions = {}
-    
-    # allOrders opposing short
-    testAlgo.alpaca.submit_order.reset_mock()
-    testAlgo.allOrders['5678'] = {
-                'symbol': 'AAPL',
-                'qty': -2,
-                'limit': 111.11,
-                'enterExit': 'enter',
-                'algo': testAlgo}
-    accepted = testAlgo.submit_order('AAPL', 2, 111.11, 'enter')
-    testAlgo.alpaca.submit_order.assert_not_called()
-    assert accepted == False
-    testAlgo.orders = {}
-    testAlgo.allOrders = {}
-
-    # market order (enter)
-    testAlgo.alpaca.submit_order.reset_mock()
-    accepted = testAlgo.submit_order('AAPL', -2, None, 'enter')
-    testAlgo.alpaca.submit_order.assert_not_called()
-    assert accepted == False
-    testAlgo.orders = {}
-    testAlgo.allOrders = {}
-    
-    # market order (exit)
-    testAlgo.alpaca.submit_order.reset_mock()
-    accepted = testAlgo.submit_order('AAPL', -2, None, 'exit')
-    testAlgo.alpaca.submit_order.assert_called_once_with(
-        symbol = 'AAPL',
-        qty = 2,
-        side = 'sell',
-        type = 'market',
-        time_in_force = 'day')
-    assert testAlgo.orders['1234'] == {
-        'symbol': 'AAPL',
-        'qty': -2,
-        'limit': None,
-        'enterExit': 'exit'}
-    assert testAlgo.allOrders['1234'] == {
-        'symbol': 'AAPL',
-        'qty': -2,
-        'limit': None,
-        'enterExit': 'exit',
-        'algo': testAlgo}
-    assert accepted == True
-    testAlgo.orders = {}
-    testAlgo.allOrders = {}
-
-    # typical
-    testAlgo.alpaca.submit_order.reset_mock()
-    accepted = testAlgo.submit_order('AAPL', -2, 111.11, 'enter')
-    testAlgo.alpaca.submit_order.assert_called_once_with(
-        symbol = 'AAPL',
-        qty = 2,
-        side = 'sell',
-        type = 'limit',
-        time_in_force = 'day',
-        limit_price = 111.11)
-    assert testAlgo.orders['1234'] == {
-        'symbol': 'AAPL',
-        'qty': -2,
-        'limit': 111.11,
-        'enterExit': 'enter'}
-    assert testAlgo.allOrders['1234'] == {
-        'symbol': 'AAPL',
-        'qty': -2,
-        'limit': 111.11,
-        'enterExit': 'enter',
-        'algo': testAlgo}
-    assert accepted == True
-    testAlgo.orders = {}
-    testAlgo.allOrders = {}
-
-# NOTE: skip cancel_all_orders as it depends on streaming
-
-def test_get_limit_price(testAlgo):
-    # setup
-    testAlgo.get_price = Mock(return_value=111.11)
-
-    # buy
-    testPrice = testAlgo.get_limit_price('AAPL', 'buy')
-    realPrice = 111.11 * (1 + c.limitPriceFrac)
-    assert testPrice == realPrice
-
-    # sell
-    testPrice = testAlgo.get_limit_price('AAPL', 'sell')
-    realPrice = 111.11 * (1 - c.limitPriceFrac)
-    assert testPrice == realPrice
-
-def test_get_metrics(): pass # TODO: WIP function
-
-def test_get_price(testAlgo):
-    g.assets['min']['AAPL'] = DataFrame({'close': 111.11}, ['a'])
-    assert testAlgo.get_price('AAPL') == 111.11
-
 def test_get_trade_qty(testAlgo):
     # setup
-    cash = 100 * c.minShortPrice / c.maxPosFrac
+    cash = 100 * c.minPrice['short'] / c.maxPosFrac
     testAlgo.equity['short'] = cash
     testAlgo.buyPow['short'] = cash
-    price = c.minShortPrice + 1
+    price = c.minPrice['short'] + 1
     maxPosQty = -int(c.maxPosFrac * cash / price)
-    volume = int(cash / c.minShortPrice)
-    g.assets['min']['AAPL'] = DataFrame({'volume': volume}, ['a'])
+    testAlgo.positions = {'AAPL': 0}
 
     # min price
     priceCopy = price
-    price = c.minShortPrice - 1
-    qty = testAlgo.get_trade_qty('AAPL', 'sell', price)
+    price = c.minPrice['short'] - 1
+    qty = testAlgo.get_trade_qty('AAPL', 'short', price)
     assert qty == 0
     price = priceCopy
 
-    # max position fraction
-    testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
+    # max position
+    testQty = testAlgo.get_trade_qty('AAPL', 'short', price)
     assert testQty == maxPosQty
 
     # buying power
     buyPowCopy = testAlgo.buyPow['short']
     testAlgo.buyPow['short'] = c.maxPosFrac * cash / 2
     realQty = -int(testAlgo.buyPow['short'] / price)
-    testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
+    testQty = testAlgo.get_trade_qty('AAPL', 'short', price)
     assert testQty == realQty
     testAlgo.buyPow['short'] = buyPowCopy
 
-    # volume
-    volumeCopy = volume
-    volume = maxPosQty - 1
-    g.assets['min']['AAPL'] = DataFrame({'volume': volume}, ['a'])
-    testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
-    assert testQty == -volume
-    volume = volumeCopy
-    g.assets['min']['AAPL'] = DataFrame({'volume': volume}, ['a'])
-    
-    # zero
-    buyPowCopy = testAlgo.buyPow['short']
-    testAlgo.buyPow['short'] = 0
-    testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
-    assert testQty == 0
-    testAlgo.buyPow['short'] = buyPowCopy
-
-    # existing position (same side smaller)
-    testAlgo.positions['AAPL'] = {'qty': -1}
-    testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
+    # position (same side smaller)
+    testAlgo.positions['AAPL'] = -1
+    testQty = testAlgo.get_trade_qty('AAPL', 'short', price)
     assert testQty == maxPosQty + 1
     testAlgo.positions = {}
 
-    # existing position (same side larger)
-    testAlgo.positions['AAPL'] = {'qty': maxPosQty-1}
-    testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
+    # position (same side larger)
+    testAlgo.positions['AAPL'] = maxPosQty-1
+    testQty = testAlgo.get_trade_qty('AAPL', 'short', price)
     assert testQty == 0
     testAlgo.positions = {}
 
-    # existing position (opposite side)
-    testAlgo.positions['AAPL'] = {'qty': 1}
-    testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
-    assert testQty == -1
-    testAlgo.positions = {}
-
-    # existing order (opposite side)
-    testAlgo.orders['1234'] = {
-        'symbol': 'AAPL',
-        'qty': 2,
-        'limit': 111.11,
-        'enterExit': 'enter'}
-    testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
-    testAlgo.alpaca.cancel_order.assert_called_once_with('1234')
+    # position (opposite side)
+    testAlgo.positions['AAPL'] = 1
+    testQty = testAlgo.get_trade_qty('AAPL', 'short', price)
     assert testQty == maxPosQty
-    testAlgo.orders = {}
+    testAlgo.positions = {}
 
-    # existing order (same side)
-    testAlgo.orders['1234'] = {
-        'symbol': 'AAPL',
-        'qty': -2,
-        'limit': 111.11,
-        'enterExit': 'enter'}
-    testQty = testAlgo.get_trade_qty('AAPL', 'sell', price)
-    assert testQty == 0
-    testAlgo.orders = {}
+def test_queue_order(testAlgo): assert 0
+
+def test_get_metrics(): pass # TODO: WIP function
 
 def test_update_equity(testAlgo):
     # setup
     testAlgo.buyPow = {'long': 0, 'short': 0}
     testAlgo.positions = {
-        'AAPL': {'qty': 2},
-        'MSFT': {'qty': -1},
-        'TSLA': {'qty': 0}
-    }
-
-    # typical
-    testAlgo.get_price = Mock(return_value=111.11)
-    testAlgo.update_equity()
-    assert testAlgo.equity == {'long': 222.22, 'short': 111.11}
-
-    # untracked position
-    testAlgo.get_price = Mock(return_value=None)
-    testAlgo.exit_position = Mock()
+        'AAPL': 2,
+        'MSFT': -1,
+        'TSLA': 0}
+    testAlgo.queue_order = Mock()
+    g.alpaca = Mock()
     last_trade = Mock()
     last_trade.price = 111.11
-    testAlgo.alpaca.get_last_trade = Mock(return_value=last_trade)
-    testAlgo.update_equity()
-    assert testAlgo.equity == {'long': 222.22, 'short': 111.11}
+    g.alpaca.get_last_trade = Mock(return_value=last_trade)
 
-# NOTE: skip update_history as it depends on timing
+    # typical
+    with patch('algoClasses.get_price', return_value=111.11):
+        testAlgo.update_equity()
+    assert testAlgo.equity == {'long': 222.22, 'short': 111.11}
+    testAlgo.queue_order.assert_not_called()
+
+    # untracked position
+    with patch('algoClasses.get_price', return_value=None):
+        testAlgo.update_equity()
+    assert testAlgo.equity == {'long': 222.22, 'short': 111.11}
+    calls = [
+        call('AAPL', 'exit'),
+        call('MSFT', 'exit')]
+    testAlgo.queue_order.assert_has_calls(calls)
+    testAlgo.queue_order.call_count == 2
+
+def test_update_history(testAlgo):
+    testAlgo.history = {}
+    with patch('algoClasses.get_date', return_value='1996-02-13'), \
+        patch('algoClasses.get_time_str', side_effect=['a', 'b']):
+        testAlgo.equity = 123
+        testAlgo.update_history('test1')
+        assert testAlgo.history == {'1996-02-13': {
+            'a': {'event': 'test1', 'equity': 123}}}
+
+        testAlgo.equity = 456
+        testAlgo.update_history('test2')
+        assert testAlgo.history == {'1996-02-13': {
+            'a': {'event': 'test1', 'equity': 123},
+            'b': {'event': 'test2', 'equity': 456}}}
 
 def test_NightAlgo_tick():
     # setup

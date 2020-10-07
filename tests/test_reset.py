@@ -11,8 +11,7 @@ def test_reset(allAlgos):
     g.positions['d'] = 321
 
     # test
-    with patch('globalVariables.alpacaLive'), \
-    patch('globalVariables.alpacaPaper'):
+    with patch('globalVariables.alpaca'):
         reset(allAlgos)
         g.alpaca.cancel_all_orders.assert_called_once()
         g.alpaca.close_all_positions.assert_called_once()
