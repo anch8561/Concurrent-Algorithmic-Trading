@@ -78,40 +78,44 @@ def compile_day_bars(indicators):
             g.assets['day'][symbol] = dayBars
         except Exception as e: log.exception(e)
 
-def process_algo_trade(symbol, algoOrder, orderPrice, fillQty, fillPrice):
+def process_algo_trade(symbol, algo, algoQty, orderPrice, fillQty, fillPrice):
     # symbol: e.g. 'AAPL'
-    # algoOrder: dict; {algo, longShort, qty}
+    # algoQty: int; signed # of shares ordered
     # orderPrice: float (or None for market orders to exit untracked positions)
-    # fillQty: float
+    # fillQty: int; signed # of shares filled
     # fillPrice: float
 
-    # unpack algo order
-    algo = algoOrder['algo']
-    longShort = algoOrder['longShort']
-    algoQty = algoOrder['qty']
-
-    # update algo position
+    # reduce fillQty to algoQty
     if (
         fillQty * algoQty < 0 or # opposite side
         abs(fillQty) > abs(algoQty) # fill
     ):
         fillQty = algoQty
-    algo.positions[symbol] += fillQty
 
     # update algo buying power
     if (( # enter
         algoQty > 0 and
-        longShort == 'long'
+        algo.longShort == 'long'
     ) or (
         algoQty < 0 and
-        longShort == 'short'
+        algo.longShort == 'short'
     )):
-        algo.buyPow[longShort] += abs(algoQty) * orderPrice - abs(fillQty) * fillPrice
+        algo.buyPow += abs(algoQty) * orderPrice - abs(fillQty) * fillPrice
     else: # exit
-        algo.buyPow[longShort] += abs(fillQty) * fillPrice
+        basis = algo.positions[symbol]['basis']
+        algo.buyPow += abs(fillQty) * basis + fillQty * (basis - fillPrice)
+        # long (unsigned qty): fillQty * fillPrice
+        # short (unsigned qty): fillQty * (2 * basis - fillPrice)
+
+    # update algo position
+    algo.positions[symbol]['qty'] += fillQty
+    if algo.positions[symbol]['qty'] == 0:
+        algo.positions[symbol]['basis'] = 0
+    else:
+        algo.positions[symbol]['basis'] += abs(fillQty) * fillPrice
     
     # remove order
-    algo.pendingOrders[longShort].pop(symbol)
+    algo.pendingOrders.pop(symbol)
 
 def process_trade(data):
     # NOTE: ignore 'new', 'partial_fill', 'done_for_day', and 'replaced' events

@@ -13,14 +13,14 @@ log = getLogger('main')
 def set_order_qty(newQty, combinedOrder):
     # TODO: unit test (random seed)
     # newQty: int
-    # combinedOrder: dict; {symbol, qty, price, algoOrders}
+    # combinedOrder: dict; {symbol, qty, price, algos}
     # returns: bool; success
     
     # unpack combined order
     symbol = combinedOrder['symbol']
     oldQty = combinedOrder['qty']
     price = combinedOrder['price']
-    algoOrders = combinedOrder['algoOrders']
+    algos = combinedOrder['algos']
 
     # check newQty
     if newQty == oldQty: return
@@ -28,30 +28,39 @@ def set_order_qty(newQty, combinedOrder):
         newQty * oldQty < 0 or # opposite signs
         abs(oldQty) < abs(newQty) # zero crossing
     ):
-        log.error(f'Cannot change combined order qty to {newQty}\n' +
-            f'{symbol}: {combinedOrder}')
+        log.error(f'Cannot change combined order qty to {newQty}\n{combinedOrder}')
         return
 
-    # reduce random algo qty until combined qty == newQty
+    # reduce random algo orders until combined qty == newQty
     delta = newQty - oldQty
-    cancelledOrders = []
-    for order in algoOrders:
-        algoQty = order['qty']
-        if algoQty * delta < 0: # opposite signs
-            longShort = order['longShort']
+    canceledAlgos = []
+    for algo in algos:
+        algoOrder = algo.queuedOrders[symbol]
+        algoQty = algoOrder['qty']
+        if algoQty * delta < 0: # opposite signs (can reduce algo order)
+            # restore buying power
+            if ( # enter
+                algoQty > 0 and
+                algo.longShort == 'long'
+            ) or (
+                algoQty < 0 and
+                algo.longShort == 'short'
+            ):
+                qty = min(abs(delta), abs(algoQty))
+                algo.buyPow += qty * price
+            
+            # cancel / reduce algo order
             if abs(algoQty) <= abs(delta): # zero crossing
-                order['algo'].buyPow[longShort] += abs(algoQty) * price
-                cancelledOrders.append(order)
-                order['qty'] = 0
-                delta += algoQty
+                canceledAlgos.append(algoOrder) # cancel order
+                delta += algoQty # reduce delta
             else:
-                order['algo'].buyPow[longShort] += abs(delta) * price
-                order['qty'] += delta
-                combinedOrder['qty'] = newQty
+                algoOrder += delta # reduce algo order
+                combinedOrder['qty'] = newQty # update combined order
                 break
     
-    # remove cancelled orders
-    for order in cancelledOrders: algoOrders.remove(order)
+    # remove canceled algos
+    for algo in canceledAlgos:
+        algos.pop(algo)
 
 def get_price(symbol):
     # symbol: e.g. 'AAPL'
@@ -84,22 +93,23 @@ def get_limit_price(symbol, side):
         else: log.exception(e, stack_info=True)
     
 def submit_order(combinedOrder):
-    # combinedOrder: dict; {symbol, qty, price, algoOrders}
+    # combinedOrder: dict; {symbol, qty, price, algos}
 
     # unpack combined order
     symbol = combinedOrder['symbol']
     orderQty = combinedOrder['qty']
     price = combinedOrder['price']
-    algoOrders = combinedOrder['algoOrders']
+    algos = combinedOrder['algos']
 
     # log message
-    posQty = g.positions[symbol]
-    logMsg = tab(symbol, 6) + 'Have ' + tab(posQty, 6) + \
+    positionQty = g.positions[symbol]
+    logMsg = tab(symbol, 6) + 'Have ' + tab(positionQty, 6) + \
         'Ordering ' + tab(orderQty, 6) + f'@ {price}'
-    for order in algoOrders:
-        algoPosQty = order['algo'].positions[symbol]
-        logMsg += tab(order['algo'].name, 30) + 'Have ' + tab(algoPosQty, 6) + \
-            'Ordering ' + tab(order['qty'], 6) + order['longShort']
+    for algo in algos:
+        algoOrderQty = algo.queuedOrders[symbol]
+        algoPositionQty = algo.positions[symbol]['qty']
+        logMsg += tab(algo.name, 30) + 'Have ' + tab(algoPositionQty, 6) + \
+            'Ordering ' + tab(algoOrderQty, 6)
     log.info(logMsg)
 
     # submit order
@@ -125,11 +135,9 @@ def submit_order(combinedOrder):
         'symbol': symbol,
         'qty': orderQty,
         'price': price,
-        'algoOrders': algoOrders}
-    for algoOrder in algoOrders:
-        algo = algoOrder['algo']
-        longShort = algoOrder['longShort']
-        algo.pendingOrders[longShort][symbol] = algoOrder
+        'algos': algos}
+    for algo in algos:
+        algo.pendingOrders[symbol] = algo.queuedOrders[symbol]
 
 class TradeData: # for combinedOrders w/ zero qty
     def __init__(self, combinedOrder):
@@ -162,9 +170,9 @@ def process_queued_orders(allAlgos):
                     'price': None, # don't know side yet
                     'algos': [algo]}
 
-    # check order qty and submit
+    # check for zero crossings
     for symbol, order in combinedOrders:
-        try: # check for zero crossing
+        try:
             orderQty = order['qty']
             positionQty = g.positions[symbol]
             if (positionQty + orderQty) * positionQty < 0: # zero crossing
@@ -191,7 +199,10 @@ def process_queued_orders(allAlgos):
             log.exception(e)
             continue
 
-        combinedOrders.clear()
+    # clear combinedOrders and queuedOrders
+    combinedOrders.clear()
+    for algo in allAlgos:
+        algo.queuedOrders.clear()
 
 def tick_algos(algos, indicators, state):
     # algos: dict of lists of algos; {intraday, overnight, multiday, all}

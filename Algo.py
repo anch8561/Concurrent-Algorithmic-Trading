@@ -15,22 +15,22 @@ except Exception: pass
 
 class Algo:
     def __init__(self, func, longShort, loadData=True, **kwargs):
-        self.func = func # function to determine when to enter and exit positions
+        self.func = func # function to determine when to buy and sell
+        self.longShort = longShort # 'long' or 'short'; algo equity type
 
-        # longShort, kwargs, name, and log
-        self.longShort = longShort
-        self.name = longShort + '_'
+        # kwargs, name, and log
+        self.name = ''
         for key, val in kwargs.items():
             self.__setattr__(key, val)
             self.name += str(val) + '_'
-        self.name += self.func.__name__
+        self.name += self.func.__name__ + '_' + longShort
         self.log = getLogger(self.name)
 
         # state variables
         self.active = True # whether algo might have open positions
         self.buyPow = 0 # updated continuously
         self.equity = 0 # updated daily
-        self.positions = {} # {symbol: {qty, basis}}
+        self.positions = {} # {symbol: {qty, buyPow}}
         self.pendingOrders = {} # {symbol: {algo, qty}}
         self.queuedOrders = {} # {symbol: {algo, qty}}
         self.history = {} # {date: {time: event, equity}}
@@ -187,6 +187,7 @@ class Algo:
             self.log.exception(e); return 0
 
         try: # check buying power
+            # TODO: shorts use max(limit, price*1.03) (must track for fills and exits)
             if qty * price > self.buyPow:
                 qty = int(self.buyPow / price)
                 reason = 'buying power'
@@ -236,15 +237,18 @@ class Algo:
         
         try: # enter position
             if self.buyPow > c.minTradeBuyPow:
+                # get qty
                 price = get_limit_price(symbol, side)
                 qty = self.get_trade_qty(symbol, side, price)
                 if qty == 0: return
+
+                # queue order
                 if symbol in self.pendingOrders:
                     self.log.debug(f'Pending order to enter {symbol}')
                 else:
                     self.log.debug(f'Queuing order to enter {symbol}')
                     self.queuedOrders[symbol] = qty
-                    self.buyPow -= abs(qty) * price # TODO: short basis
+                    self.buyPow -= abs(qty) * price
         except Exception as e:
             self.log.exception(e)
 

@@ -79,7 +79,7 @@ def test_add_asset(alpaca, allAlgos, indicators):
     ## SETUP
     g.alpaca = alpaca
     g.positions['AAPL'] = 3
-    allAlgos = [Algo(print, False)]
+    allAlgos = [Algo(print, 'short', False)]
     class timing:
         get_market_open = Mock(return_value='a')
         get_market_date = Mock()

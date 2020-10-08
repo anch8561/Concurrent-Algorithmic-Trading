@@ -9,8 +9,8 @@ from pandas import DataFrame
 from unittest.mock import call, Mock, patch
 
 def test_Algo():
-    testAlgo = Algo.Algo(print, a=1, b=2)
-    assert testAlgo.name == '1_2_print'
+    testAlgo = Algo.Algo(print, 'short', a=1, b=2)
+    assert testAlgo.name == '1_2_print_short'
 
 def test_activate(testAlgo):
     # setup
@@ -215,7 +215,7 @@ def test_update_history(testAlgo):
 
 def test_Algo_tick():
     # setup
-    testAlgo = Algo.Algo(print, False)
+    testAlgo = Algo.Algo(print, 'short', False)
     def func(self):
         assert self.ticking == True
     testAlgo.func = Mock(side_effect=func)
@@ -234,7 +234,7 @@ def test_Algo_tick():
 
 def test_Algo_tick():
     # setup
-    testAlgo = Algo.Algo(print, False)
+    testAlgo = Algo.Algo(print, 'short', False)
     def func(self):
         assert self.ticking == True
     testAlgo.func = Mock(side_effect=func)

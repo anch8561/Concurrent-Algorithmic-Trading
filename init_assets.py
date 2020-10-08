@@ -48,7 +48,7 @@ def add_asset(symbol, allAlgos, indicators):
     positionsLists += [algo.positions for algo in allAlgos]
     for positions in positionsLists:
         if symbol not in positions:
-            positions[symbol] = 0
+            positions[symbol] = {'qty': 0, 'basis': 0}
 
     # init second bars
     columns = ['open', 'high', 'low', 'close', 'volume', 'ticked']

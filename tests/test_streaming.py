@@ -58,12 +58,12 @@ def test_process_algo_trade(testAlgo):
         'algo': testAlgo,
         'longShort': 'short',
         'qty': -5}
-    testAlgo.pendingOrders['short']['AAPL'] = algoOrder
+    testAlgo.pendingOrders['AAPL'] = algoOrder
     testAlgo.positions['AAPL'] = 2
-    testAlgo.buyPow['short'] = 1000
+    testAlgo.buyPow = 1000
     streaming.process_algo_trade('AAPL', algoOrder, 9.90, -7, 10.00)
     assert testAlgo.positions['AAPL'] == -3
-    assert testAlgo.buyPow['short'] == 1000.50
+    assert testAlgo.buyPow == 1000.50
     assert 'AAPL' not in testAlgo.pendingOrders
 
     # enter opposite side
@@ -71,12 +71,12 @@ def test_process_algo_trade(testAlgo):
         'algo': testAlgo,
         'longShort': 'long',
         'qty': 5}
-    testAlgo.pendingOrders['long']['AAPL'] = algoOrder
+    testAlgo.pendingOrders['AAPL'] = algoOrder
     testAlgo.positions['AAPL'] = 2
-    testAlgo.buyPow['long'] = 1000
+    testAlgo.buyPow = 1000
     streaming.process_algo_trade('AAPL', algoOrder, 9.90, -7, 10.00)
     assert testAlgo.positions['AAPL'] == 7
-    assert testAlgo.buyPow['long'] == 1000.50
+    assert testAlgo.buyPow == 1000.50
     assert 'AAPL' not in testAlgo.pendingOrders
 
     # exit same side
@@ -84,12 +84,12 @@ def test_process_algo_trade(testAlgo):
         'algo': testAlgo,
         'longShort': 'short',
         'qty': 5}
-    testAlgo.pendingOrders['short']['AAPL'] = algoOrder
+    testAlgo.pendingOrders['AAPL'] = algoOrder
     testAlgo.positions['AAPL'] = 2
-    testAlgo.buyPow['short'] = 1000
+    testAlgo.buyPow = 1000
     streaming.process_algo_trade('AAPL', algoOrder, 9.90, -7, 10.00)
     assert testAlgo.positions['AAPL'] == 7
-    assert testAlgo.buyPow['short'] == 1050
+    assert testAlgo.buyPow == 1050
     assert 'AAPL' not in testAlgo.pendingOrders
 
     # exit opposite side
@@ -97,12 +97,12 @@ def test_process_algo_trade(testAlgo):
         'algo': testAlgo,
         'longShort': 'long',
         'qty': -5}
-    testAlgo.pendingOrders['long']['AAPL'] = algoOrder
+    testAlgo.pendingOrders['AAPL'] = algoOrder
     testAlgo.positions['AAPL'] = 2
-    testAlgo.buyPow['long'] = 1000
+    testAlgo.buyPow = 1000
     streaming.process_algo_trade('AAPL', algoOrder, 9.90, -7, 10.00)
     assert testAlgo.positions['AAPL'] == -3
-    assert testAlgo.buyPow['long'] == 1050
+    assert testAlgo.buyPow == 1050
     assert 'AAPL' not in testAlgo.pendingOrders
 
 @fixture
@@ -117,44 +117,44 @@ def tradeSetup():
 
     # algos
     algos = []
-    algo = Algo(print, False, n=0) # reduced exit
+    algo = Algo(print, 'short', False, n=0) # reduced exit
     algo.buyPow = {'long': 10000, 'short': 10000}
     algo.positions['AAPL'] = 8
-    algo.pendingOrders['long']['AAPL'] = {
+    algo.pendingOrders['AAPL'] = {
         'algo': algo,
         'longShort': 'long',
         'qty': -7}
-    algo.pendingOrders['short']['AAPL'] = {
+    algo.pendingOrders['AAPL'] = {
         'algo': algo,
         'longShort': 'short',
         'qty': -6}
     algos.append(algo)
     g.orders['54321']['algoOrders'].append(
-        algo.pendingOrders['long']['AAPL'])
+        algo.pendingOrders['AAPL'])
     g.orders['54321']['algoOrders'].append(
-        algo.pendingOrders['short']['AAPL'])
+        algo.pendingOrders['AAPL'])
 
-    algo = Algo(print, False, n=1) # opposing order
+    algo = Algo(print, 'short', False, n=1) # opposing order
     algo.buyPow = {'long': 10000, 'short': 10000}
     algo.positions['AAPL'] = -3
-    algo.pendingOrders['short']['AAPL'] = {
+    algo.pendingOrders['AAPL'] = {
         'algo': algo,
         'longShort': 'short',
         'qty': 3}
     algos.append(algo)
     g.orders['54321']['algoOrders'].append(
-        algo.pendingOrders['short']['AAPL'])
+        algo.pendingOrders['AAPL'])
     
-    algo = Algo(print, False, n=2) # cancelled exit
+    algo = Algo(print, 'short', False, n=2) # cancelled exit
     algo.buyPow = {'long': 10000, 'short': 10000}
     algo.positions['AAPL'] = 5
-    algo.pendingOrders['short']['AAPL'] = {
+    algo.pendingOrders['AAPL'] = {
         'algo': algo,
         'longShort': 'short',
         'qty': -2}
     algos.append(algo)
     g.orders['54321']['algoOrders'].append(
-        algo.pendingOrders['short']['AAPL'])
+        algo.pendingOrders['AAPL'])
 
     # websocket
     class data:
@@ -176,16 +176,16 @@ def test_process_trade_FILL(tradeSetup):
     assert '54321' not in g.orders
     assert algos[0].positions['AAPL'] == -5
     assert algos[0].buyPow == {'long': 10070, 'short': 10000.6}
-    assert '54321' not in algos[0].pendingOrders['long']
-    assert '54321' not in algos[0].pendingOrders['short']
+    assert '54321' not in algos[0].pendingOrders
+    assert '54321' not in algos[0].pendingOrders
     assert algos[1].positions['AAPL'] == 0
     assert algos[1].buyPow == {'long': 10000, 'short': 10030}
-    assert '54321' not in algos[1].pendingOrders['long']
-    assert '54321' not in algos[1].pendingOrders['short']
+    assert '54321' not in algos[1].pendingOrders
+    assert '54321' not in algos[1].pendingOrders
     assert algos[2].positions['AAPL'] == 3
     assert algos[2].buyPow == {'long': 10000, 'short': 10000.2}
-    assert '54321' not in algos[2].pendingOrders['long']
-    assert '54321' not in algos[2].pendingOrders['short']
+    assert '54321' not in algos[2].pendingOrders
+    assert '54321' not in algos[2].pendingOrders
 
 def test_process_trade_CANCELLED(tradeSetup):
     data, algos = tradeSetup
@@ -197,16 +197,16 @@ def test_process_trade_CANCELLED(tradeSetup):
     assert '54321' not in g.orders
     assert algos[0].positions['AAPL'] == -3
     assert algos[0].buyPow == {'long': 10070, 'short': 10020.6}
-    assert '54321' not in algos[0].pendingOrders['long']
-    assert '54321' not in algos[0].pendingOrders['short']
+    assert '54321' not in algos[0].pendingOrders
+    assert '54321' not in algos[0].pendingOrders
     assert algos[1].positions['AAPL'] == 0
     assert algos[1].buyPow == {'long': 10000, 'short': 10030}
-    assert '54321' not in algos[1].pendingOrders['long']
-    assert '54321' not in algos[1].pendingOrders['short']
+    assert '54321' not in algos[1].pendingOrders
+    assert '54321' not in algos[1].pendingOrders
     assert algos[2].positions['AAPL'] == 5
     assert algos[2].buyPow == {'long': 10000, 'short': 10020.2}
-    assert '54321' not in algos[2].pendingOrders['long']
-    assert '54321' not in algos[2].pendingOrders['short']
+    assert '54321' not in algos[2].pendingOrders
+    assert '54321' not in algos[2].pendingOrders
 
 def test_process_bars_backlog(indicators):
     # setup

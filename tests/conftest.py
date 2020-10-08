@@ -23,22 +23,22 @@ def reloadGlobalVariables():
 
 @fixture
 def testAlgo(reloadGlobalVariables):
-    return Algo(print, False)
+    return Algo(print, 'short', False)
 
 @fixture
 def algos(reloadGlobalVariables):
     intraday = [
-        Algo(print, False, n=0),
-        Algo(print, False, n=1)]
+        Algo(print, 'long', False, n=0),
+        Algo(print, 'short', False, n=1)]
     overnight = [
-        Algo(print, False, n=2),
-        Algo(print, False, n=3),
-        Algo(print, False, n=4)]
+        Algo(print, 'long', False, n=2),
+        Algo(print, 'short', False, n=3),
+        Algo(print, 'long', False, n=4)]
     multiday = [
-        Algo(print, False, n=5),
-        Algo(print, False, n=6),
-        Algo(print, False, n=7),
-        Algo(print, False, n=8)]
+        Algo(print, 'long', False, n=5),
+        Algo(print, 'short', False, n=6),
+        Algo(print, 'long', False, n=7),
+        Algo(print, 'short', False, n=8)]
     return {
         'intraday': intraday,
         'overnight': overnight,

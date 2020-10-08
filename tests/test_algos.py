@@ -8,7 +8,10 @@ from unittest.mock import Mock, call
 
 def test_momentum():
     # setup
-    testAlgo = Algo(algos.momentum, False,
+    testAlgo = Algo(
+        algos.momentum,
+        'short',
+        False,
         numUpBars = 3,
         numDownBars = 2,
         barFreq = 'min')
@@ -44,7 +47,10 @@ def test_momentum():
 
 def test_momentum_volume():
     # setup
-    testAlgo = Algo(algos.momentum_volume, False,
+    testAlgo = Algo(
+        algos.momentum_volume,
+        'short',
+        False,
         numBars = 2,
         barFreq = 'day')
     def queue_order(symbol, longShort):
@@ -85,7 +91,10 @@ def test_momentum_volume():
 
 def test_crossover():
     # setup
-    testAlgo = Algo(algos.crossover, False,
+    testAlgo = Algo(
+        algos.crossover,
+        'short',
+        False,
         barFreq = 'day',
         fastNumBars = 3,
         fastMovAvg = 'SMA',
