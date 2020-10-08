@@ -1,14 +1,14 @@
 import algos
 import config as c
 import globalVariables as g
-from algoClasses import DayAlgo, NightAlgo
+from Algo import Algo, Algo
 
 from pandas import DataFrame
 from unittest.mock import Mock, call
 
 def test_momentum():
     # setup
-    testAlgo = DayAlgo(algos.momentum, False,
+    testAlgo = Algo(algos.momentum, False,
         numUpBars = 3,
         numDownBars = 2,
         barFreq = 'min')
@@ -44,7 +44,7 @@ def test_momentum():
 
 def test_momentum_volume():
     # setup
-    testAlgo = NightAlgo(algos.momentum_volume, False,
+    testAlgo = Algo(algos.momentum_volume, False,
         numBars = 2,
         barFreq = 'day')
     def queue_order(symbol, longShort):
@@ -85,7 +85,7 @@ def test_momentum_volume():
 
 def test_crossover():
     # setup
-    testAlgo = DayAlgo(algos.crossover, False,
+    testAlgo = Algo(algos.crossover, False,
         barFreq = 'day',
         fastNumBars = 3,
         fastMovAvg = 'SMA',

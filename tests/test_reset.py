@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 def test_reset(allAlgos):
     # setup
-    allAlgos[1].orders['a'] = 123
+    allAlgos[1].pendingOrders['a'] = 123
     allAlgos[2].positions['b'] = 456
     g.orders['c'] = 987
     g.positions['d'] = 321
@@ -17,7 +17,7 @@ def test_reset(allAlgos):
         g.alpaca.close_all_positions.assert_called_once()
 
         for algo in allAlgos:
-            assert algo.orders == {}
+            assert algo.pendingOrders == {}
             assert algo.positions == {}
 
         assert g.orders == {}

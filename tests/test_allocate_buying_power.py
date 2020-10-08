@@ -1,6 +1,6 @@
 import config as c
 import globalVariables as g
-from algoClasses import Algo
+from Algo import Algo
 from allocate_buying_power import allocate_buying_power
 
 import numpy as np

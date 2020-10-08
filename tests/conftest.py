@@ -1,5 +1,5 @@
 import globalVariables as g
-from algoClasses import Algo
+from Algo import Algo
 from indicators import Indicator, momentum
 
 import logging
@@ -23,11 +23,7 @@ def reloadGlobalVariables():
 
 @fixture
 def testAlgo(reloadGlobalVariables):
-    testAlgo = Algo(print, False)
-    testAlgo.alpaca = Mock()
-    testAlgo.allOrders = {}
-    testAlgo.allPositions = {}
-    return testAlgo
+    return Algo(print, False)
 
 @fixture
 def algos(reloadGlobalVariables):

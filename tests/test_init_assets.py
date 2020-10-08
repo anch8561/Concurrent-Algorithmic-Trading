@@ -1,7 +1,7 @@
 import config as c
 import globalVariables as g
 import init_assets
-from algoClasses import Algo
+from Algo import Algo
 
 from importlib import reload
 from pandas import DataFrame

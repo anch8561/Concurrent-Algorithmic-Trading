@@ -1,4 +1,4 @@
-import algoClasses
+import Algo
 import config as c
 import globalVariables as g
 import tick_algos
@@ -6,6 +6,8 @@ import tick_algos
 from datetime import timedelta
 from pandas import DataFrame
 from unittest.mock import Mock, patch
+
+def set_order_qty(): assert 0
 
 def test_get_price():
     g.assets['min']['AAPL'] = DataFrame({'close': 111.11}, ['a'])
@@ -16,12 +18,16 @@ def test_get_limit_price():
         patch('tick_algos.c.limitPriceFrac', 0.1):
 
         # buy
-        price = tick_algos.get_limit_price('AAPL', 'long')
+        price = tick_algos.get_limit_price('AAPL', 'buy')
         assert price == 122.221
 
         # sell
-        price = tick_algos.get_limit_price('AAPL', 'short')
+        price = tick_algos.get_limit_price('AAPL', 'sell')
         assert price == 99.999
+
+def test_submit_order(): assert 0
+
+def test_process_queued_orders(): assert 0
 
 def test_tick_algos_NIGHT(algos, bars, indicators):
     # setup
@@ -31,8 +37,9 @@ def test_tick_algos_NIGHT(algos, bars, indicators):
         algo.deactivate = Mock()
         algo.tick = Mock()
     
-    with patch('tick_algos.streaming.process_backlogs') as process_backlogs:
-        ## DEATIVATION ATTEMPT
+    with patch('tick_algos.streaming.process_backlogs') as process_backlogs, \
+        patch('tick_algos.g.alpaca'):
+        ## DEACTIVATION ATTEMPT
 
         # setup
         g.assets['min'] = {'AAPL': bars.copy()}
@@ -96,7 +103,8 @@ def test_tick_algos_DAY(algos, bars, indicators):
         algo.tick = Mock()
     
     # test
-    with patch('tick_algos.streaming.process_backlogs') as process_backlogs:
+    with patch('tick_algos.streaming.process_backlogs') as process_backlogs, \
+        patch('tick_algos.g.alpaca'):
         state = tick_algos.tick_algos(algos, indicators, 'day')
         for algo in algos['intraday']:
             algo.activate.assert_not_called()
@@ -122,7 +130,8 @@ def test_tick_algos_NIGHT_CLOSING_SOON(algos, bars, indicators):
         algo.deactivate = Mock()
         algo.tick = Mock()
     
-    with patch('tick_algos.streaming.process_backlogs') as process_backlogs:
+    with patch('tick_algos.streaming.process_backlogs') as process_backlogs, \
+        patch('tick_algos.g.alpaca'):
         ## DEATIVATION ATTEMPT
 
         # setup
@@ -155,7 +164,8 @@ def test_tick_algos_DAY_CLOSING_SOON(algos, bars, indicators):
         algo.deactivate = Mock()
         algo.tick = Mock()
     
-    with patch('tick_algos.streaming.process_backlogs') as process_backlogs:
+    with patch('tick_algos.streaming.process_backlogs') as process_backlogs, \
+        patch('tick_algos.g.alpaca'):
         ## DEATIVATION ATTEMPT
 
         # setup

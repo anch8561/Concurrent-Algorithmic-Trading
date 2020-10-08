@@ -1,5 +1,5 @@
 
-import algoClasses
+import Algo
 import config as c
 import globalVariables as g
 
@@ -9,7 +9,7 @@ from pandas import DataFrame
 from unittest.mock import call, Mock, patch
 
 def test_Algo():
-    testAlgo = algoClasses.Algo(print, a=1, b=2)
+    testAlgo = Algo.Algo(print, a=1, b=2)
     assert testAlgo.name == '1_2_print'
 
 def test_activate(testAlgo):
@@ -183,13 +183,13 @@ def test_update_equity(testAlgo):
     g.alpaca.get_last_trade = Mock(return_value=last_trade)
 
     # typical
-    with patch('algoClasses.get_price', return_value=111.11):
+    with patch('Algo.get_price', return_value=111.11):
         testAlgo.update_equity()
     assert testAlgo.equity == {'long': 222.22, 'short': 111.11}
     testAlgo.queue_order.assert_not_called()
 
     # untracked position
-    with patch('algoClasses.get_price', return_value=None):
+    with patch('Algo.get_price', return_value=None):
         testAlgo.update_equity()
     assert testAlgo.equity == {'long': 222.22, 'short': 111.11}
     calls = [
@@ -200,8 +200,8 @@ def test_update_equity(testAlgo):
 
 def test_update_history(testAlgo):
     testAlgo.history = {}
-    with patch('algoClasses.get_date', return_value='1996-02-13'), \
-        patch('algoClasses.get_time_str', side_effect=['a', 'b']):
+    with patch('Algo.get_date', return_value='1996-02-13'), \
+        patch('Algo.get_time_str', side_effect=['a', 'b']):
         testAlgo.equity = 123
         testAlgo.update_history('test1')
         assert testAlgo.history == {'1996-02-13': {
@@ -213,9 +213,9 @@ def test_update_history(testAlgo):
             'a': {'event': 'test1', 'equity': 123},
             'b': {'event': 'test2', 'equity': 456}}}
 
-def test_NightAlgo_tick():
+def test_Algo_tick():
     # setup
-    testAlgo = algoClasses.NightAlgo(print, False)
+    testAlgo = Algo.Algo(print, False)
     def func(self):
         assert self.ticking == True
     testAlgo.func = Mock(side_effect=func)
@@ -232,9 +232,9 @@ def test_NightAlgo_tick():
     testAlgo.tick()
     testAlgo.func.assert_called_once_with(testAlgo)
 
-def test_DayAlgo_tick():
+def test_Algo_tick():
     # setup
-    testAlgo = algoClasses.DayAlgo(print, False)
+    testAlgo = Algo.Algo(print, False)
     def func(self):
         assert self.ticking == True
     testAlgo.func = Mock(side_effect=func)

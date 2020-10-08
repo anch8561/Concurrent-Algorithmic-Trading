@@ -12,7 +12,7 @@ def reset(allAlgos):
     
     # reset algo orders and positions
     for algo in allAlgos:
-        algo.orders.clear()
+        algo.pendingOrders.clear()
         algo.positions.clear()
 
     # reset global orders and positions

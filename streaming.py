@@ -78,14 +78,25 @@ def compile_day_bars(indicators):
             g.assets['day'][symbol] = dayBars
         except Exception as e: log.exception(e)
 
-def process_algo_trade(algoOrder, symbol, orderPrice, fillPrice):
+def process_algo_trade(symbol, algoOrder, orderPrice, fillQty, fillPrice):
+    # symbol: e.g. 'AAPL'
+    # algoOrder: dict; {algo, longShort, qty}
+    # orderPrice: float (or None for market orders to exit untracked positions)
+    # fillQty: float
+    # fillPrice: float
+
     # unpack algo order
     algo = algoOrder['algo']
     longShort = algoOrder['longShort']
     algoQty = algoOrder['qty']
 
     # update algo position
-    algo.positions[symbol] += algoQty
+    if (
+        fillQty * algoQty < 0 or # opposite side
+        abs(fillQty) > abs(algoQty) # fill
+    ):
+        fillQty = algoQty
+    algo.positions[symbol] += fillQty
 
     # update algo buying power
     if (( # enter
@@ -95,9 +106,12 @@ def process_algo_trade(algoOrder, symbol, orderPrice, fillPrice):
         algoQty < 0 and
         longShort == 'short'
     )):
-        algo.buyPow[longShort] += abs(algoQty) * (orderPrice - fillPrice)
+        algo.buyPow[longShort] += abs(algoQty) * orderPrice - abs(fillQty) * fillPrice
     else: # exit
-        algo.buyPow[longShort] += abs(algoQty) * fillPrice
+        algo.buyPow[longShort] += abs(fillQty) * fillPrice
+    
+    # remove order
+    algo.pendingOrders[longShort].pop(symbol)
 
 def process_trade(data):
     # NOTE: ignore 'new', 'partial_fill', 'done_for_day', and 'replaced' events
@@ -129,48 +143,36 @@ def process_trade(data):
                 log.warning(f'Unknown order id\n{data}')
                 return
 
-        try: # update global position
+        try: # update global position and remove order
             g.positions[symbol] += fillQty
-        except:
-            log.exception(f'{e}\n{data}')
-            return
-            
-        try: # add opposing trades to fill qty
-            for algoOrder in algoOrders:
-                algoQty = algoOrder['qty']
-                if algoQty * fillQty < 0: # opposite side
-                    fillQty -= algoQty # increase fill qty
-                    process_algo_trade(algoOrder, symbol, orderPrice, fillPrice)
-        except:
-            log.exception(f'{e}\n{data}')
-            return
-            
-        try: # process all trades
-            for algoOrder in algoOrders:
-                # process remaining trades
-                algoQty = algoOrder['qty']
-                if algoQty * fillQty > 0: # same side (and fillQty != 0)
-                    if abs(algoQty) > abs(fillQty): # zero crossing
-                        algoOrder['qty'] = fillQty
-                        fillQty = 0
-                    else:
-                        fillQty -= algoQty
-                    process_algo_trade(algoOrder, symbol, orderPrice, fillPrice)
-                
-                # remove algo orders
-                algo = algoOrder['algo']
-                longShort = algoOrder['longShort']
-                algo.pendingOrders[longShort].pop(symbol)
-        except Exception as e:
-            log.exception(f'{e}\n{data}')
-            return
-
-        try: # remove order
             g.orders.pop(orderID)
         except Exception as e:
             if orderID != 'internal':
                 log.exception(f'{e}\n{data}')
                 return
+            
+        try: # process opposing algo trades
+            for algoOrder in algoOrders:
+                algoQty = algoOrder['qty']
+                if algoQty * fillQty < 0: # opposite side
+                    process_algo_trade(symbol, algoOrder, orderPrice, fillQty, fillPrice)
+                    fillQty -= algoQty # increase fill qty
+        except:
+            log.exception(f'{e}\n{data}')
+            return
+            
+        try: # process remaining algo trades
+            for algoOrder in algoOrders:
+                algoQty = algoOrder['qty']
+                if algoQty * fillQty >= 0: # same side or zero
+                    process_algo_trade(symbol, algoOrder, orderPrice, fillQty, fillPrice)
+                    if abs(algoQty) > abs(fillQty): # zero crossing
+                        fillQty = 0
+                    else:
+                        fillQty -= algoQty
+        except Exception as e:
+            log.exception(f'{e}\n{data}')
+            return
 
 def process_bars_backlog(indicators):
     # indicators: dict of lists of indicators; {sec, min, day, all}

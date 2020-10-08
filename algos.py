@@ -1,6 +1,6 @@
 import config as c
 import globalVariables as g
-from algoClasses import DayAlgo, NightAlgo
+from Algo import Algo
 
 # NOTE: kwargs must be in correct order to generate correct name
 
@@ -28,7 +28,7 @@ def init_intraday_algos():
     for numUpBars in (1, 2, 3):
         for numDownBars in (1, 2, 3):
             intradayAlgos += [
-                DayAlgo(momentum,
+                Algo(momentum,
                     numUpBars = numUpBars,
                     numDownBars = numDownBars,
                     barFreq = 'min')]
@@ -72,7 +72,7 @@ def init_overnight_algos():
     overnightAlgos = []
     for numBars in (3, 5, 10):
         overnightAlgos.append(
-            NightAlgo(momentum_volume,
+            Algo(momentum_volume,
                 numBars=numBars,
                 barFreq='day'))
     return overnightAlgos
@@ -105,7 +105,7 @@ def init_multiday_algos():
             for fastNumBars in (3, 5, 10):
                 if slowNumBars > fastNumBars:
                     multidayAlgos += [
-                        DayAlgo(crossover,
+                        Algo(crossover,
                             barFreq = 'day',
                             fastNumBars = fastNumBars,
                             fastMovAvg = movAvg,

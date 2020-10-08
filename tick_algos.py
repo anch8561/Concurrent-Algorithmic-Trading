@@ -1,7 +1,7 @@
 import config as c
 import globalVariables as g
 import streaming
-
+from tab import tab
 
 import random
 from logging import getLogger
@@ -67,25 +67,21 @@ def get_price(symbol):
         else:
             log.debug(e)
 
-def get_limit_price(symbol, longShort):
+def get_limit_price(symbol, side):
     # symbol: e.g. 'AAPL'
-    # longShort: 'long' or 'short'
+    # side: 'buy' or 'sell'
     
     try:
         price = get_price(symbol)
-        if longShort == 'long':
+        if side == 'buy':
             return price * (1 + c.limitPriceFrac)
-        elif longShort == 'short':
+        elif side == 'sell':
             return price * (1 - c.limitPriceFrac)
         else:
-            log.error(f'Unknown longShort: {longShort}')
+            log.error(f'Unknown side: {side}')
     except Exception as e:
         if price == None: log.debug(e)
         else: log.exception(e, stack_info=True)
-            
-def tab(text, numSpaces):
-    text = str(text)
-    return text + ' ' * (numSpaces - len(text) - 1) + ' '
     
 def submit_order(combinedOrder):
     # combinedOrder: dict; {symbol, qty, price, algoOrders}
@@ -102,16 +98,13 @@ def submit_order(combinedOrder):
         'Ordering ' + tab(orderQty, 6) + f'@ {price}'
     for order in algoOrders:
         algoPosQty = order['algo'].positions[symbol]
-        logMsg += tab(algo.name, 30) + 'Have ' + tab(algoPosQty, 6) + \
+        logMsg += tab(order['algo'].name, 30) + 'Have ' + tab(algoPosQty, 6) + \
             'Ordering ' + tab(order['qty'], 6) + order['longShort']
     log.info(logMsg)
 
     # submit order
     side = 'buy' if orderQty > 0 else 'sell'
     if price == None:
-        if enterExit == 'enter':
-            log.warning('cannot enter position with market order')
-            return False
         order = g.alpaca.submit_order(
             symbol = symbol,
             qty = abs(orderQty),
@@ -127,19 +120,16 @@ def submit_order(combinedOrder):
             time_in_force = 'day',
             limit_price = price)
 
-    # add to orders and allOrders
+    # add to orders list
     g.orders[order.id] = {
         'symbol': symbol,
         'qty': orderQty,
-        'limit': price,
-        'enterExit': enterExit,
-        'algos': algos}
-    for algo in algos:
-        algo.openOrders[order.id] = {
-            'symbol': symbol,
-            'qty': orderQty,
-            'limit': price,
-            'enterExit': enterExit}
+        'price': price,
+        'algoOrders': algoOrders}
+    for algoOrder in algoOrders:
+        algo = algoOrder['algo']
+        longShort = algoOrder['longShort']
+        algo.pendingOrders[longShort][symbol] = algoOrder
 
 class TradeData: # for combinedOrders w/ zero qty
     def __init__(self, combinedOrder):
@@ -159,23 +149,21 @@ def process_queued_orders(allAlgos):
     log.info('Processing queued orders')
 
     # combine orders
-    globalOrderQueue = {}
+    combinedOrders = {}
     for algo in allAlgos:
-        for longShort in ('long', 'short'):
-            for algoOrder in algo.queuedOrders[longShort]:
-                symbol = algoOrder['symbol']
-                if symbol in globalOrderQueue:
-                    globalOrderQueue[symbol]['qty'] += algoOrder['qty']
-                    globalOrderQueue[symbol]['algoOrders'].append(algoOrder)
-                else:
-                    globalOrderQueue[symbol] = {
-                        'symbol': symbol,
-                        'qty': algoOrder['qty'],
-                        'price': None, # don't know side yet
-                        'algoOrders': [algoOrder]}
+        for symbol, qty in algo.queuedOrders.items():
+            if symbol in combinedOrders:
+                combinedOrders[symbol]['qty'] += qty
+                combinedOrders[symbol]['algos'].append(algo)
+            else:
+                combinedOrders[symbol] = {
+                    'symbol': symbol,
+                    'qty': qty,
+                    'price': None, # don't know side yet
+                    'algos': [algo]}
 
     # check order qty and submit
-    for symbol, order in globalOrderQueue:
+    for symbol, order in combinedOrders:
         try: # check for zero crossing
             orderQty = order['qty']
             positionQty = g.positions[symbol]
@@ -196,12 +184,14 @@ def process_queued_orders(allAlgos):
                 submit_order(order)
             else: # process internally
                 order['price'] = get_price(symbol)
+                if order['price'] == None:
+                    order['price'] = g.alpaca.get_last_trade(symbol).price
                 streaming.process_trade(TradeData(order))
         except Exception as e:
             log.exception(e)
             continue
 
-        globalOrderQueue.clear()
+        combinedOrders.clear()
 
 def tick_algos(algos, indicators, state):
     # algos: dict of lists of algos; {intraday, overnight, multiday, all}
