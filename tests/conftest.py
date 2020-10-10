@@ -1,5 +1,5 @@
 import globalVariables as g
-from Algo import Algo
+from algoClass import Algo
 from indicators import Indicator, momentum
 
 import logging
@@ -29,14 +29,14 @@ def testAlgo(reloadGlobalVariables):
 def algos(reloadGlobalVariables):
     intraday = [
         Algo(print, 'long', False, n=0),
-        Algo(print, 'short', False, n=1)]
-    overnight = [
+        Algo(print, 'short', False, n=1),
         Algo(print, 'long', False, n=2),
-        Algo(print, 'short', False, n=3),
-        Algo(print, 'long', False, n=4)]
+        Algo(print, 'short', False, n=3)]
+    overnight = [
+        Algo(print, 'long', False, n=4),
+        Algo(print, 'short', False, n=5),
+        Algo(print, 'long', False, n=6)]
     multiday = [
-        Algo(print, 'long', False, n=5),
-        Algo(print, 'short', False, n=6),
         Algo(print, 'long', False, n=7),
         Algo(print, 'short', False, n=8)]
     return {
