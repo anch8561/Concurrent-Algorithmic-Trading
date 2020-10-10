@@ -1,5 +1,5 @@
 
-import Algo
+import algoClass
 import config as c
 import globalVariables as g
 
@@ -9,7 +9,7 @@ from pandas import DataFrame
 from unittest.mock import call, Mock, patch
 
 def test_Algo():
-    testAlgo = Algo.Algo(print, 'short', a=1, b=2)
+    testAlgo = algoClass.Algo(print, 'short', a=1, b=2)
     assert testAlgo.name == '1_2_print_short'
 
 def test_activate(testAlgo):
@@ -29,18 +29,18 @@ def test_deactivate(testAlgo):
 
     # open position
     testAlgo.positions = {
-        'AAPL': 0,
-        'MSFT': -1,
-        'TSLA': 0}
+        'AAPL': {'qty': 0},
+        'MSFT': {'qty': -1},
+        'TSLA': {'qty': 0}}
     testAlgo.deactivate()
     testAlgo.stop.assert_not_called()
     assert testAlgo.active == True
 
     # typical
     testAlgo.positions = {
-        'AAPL': 0,
-        'MSFT': 0,
-        'TSLA': 0}
+        'AAPL': {'qty': 0},
+        'MSFT': {'qty': 0},
+        'TSLA': {'qty': 0}}
     testAlgo.deactivate()
     testAlgo.stop.assert_called_once()
     assert testAlgo.active == False
@@ -119,89 +119,32 @@ def test_load_data(testAlgo):
     testAlgo.load_data()
     assert testAlgo.equity == data['equity']
 
-def test_get_trade_qty(testAlgo):
-    # setup
-    cash = 100 * c.minPrice['short'] / c.maxPosFrac
-    testAlgo.equity['short'] = cash
-    testAlgo.buyPow['short'] = cash
-    price = c.minPrice['short'] + 1
-    maxPosQty = -int(c.maxPosFrac * cash / price)
-    testAlgo.positions = {'AAPL': 0}
-
-    # min price
-    priceCopy = price
-    price = c.minPrice['short'] - 1
-    qty = testAlgo.get_trade_qty('AAPL', 'short', price)
-    assert qty == 0
-    price = priceCopy
-
-    # max position
-    testQty = testAlgo.get_trade_qty('AAPL', 'short', price)
-    assert testQty == maxPosQty
-
-    # buying power
-    buyPowCopy = testAlgo.buyPow['short']
-    testAlgo.buyPow['short'] = c.maxPosFrac * cash / 2
-    realQty = -int(testAlgo.buyPow['short'] / price)
-    testQty = testAlgo.get_trade_qty('AAPL', 'short', price)
-    assert testQty == realQty
-    testAlgo.buyPow['short'] = buyPowCopy
-
-    # position (same side smaller)
-    testAlgo.positions['AAPL'] = -1
-    testQty = testAlgo.get_trade_qty('AAPL', 'short', price)
-    assert testQty == maxPosQty + 1
-    testAlgo.positions = {}
-
-    # position (same side larger)
-    testAlgo.positions['AAPL'] = maxPosQty-1
-    testQty = testAlgo.get_trade_qty('AAPL', 'short', price)
-    assert testQty == 0
-    testAlgo.positions = {}
-
-    # position (opposite side)
-    testAlgo.positions['AAPL'] = 1
-    testQty = testAlgo.get_trade_qty('AAPL', 'short', price)
-    assert testQty == maxPosQty
-    testAlgo.positions = {}
-
-def test_queue_order(testAlgo): assert 0
-
-def test_get_metrics(): pass # TODO: WIP function
-
 def test_update_equity(testAlgo):
     # setup
-    testAlgo.buyPow = {'long': 0, 'short': 0}
-    testAlgo.positions = {
-        'AAPL': 2,
-        'MSFT': -1,
-        'TSLA': 0}
-    testAlgo.queue_order = Mock()
-    g.alpaca = Mock()
-    last_trade = Mock()
-    last_trade.price = 111.11
-    g.alpaca.get_last_trade = Mock(return_value=last_trade)
+    testAlgo.buyPow = 10
+    testAlgo.positions = {'AAPL': {'qty': -1}}
+    testAlgo.exit_position = Mock()
 
     # typical
-    with patch('Algo.get_price', return_value=111.11):
+    with patch('algoClass.get_price', return_value=111.11):
         testAlgo.update_equity()
-    assert testAlgo.equity == {'long': 222.22, 'short': 111.11}
-    testAlgo.queue_order.assert_not_called()
+    assert testAlgo.equity == 121.11
+    testAlgo.exit_position.assert_not_called()
 
     # untracked position
-    with patch('Algo.get_price', return_value=None):
+    g.alpaca = Mock()
+    last_trade = Mock()
+    last_trade.price = 111.22
+    g.alpaca.get_last_trade = Mock(return_value=last_trade)
+    with patch('algoClass.get_price', return_value=None):
         testAlgo.update_equity()
-    assert testAlgo.equity == {'long': 222.22, 'short': 111.11}
-    calls = [
-        call('AAPL', 'exit'),
-        call('MSFT', 'exit')]
-    testAlgo.queue_order.assert_has_calls(calls)
-    testAlgo.queue_order.call_count == 2
+    assert testAlgo.equity == 121.22
+    testAlgo.exit_position.called_once_with('AAPL')
 
 def test_update_history(testAlgo):
     testAlgo.history = {}
-    with patch('Algo.get_date', return_value='1996-02-13'), \
-        patch('Algo.get_time_str', side_effect=['a', 'b']):
+    with patch('algoClass.get_date', return_value='1996-02-13'), \
+        patch('algoClass.get_time_str', side_effect=['a', 'b']):
         testAlgo.equity = 123
         testAlgo.update_history('test1')
         assert testAlgo.history == {'1996-02-13': {
@@ -213,32 +156,43 @@ def test_update_history(testAlgo):
             'a': {'event': 'test1', 'equity': 123},
             'b': {'event': 'test2', 'equity': 456}}}
 
-def test_Algo_tick():
-    # setup
-    testAlgo = Algo.Algo(print, 'short', False)
-    def func(self):
-        assert self.ticking == True
-    testAlgo.func = Mock(side_effect=func)
+def test_get_metrics(testAlgo): assert 0
 
-    # too little buying power
-    testAlgo.buyPow = {'long': 0, 'short': 0}
-    testAlgo.tick()
-    testAlgo.func.assert_not_called()
+def test_get_trade_qty(testAlgo):
+    with patch('algoClass.c.maxPositionFrac', 0.1):
+        # max position
+        testAlgo.equity = 10000
+        testAlgo.buyPow = 15000
+        testAlgo.positions = {'AAPL': {'qty': 0}}
+        testQty = testAlgo.get_trade_qty('AAPL', 'sell', 20)
+        assert testQty == -50
 
-    # enough buying power
-    testAlgo.buyPow = {
-        'long': c.minTradeBuyPow,
-        'short': c.minTradeBuyPow}
-    testAlgo.tick()
-    testAlgo.func.assert_called_once_with(testAlgo)
+        # buying power
+        testAlgo.equity = 10000
+        testAlgo.buyPow = 500
+        testAlgo.positions = {'AAPL': {'qty': 0}}
+        testQty = testAlgo.get_trade_qty('AAPL', 'sell', 20)
+        assert testQty == -25
 
-def test_Algo_tick():
-    # setup
-    testAlgo = Algo.Algo(print, 'short', False)
-    def func(self):
-        assert self.ticking == True
-    testAlgo.func = Mock(side_effect=func)
+        # smaller position
+        testAlgo.equity = 10000
+        testAlgo.buyPow = 5000
+        testAlgo.positions = {'AAPL': {'qty': -6}}
+        testQty = testAlgo.get_trade_qty('AAPL', 'sell', 20)
+        assert testQty == -44
 
-    # test
+        # larger position
+        testAlgo.equity = 10000
+        testAlgo.buyPow = 5000
+        testAlgo.positions = {'AAPL': {'qty': -53}}
+        testQty = testAlgo.get_trade_qty('AAPL', 'sell', 20)
+        assert testQty == 0
+
+def test_queue_order(testAlgo): assert 0
+
+def test_exit_position(testAlgo): assert 0
+
+def test_tick(testAlgo):
+    testAlgo.func = Mock()
     testAlgo.tick()
     testAlgo.func.assert_called_once_with(testAlgo)

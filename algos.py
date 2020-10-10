@@ -1,6 +1,6 @@
 import config as c
 import globalVariables as g
-from Algo import Algo
+from algoClass import Algo
 
 # NOTE: kwargs must be in correct order to generate correct name
 

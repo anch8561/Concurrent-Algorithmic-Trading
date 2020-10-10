@@ -1,6 +1,6 @@
 import globalVariables as g
 import streaming
-from Algo import Algo
+from algoClass import Algo
 
 from datetime import datetime
 from pandas import DataFrame

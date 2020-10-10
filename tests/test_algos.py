@@ -1,7 +1,7 @@
 import algos
 import config as c
 import globalVariables as g
-from Algo import Algo, Algo
+from algoClass import Algo
 
 from pandas import DataFrame
 from unittest.mock import Mock, call

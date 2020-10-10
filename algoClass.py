@@ -112,7 +112,7 @@ class Algo:
     def update_equity(self):
         # TODO: add pending orders
         # copy buying power
-        self.equity = self.buyPow.copy()
+        self.equity = self.buyPow
 
         # check positions
         for symbol, position in self.positions.items():
@@ -181,20 +181,20 @@ class Algo:
         # returns: int; signed # of shares to trade
 
         try: # max position
-            qty = int(c.maxPosFrac * self.equity / price)
+            qty = int(c.maxPositionFrac * self.equity / price)
             reason = 'max position'
         except Exception as e:
             self.log.exception(e); return 0
 
         try: # check buying power
-            # TODO: shorts use max(limit, price*1.03) (must track for fills and exits)
+            # TODO: shorts use max(limit, price*1.03) (must track for fills)
             if qty * price > self.buyPow:
                 qty = int(self.buyPow / price)
                 reason = 'buying power'
         except Exception as e:
             self.log.exception(e); return 0
 
-        try: # set short quantity negative
+        try: # set sell quantity negative
             if side == 'sell': qty *= -1
             self.log.debug(f'{symbol}\t{reason} qty limit: {qty}')
         except Exception as e:
@@ -236,7 +236,13 @@ class Algo:
         except Exception as e: self.log.exception(e)
         
         try: # enter position
-            if self.buyPow > c.minTradeBuyPow:
+            if self.buyPow > c.minTradeBuyPow and (
+                side == 'buy' and
+                self.longShort == 'long'
+            ) or (
+                side == 'sell' and
+                self.longShort == 'short'
+            ):
                 # get qty
                 price = get_limit_price(symbol, side)
                 qty = self.get_trade_qty(symbol, side, price)

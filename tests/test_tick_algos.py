@@ -1,4 +1,3 @@
-import Algo
 import config as c
 import globalVariables as g
 import tick_algos
