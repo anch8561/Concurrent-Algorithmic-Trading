@@ -92,28 +92,36 @@ def process_algo_trade(symbol, algo, algoQty, orderPrice, fillQty, fillPrice):
     ):
         fillQty = algoQty
 
-    # update algo buying power
+    # update position
+    oldQty = algo.positions[symbol]['qty']
+    algo.positions[symbol]['qty'] += fillQty
+
+    # update buying power and basis
+    basis = algo.positions[symbol]['basis']
     if (( # enter
-        algoQty > 0 and
+        fillQty > 0 and
         algo.longShort == 'long'
     ) or (
-        algoQty < 0 and
+        fillQty < 0 and
         algo.longShort == 'short'
     )):
+        # buying power
         algo.buyPow += abs(algoQty) * orderPrice - abs(fillQty) * fillPrice
+
+        # basis
+        algo.positions[symbol]['basis'] = \
+            (abs(oldQty) * basis + abs(fillQty) * fillPrice) / abs(oldQty + fillQty)
+
     else: # exit
-        basis = algo.positions[symbol]['basis']
+        # buying power
         algo.buyPow += abs(fillQty) * basis + fillQty * (basis - fillPrice)
         # long (unsigned qty): fillQty * fillPrice
         # short (unsigned qty): fillQty * (2 * basis - fillPrice)
 
-    # update algo position
-    algo.positions[symbol]['qty'] += fillQty
-    if algo.positions[symbol]['qty'] == 0:
-        algo.positions[symbol]['basis'] = 0
-    else:
-        algo.positions[symbol]['basis'] += abs(fillQty) * fillPrice
-    
+        # basis
+        if algo.positions[symbol]['qty'] == 0:
+            algo.positions[symbol]['basis'] = 0
+
     # remove order
     algo.pendingOrders.pop(symbol)
 
@@ -137,12 +145,12 @@ def process_trade(data):
             order = g.orders[orderID]
             symbol = order['symbol']
             orderPrice = order['price']
-            algoOrders = order['algoOrders']
+            algos = order['algos']
         except:
             if orderID == 'internal':
                 symbol = data.symbol
                 orderPrice = data.price
-                algoOrders = data.algoOrders
+                algos = data.algos
             else:
                 log.warning(f'Unknown order id\n{data}')
                 return
@@ -156,20 +164,20 @@ def process_trade(data):
                 return
             
         try: # process opposing algo trades
-            for algoOrder in algoOrders:
-                algoQty = algoOrder['qty']
+            for algo in algos:
+                algoQty = algo.queuedOrders[symbol]
                 if algoQty * fillQty < 0: # opposite side
-                    process_algo_trade(symbol, algoOrder, orderPrice, fillQty, fillPrice)
+                    process_algo_trade(symbol, algo, algoQty, orderPrice, fillQty, fillPrice)
                     fillQty -= algoQty # increase fill qty
-        except:
+        except Exception as e:
             log.exception(f'{e}\n{data}')
             return
             
         try: # process remaining algo trades
-            for algoOrder in algoOrders:
-                algoQty = algoOrder['qty']
+            for algo in algos:
+                algoQty = algo.queuedOrders[symbol]
                 if algoQty * fillQty >= 0: # same side or zero
-                    process_algo_trade(symbol, algoOrder, orderPrice, fillQty, fillPrice)
+                    process_algo_trade(symbol, algo, algoQty, orderPrice, fillQty, fillPrice)
                     if abs(algoQty) > abs(fillQty): # zero crossing
                         fillQty = 0
                     else:
