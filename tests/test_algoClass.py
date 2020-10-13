@@ -156,7 +156,7 @@ def test_update_history(testAlgo):
             'a': {'event': 'test1', 'equity': 123},
             'b': {'event': 'test2', 'equity': 456}}}
 
-def test_get_metrics(testAlgo): assert 0
+def test_get_metrics(testAlgo): pass # WIP
 
 def test_get_trade_qty(testAlgo):
     with patch('algoClass.c.maxPositionFrac', 0.1):
@@ -188,9 +188,95 @@ def test_get_trade_qty(testAlgo):
         testQty = testAlgo.get_trade_qty('AAPL', 'sell', 20)
         assert testQty == 0
 
-def test_queue_order(testAlgo): assert 0
+def test_queue_order(testAlgo):
+    with patch('algoClass.c.minTradeBuyPow', 100), \
+        patch('algoClass.get_price', return_value=20), \
+        patch('algoClass.get_limit_price', return_value=10), \
+        patch('algoClass.Algo.get_trade_qty', return_value=123):
+        # no position (exit)
+        testAlgo.longShort = 'long'
+        testAlgo.buyPow = 1000
+        testAlgo.positions['AAPL'] = {'qty': 0}
+        testAlgo.pendingOrders = {}
+        testAlgo.queuedOrders = {}
+        testAlgo.queue_order('AAPL', 'sell')
+        assert testAlgo.queuedOrders == {}
 
-def test_exit_position(testAlgo): assert 0
+        # pending order (exit)
+        testAlgo.longShort = 'long'
+        testAlgo.buyPow = 1000
+        testAlgo.positions['AAPL'] = {'qty': 10}
+        testAlgo.pendingOrders = {'AAPL': 'order'}
+        testAlgo.queuedOrders = {}
+        testAlgo.queue_order('AAPL', 'sell')
+        assert testAlgo.queuedOrders == {}
+
+        # exit long
+        testAlgo.longShort = 'long'
+        testAlgo.buyPow = 1000
+        testAlgo.positions['AAPL'] = {'qty': 10}
+        testAlgo.pendingOrders = {}
+        testAlgo.queuedOrders = {}
+        testAlgo.queue_order('AAPL', 'sell')
+        assert testAlgo.queuedOrders == {'AAPL': {'qty': -10, 'price': 10}}
+
+        # exit short
+        testAlgo.longShort = 'short'
+        testAlgo.buyPow = 1000
+        testAlgo.positions['AAPL'] = {'qty': -10}
+        testAlgo.pendingOrders = {}
+        testAlgo.queuedOrders = {}
+        testAlgo.queue_order('AAPL', 'buy')
+        assert testAlgo.queuedOrders == {'AAPL': {'qty': 10, 'price': 10}}
+
+        # insufficient buying power (enter)
+        testAlgo.longShort = 'long'
+        testAlgo.buyPow = 10
+        testAlgo.positions['AAPL'] = {'qty': 0}
+        testAlgo.pendingOrders = {}
+        testAlgo.queuedOrders = {}
+        testAlgo.queue_order('AAPL', 'buy')
+        assert testAlgo.queuedOrders == {}
+
+        # pending order (enter)
+        testAlgo.longShort = 'long'
+        testAlgo.buyPow = 1000
+        testAlgo.positions['AAPL'] = {'qty': 0}
+        testAlgo.pendingOrders = {'AAPL': 'order'}
+        testAlgo.queuedOrders = {}
+        testAlgo.queue_order('AAPL', 'buy')
+        assert testAlgo.queuedOrders == {}
+
+        # enter long
+        testAlgo.longShort = 'long'
+        testAlgo.buyPow = 1000
+        testAlgo.positions['AAPL'] = {'qty': 0}
+        testAlgo.pendingOrders = {}
+        testAlgo.queuedOrders = {}
+        testAlgo.queue_order('AAPL', 'buy')
+        assert testAlgo.queuedOrders == {'AAPL': {'qty': 123, 'price': 10}}
+
+        # enter short
+        testAlgo.longShort = 'short'
+        testAlgo.buyPow = 1000
+        testAlgo.positions['AAPL'] = {'qty': 0}
+        testAlgo.pendingOrders = {}
+        testAlgo.queuedOrders = {}
+        testAlgo.queue_order('AAPL', 'sell')
+        assert testAlgo.queuedOrders == {'AAPL': {'qty': 123, 'price': 20.6}}
+
+def test_exit_position(testAlgo):
+    # long
+    testAlgo.queue_order = Mock()
+    testAlgo.longShort = 'long'
+    testAlgo.exit_position('AAPL')
+    testAlgo.queue_order.assert_called_once_with('AAPL', 'sell')
+
+    # short
+    testAlgo.queue_order = Mock()
+    testAlgo.longShort = 'short'
+    testAlgo.exit_position('AAPL')
+    testAlgo.queue_order.assert_called_once_with('AAPL', 'buy')
 
 def test_tick(testAlgo):
     testAlgo.func = Mock()

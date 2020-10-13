@@ -20,10 +20,13 @@ logging.basicConfig(level=logging.DEBUG)
 @fixture(autouse=True)
 def reloadGlobalVariables():
     reload(g) # NOTE: reload does not update existing objects
+    g.positions['AAPL'] = 0
 
 @fixture
 def testAlgo(reloadGlobalVariables):
-    return Algo(print, 'short', False)
+    testAlgo = Algo(print, 'short', False)
+    testAlgo.positions['AAPL'] = {'qty': 0, 'basis': 0}
+    return testAlgo
 
 @fixture
 def algos(reloadGlobalVariables):

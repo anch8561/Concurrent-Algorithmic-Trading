@@ -33,7 +33,6 @@ init_timing()
 # init algos
 algos = init_algos()
 init_logs.init_algo_logs(algos['all'], logFormatter)
-# TODO: update global positions
 allocate_buying_power(algos)
 for algo in algos['all']: # FIX: no performance data
     algo.buyPow['long'] = 5000
@@ -43,11 +42,9 @@ if args.reset: reset(algos['all'])
 # init indicators, assets, and streaming
 indicators = init_indicators()
 init_assets(args.numAssets, algos['all'], indicators)
-Thread(target=stream, args=(g.connPaper, algos['all'], indicators)).start()
-# TODO: add connLive thread
+Thread(target=stream, args=(g.conn, algos['all'], indicators)).start()
 # NOTE: begin using g.lock
-# TODO: combine orders
-# TODO: fix unknown order id
+# TODO: update global positions (careful of add_asset)
 
 # start algos
 log.warning('Starting active algos')

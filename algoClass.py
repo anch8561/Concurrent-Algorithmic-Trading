@@ -31,8 +31,8 @@ class Algo:
         self.buyPow = 0 # updated continuously
         self.equity = 0 # updated daily
         self.positions = {} # {symbol: {qty, buyPow}}
-        self.pendingOrders = {} # {symbol: {algo, qty}}
-        self.queuedOrders = {} # {symbol: {algo, qty}}
+        self.pendingOrders = {} # {symbol: {qty, price}}
+        self.queuedOrders = {} # {symbol: {qty, price}}
         self.history = {} # {date: {time: event, equity}}
 
         # attributes to save / load
@@ -223,16 +223,18 @@ class Algo:
             position = self.positions[symbol]['qty']
             if ((
                 side == 'buy' and
-                position < 0
+                position < 0 # short algo
             ) or (
                 side == 'sell' and
-                position > 0
+                position > 0 # long algo
             )):
                 if symbol in self.pendingOrders:
                     self.log.debug(f'Pending order to exit {symbol}')
                 else:
                     self.log.debug(f'Queuing order to exit {symbol}')
-                    self.queuedOrders[symbol] = -position
+                    self.queuedOrders[symbol] = {
+                        'qty': -position,
+                        'price': get_limit_price(symbol, side)}
         except Exception as e: self.log.exception(e)
         
         try: # enter position
@@ -244,7 +246,10 @@ class Algo:
                 self.longShort == 'short'
             ):
                 # get qty
-                price = get_limit_price(symbol, side)
+                if side == 'sell':
+                    price = get_price(symbol) * 1.03
+                else:
+                    price = get_limit_price(symbol, side)
                 qty = self.get_trade_qty(symbol, side, price)
                 if qty == 0: return
 
@@ -253,13 +258,15 @@ class Algo:
                     self.log.debug(f'Pending order to enter {symbol}')
                 else:
                     self.log.debug(f'Queuing order to enter {symbol}')
-                    self.queuedOrders[symbol] = qty
+                    self.queuedOrders[symbol] = {
+                        'qty': qty,
+                        'price': price}
                     self.buyPow -= abs(qty) * price
         except Exception as e:
             self.log.exception(e)
 
     def exit_position(self, symbol):
-        # TODO: unit test
+        # symbol: e.g. 'AAPL'
         side = 'sell' if self.longShort == 'long' else 'buy'
         self.queue_order(symbol, side)
 

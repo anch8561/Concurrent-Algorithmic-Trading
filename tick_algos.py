@@ -10,19 +10,16 @@ log = getLogger('main')
 
 # TODO: tick assets in order of volatility? (better use of BP but must use OrderedDict)
 
-def set_order_qty(newQty, combinedOrder):
-    # TODO: unit test (random seed)
-    # newQty: int
+def update_algo_orders(combinedOrder):
     # combinedOrder: dict; {symbol, qty, price, algos}
-    # returns: bool; success
     
     # unpack combined order
     symbol = combinedOrder['symbol']
-    oldQty = combinedOrder['qty']
-    price = combinedOrder['price']
+    newQty = combinedOrder['qty']
     algos = combinedOrder['algos']
 
     # check newQty
+    oldQty = sum([algo.queuedOrders[symbol]['qty'] for algo in algos])
     if newQty == oldQty: return
     elif (
         newQty * oldQty < 0 or # opposite signs
@@ -47,20 +44,19 @@ def set_order_qty(newQty, combinedOrder):
                 algo.longShort == 'short'
             ):
                 qty = min(abs(delta), abs(algoQty))
-                algo.buyPow += qty * price
+                algo.buyPow += qty * algoOrder['price']
             
             # cancel / reduce algo order
             if abs(algoQty) <= abs(delta): # zero crossing
-                canceledAlgos.append(algoOrder) # cancel order
+                canceledAlgos.append(algo) # cancel order
                 delta += algoQty # reduce delta
             else:
-                algoOrder += delta # reduce algo order
+                algoOrder['qty'] += delta # reduce algo order
                 combinedOrder['qty'] = newQty # update combined order
                 break
     
     # remove canceled algos
-    for algo in canceledAlgos:
-        algos.pop(algo)
+    for algo in canceledAlgos: algos.remove(algo)
 
 def get_price(symbol):
     # symbol: e.g. 'AAPL'
@@ -137,7 +133,7 @@ def submit_order(combinedOrder):
         'price': price,
         'algos': algos}
     for algo in algos:
-        algo.pendingOrders[symbol] = algo.queuedOrders[symbol]
+        algo.pendingOrders[symbol] = algo.queuedOrders.pop(symbol)
 
 class TradeData: # for combinedOrders w/ zero qty
     def __init__(self, combinedOrder):
@@ -149,7 +145,7 @@ class TradeData: # for combinedOrders w/ zero qty
             'fillQty': 0}
         self.symbol = combinedOrder['symbol']
         self.price = combinedOrder['price']
-        self.algoOrders = combinedOrder['algoOrders']
+        self.algos = combinedOrder['algos']
 
 def process_queued_orders(allAlgos):
     # allAlgos: list of all algos
@@ -159,36 +155,39 @@ def process_queued_orders(allAlgos):
     # combine orders
     combinedOrders = {}
     for algo in allAlgos:
-        for symbol, qty in algo.queuedOrders.items():
+        for symbol, order in algo.queuedOrders.items():
             if symbol in combinedOrders:
-                combinedOrders[symbol]['qty'] += qty
+                combinedOrders[symbol]['qty'] += order['qty']
                 combinedOrders[symbol]['algos'].append(algo)
             else:
                 combinedOrders[symbol] = {
                     'symbol': symbol,
-                    'qty': qty,
-                    'price': None, # don't know side yet
+                    'qty': order['qty'],
                     'algos': [algo]}
 
-    # check for zero crossings
-    for symbol, order in combinedOrders:
-        try:
-            orderQty = order['qty']
+    # submit orders
+    for symbol, order in combinedOrders.items():
+        try: # check for zero crossings
             positionQty = g.positions[symbol]
-            if (positionQty + orderQty) * positionQty < 0: # zero crossing
-                log.debug(f'{symbol}\tReducing order qty from {orderQty} to {-positionQty} (zero crossing)')
-                orderQty = -positionQty
+            if (positionQty + order['qty']) * positionQty < 0: # zero crossing
+                log.debug(f"{symbol}\tReducing order qty from {order['qty']} to {-positionQty} (zero crossing)")
+                order['qty'] = -positionQty
                 # TODO: create follow-up order
         except Exception as e:
             log.exception(e)
             continue
 
-        try: # update algo orders and submit
-            if orderQty: # send to alpaca
-                side = 'buy' if orderQty > 0 else 'sell'
+        try: # shuffle algos and update orders
+            random.shuffle(order['algos']) # for qty adjustments and partial fills
+            update_algo_orders(order)
+        except Exception as e:
+            log.exception(e)
+            continue
+    
+        try: # get price and submit
+            if order['qty']: # send to alpaca
+                side = 'buy' if order['qty'] > 0 else 'sell'
                 order['price'] = get_limit_price(symbol, side)
-                random.shuffle(order['algos']) # for qty adjustments and partial fills
-                set_order_qty(orderQty, order)
                 submit_order(order)
             else: # process internally
                 order['price'] = get_price(symbol)
@@ -199,8 +198,7 @@ def process_queued_orders(allAlgos):
             log.exception(e)
             continue
 
-    # clear combinedOrders and queuedOrders
-    combinedOrders.clear()
+    # clear queuedOrders
     for algo in allAlgos:
         algo.queuedOrders.clear()
 
