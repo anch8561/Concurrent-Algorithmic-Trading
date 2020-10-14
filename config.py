@@ -18,7 +18,8 @@ maxLongShortFrac = 0.7 # max fraction of total buying power to allocate long
 # init assets
 numAssets = 10 # default number of symbols to stream (-1 means all)
 minSharePrice = 20
-minDayVolume = 200000
+minDayVolume = 1e6
+minDaySpread = 0.01
 leverageStrings = ('leveraged', '1.5x', '2x', '3x')
 numHistoricDays = 20
 
@@ -33,10 +34,10 @@ minTradeBuyPow = 100
 # get trade qty
 maxSectorFrac = 0.1
 maxIndustryFrac = 0.05
-maxPositionFrac = 0.1
+maxPositionFrac = 0.02
 
 # get limit price
 limitPriceFrac = 0.001
 
 # assertions
-assert minTradeBuyPow < minAllocBuyPow * maxPositionFrac
+assert minTradeBuyPow <= minAllocBuyPow * maxPositionFrac

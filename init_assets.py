@@ -25,12 +25,16 @@ def init_assets(numAssets, allAlgos, indicators):
             not any(x in asset.name.lower() for x in c.leverageStrings)
         ):
             for ticker in polygonTickers:
-                if (
-                    ticker.ticker == asset.symbol and
-                    ticker.prevDay['v'] > c.minDayVolume and
-                    ticker.prevDay['l'] > c.minSharePrice
-                ):
-                    activeSymbols.append(asset.symbol)
+                if ticker.ticker == asset.symbol:
+                    high = ticker.prevDay['h']
+                    low = ticker.prevDay['l']
+                    volume = ticker.prevDay['v']
+                    if (
+                        low > c.minSharePrice and
+                        volume > c.minDayVolume and
+                        (high - low) / low > c.minDaySpread
+                    ):
+                        activeSymbols.append(asset.symbol)
                     break
         
         # check numAssets
