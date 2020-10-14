@@ -23,7 +23,7 @@ def momentum(self): # kwargs: numUpBars, numDownBars, barFreq
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars.iloc[-numBars:]}')
 
-def init_intraday_algos():
+def init_intraday_algos() -> list:
     intradayAlgos = []
     for longShort in ('long', 'short'):
         for numUpBars in (1, 2, 3):
@@ -70,7 +70,7 @@ def momentum_volume(self): # kwargs: numBars, barFreq
             if metrics[symbol] >= 0: break
             self.queue_order(symbol, 'sell')
 
-def init_overnight_algos():
+def init_overnight_algos() -> list:
     overnightAlgos = []
     for longShort in ('long', 'short'):
         for numBars in (3, 5, 10):
@@ -83,6 +83,7 @@ def init_overnight_algos():
 
 # multiday
 def crossover(self): # kwargs: barFreq, fastNumBars, fastMovAvg, slowNumBars, slowMovAvg
+    # NOTE: signal from day bars but price from minute bars (price is None at open)
     fastInd = str(self.fastNumBars) + '_' + self.barFreq + '_' + self.fastMovAvg
     slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_' + self.slowMovAvg
 
@@ -102,10 +103,10 @@ def crossover(self): # kwargs: barFreq, fastNumBars, fastMovAvg, slowNumBars, sl
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
-def init_multiday_algos():
+def init_multiday_algos() -> list:
     multidayAlgos = []
     for longShort in ('long', 'short'):
-        for movAvg in ('SMA', 'EMA', 'KAMA'):
+        for movAvg in ('SMA', 'EMA', 'KAMA'): # TODO: try combos
             for slowNumBars in (5, 10, 20):
                 for fastNumBars in (3, 5, 10):
                     if slowNumBars > fastNumBars:
@@ -120,7 +121,7 @@ def init_multiday_algos():
     return multidayAlgos
 
 # all
-def init_algos():
+def init_algos() -> dict:
     intraday = init_intraday_algos()
     overnight = init_overnight_algos()
     multiday = init_multiday_algos()

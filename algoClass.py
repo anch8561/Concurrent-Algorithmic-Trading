@@ -9,13 +9,14 @@ import statistics as stats
 from alpaca_trade_api.rest import APIError
 from logging import getLogger
 from os import mkdir
+from types import FunctionType
 
 # create algoPath if needed
 try: mkdir(c.algoPath)
 except Exception: pass
 
 class Algo:
-    def __init__(self, func, longShort, loadData=True, **kwargs):
+    def __init__(self, func: FunctionType, longShort: str, loadData: bool=True, **kwargs):
         self.func = func # function to determine when to buy and sell
         self.longShort = longShort # 'long' or 'short'; algo equity type
 
@@ -26,6 +27,10 @@ class Algo:
             self.name += str(val) + '_'
         self.name += self.func.__name__ + '_' + longShort
         self.log = getLogger(self.name)
+
+        # check longShort
+        if longShort not in ('long', 'short'):
+            self.log.critical(f'Unknown longShort {longShort}')
 
         # state variables
         self.active = True # whether algo might have open positions
@@ -131,7 +136,7 @@ class Algo:
                         self.equity += price * abs(positionQty)
                     else: self.log.exception(e)
 
-    def update_history(self, event):
+    def update_history(self, event: str):
         # event: 'start' or 'stop'
 
         if event not in ('start', 'stop'):
@@ -145,7 +150,10 @@ class Algo:
             'event': event,
             'equity': self.equity}
     
-    def get_metrics(self, numDays):
+    def get_metrics(self, numDays: int) -> dict:
+        # numDays: positive number of past days to evaluate
+        # returns: {mean, stdev}
+        
         try: # get growth # FIX: overnight algos start and stop on different days
             growth = []
             dates = sorted(self.history, reverse=True)
@@ -183,15 +191,17 @@ class Algo:
         
         return metrics
     
-    def get_trade_qty(self, symbol, side, price):
+    def get_trade_qty(self, symbol: str, side: str, price: float) -> int:
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
-        # price: float; limit price
-        # returns: int; signed # of shares to trade
+        # price: limit price
+        # returns: signed # of shares to trade
 
         if side not in ('buy', 'sell'):
             self.log.error(f'Unknown side {side}')
-            return
+            return 0
+        
+        if price == None: return 0
 
         try: # max position
             qty = int(c.maxPositionFrac * self.equity / price)
@@ -228,7 +238,7 @@ class Algo:
 
         return qty
 
-    def queue_order(self, symbol, side):
+    def queue_order(self, symbol: str, side: str):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
 
@@ -264,7 +274,8 @@ class Algo:
             ):
                 # get qty
                 if side == 'sell':
-                    price = get_price(symbol) * 1.03
+                    price = get_price(symbol) # possibly None
+                    price = round(price * 1.03, 2)
                 else:
                     price = get_limit_price(symbol, side)
                 qty = self.get_trade_qty(symbol, side, price)
@@ -280,9 +291,12 @@ class Algo:
                         'price': price}
                     self.buyPow -= abs(qty) * price
         except Exception as e:
-            self.log.exception(e)
+            if price == None:
+                self.log.debug(e)
+            else:
+                self.log.exception(e)
 
-    def exit_position(self, symbol):
+    def exit_position(self, symbol: str):
         # symbol: e.g. 'AAPL'
         side = 'sell' if self.longShort == 'long' else 'buy'
         self.queue_order(symbol, side)
