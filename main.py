@@ -35,8 +35,7 @@ algos = init_algos()
 init_logs.init_algo_logs(algos['all'], logFormatter)
 allocate_buying_power(algos)
 for algo in algos['all']: # FIX: no performance data
-    algo.buyPow['long'] = 5000
-    algo.buyPow['short'] = 5000
+    algo.buyPow = 5000
 if args.reset: reset(algos['all'])
 
 # init indicators, assets, and streaming

@@ -1,5 +1,6 @@
 import config as c
 import globalVariables as g
+from tab import tab
 from tick_algos import get_price, get_limit_price
 from timing import get_time_str, get_date
 
@@ -132,13 +133,17 @@ class Algo:
 
     def update_history(self, event):
         # event: 'start' or 'stop'
+
+        if event not in ('start', 'stop'):
+            self.log.error(f'Unknown event {event}')
+            return
+
         date = get_date()
         if date not in self.history:
             self.history[date] = {}
         self.history[date][get_time_str()] = {
             'event': event,
-            'equity': self.equity
-        }
+            'equity': self.equity}
     
     def get_metrics(self, numDays):
         try: # get growth # FIX: overnight algos start and stop on different days
@@ -165,12 +170,16 @@ class Algo:
         try: # get mean
             metrics['mean'] = stats.mean(growth)
         except Exception as e:
-            self.log.exception(e)
+            if len(growth): self.log.exception(e)
+            else:
+                self.log.debug(e)
+                self.log.info('No performance data')
         
         try: # get stdev
             metrics['stdev'] = stats.stdev(growth)
         except Exception as e:
-            self.log.exception(e)
+            if len(growth) < 2: self.log.debug(e)
+            else: self.log.exception(e)
         
         return metrics
     
@@ -179,6 +188,10 @@ class Algo:
         # side: 'buy' or 'sell'
         # price: float; limit price
         # returns: int; signed # of shares to trade
+
+        if side not in ('buy', 'sell'):
+            self.log.error(f'Unknown side {side}')
+            return
 
         try: # max position
             qty = int(c.maxPositionFrac * self.equity / price)
@@ -196,7 +209,7 @@ class Algo:
 
         try: # set sell quantity negative
             if side == 'sell': qty *= -1
-            self.log.debug(f'{symbol}\t{reason} qty limit: {qty}')
+            self.log.debug(tab(symbol, 6) + f'{reason} qty limit: {qty}')
         except Exception as e:
             self.log.exception(e); return 0
 
@@ -204,9 +217,9 @@ class Algo:
             position = self.positions[symbol]['qty']
             if abs(position) < abs(qty): # position smaller than order
                 qty -= position # add to position
-                self.log.debug(f'{symbol}\tadding {qty} to position of {position}')
+                self.log.debug(tab(symbol, 6) + 'Have ' + tab(position, 6) + 'Ordering ' + tab(qty, 6))
             else: # position large enough
-                self.log.debug(f'{symbol}\tposition of {position} is large enough')
+                self.log.debug(tab(symbol, 6) + f'position of {position} is large enough')
                 return 0
         except Exception as e:
             self.log.exception(e); return 0
@@ -218,6 +231,10 @@ class Algo:
     def queue_order(self, symbol, side):
         # symbol: e.g. 'AAPL'
         # side: 'buy' or 'sell'
+
+        if side not in ('buy', 'sell'):
+            self.log.error(f'Unknown side {side}')
+            return
 
         try: # exit position
             position = self.positions[symbol]['qty']

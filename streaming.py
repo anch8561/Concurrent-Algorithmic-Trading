@@ -85,7 +85,7 @@ def process_algo_trade(symbol, algo, fillQty, fillPrice):
     # fillPrice: float
 
     try: # get order
-        order = algo.pendingOrders.pop(symbol)
+        order = algo.pendingOrders[symbol]
         algoQty = order['qty']
         algoPrice = order['price']
     except Exception as e: log.exception(e)
@@ -139,7 +139,10 @@ def process_trade(data):
         side = data.order['side']
         fillQty = int(data.order['filled_qty'])
         if side == 'sell': fillQty *= -1
-        fillPrice = float(data.order['filled_avg_price'])
+        if fillQty:
+            fillPrice = float(data.order['filled_avg_price'])
+        else:
+            fillPrice = 0
         log.info(f'Order {orderID} {event}')
     except Exception as e:
         log.exception(f'{e}\n{data}')
@@ -147,15 +150,18 @@ def process_trade(data):
 
     if event in ('fill', 'canceled', 'expired', 'rejected'):
         try: # get order info
-            order = g.orders[orderID]
+            order = g.orders[orderID] # FIX: missing orders
             symbol = order['symbol']
             algos = order['algos']
-        except:
+        except Exception as e:
             if orderID == 'internal':
                 symbol = data.symbol
                 algos = data.algos
-            else:
+            elif orderID not in g.orders:
                 log.warning(f'Unknown order id\n{data}')
+                return
+            else:
+                log.exception(e)
                 return
 
         try: # update global position and remove order
@@ -164,20 +170,18 @@ def process_trade(data):
         except Exception as e:
             if orderID != 'internal':
                 log.exception(f'{e}\n{data}')
-                return
-            
-        try: # process opposing algo trades
-            for algo in algos:
+
+        for algo in algos:
+            try: # process opposing algo trades
                 algoQty = algo.pendingOrders[symbol]['qty']
                 if algoQty * fillQty < 0: # opposite side
                     process_algo_trade(symbol, algo, fillQty, fillPrice)
                     fillQty -= algoQty # increase fill qty
-        except Exception as e:
-            log.exception(f'{e}\n{data}')
-            return
-            
-        try: # process remaining algo trades
-            for algo in algos:
+            except Exception as e:
+                log.exception(f'{e}\n{data}')
+
+        for algo in algos:
+            try: # process remaining algo trades
                 algoQty = algo.pendingOrders[symbol]['qty']
                 if algoQty * fillQty >= 0: # same side or zero
                     process_algo_trade(symbol, algo, fillQty, fillPrice)
@@ -185,9 +189,14 @@ def process_trade(data):
                         fillQty = 0
                     else:
                         fillQty -= algoQty
-        except Exception as e:
-            log.exception(f'{e}\n{data}')
-            return
+            except Exception as e:
+                log.exception(f'{e}\n{data}')
+
+        for algo in algos:
+            try: # remove pending orders
+                algo.pendingOrders.pop(symbol)
+            except Exception as e:
+                log.exception(f'{e}\n{data}')
 
 def process_bars_backlog(indicators):
     # indicators: dict of lists of indicators; {sec, min, day, all}

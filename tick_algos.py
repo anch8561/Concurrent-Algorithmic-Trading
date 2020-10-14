@@ -64,13 +64,10 @@ def get_price(symbol):
     try:
         return g.assets['min'][symbol].close[-1]
     except Exception as e:
-        if (
-            symbol in g.assets['min'] and # ignore missing key (old asset)
-            len(g.assets['min'][symbol].index) # ignore empty dataframe (startup)
-        ):
+        if symbol in g.assets['min']:
             log.exception(e, stack_info=True)
         else:
-            log.debug(e)
+            log.debug(e, stack_info=True)
 
 def get_limit_price(symbol, side):
     # symbol: e.g. 'AAPL'
@@ -85,8 +82,10 @@ def get_limit_price(symbol, side):
         else:
             log.error(f'Unknown side: {side}')
     except Exception as e:
-        if price == None: log.debug(e)
-        else: log.exception(e, stack_info=True)
+        if price == None:
+            log.debug(e, stack_info=True)
+        else:
+            log.exception(e, stack_info=True)
     
 def submit_order(combinedOrder):
     # combinedOrder: dict; {symbol, qty, price, algos}
@@ -96,17 +95,6 @@ def submit_order(combinedOrder):
     orderQty = combinedOrder['qty']
     price = combinedOrder['price']
     algos = combinedOrder['algos']
-
-    # log message
-    positionQty = g.positions[symbol]
-    logMsg = tab(symbol, 6) + 'Have ' + tab(positionQty, 6) + \
-        'Ordering ' + tab(orderQty, 6) + f'@ {price}'
-    for algo in algos:
-        algoOrderQty = algo.queuedOrders[symbol]
-        algoPositionQty = algo.positions[symbol]['qty']
-        logMsg += tab(algo.name, 30) + 'Have ' + tab(algoPositionQty, 6) + \
-            'Ordering ' + tab(algoOrderQty, 6)
-    log.info(logMsg)
 
     # submit order
     side = 'buy' if orderQty > 0 else 'sell'
@@ -133,7 +121,19 @@ def submit_order(combinedOrder):
         'price': price,
         'algos': algos}
     for algo in algos:
-        algo.pendingOrders[symbol] = algo.queuedOrders.pop(symbol)
+        algo.pendingOrders[symbol] = algo.queuedOrders[symbol]
+
+    # log message
+    positionQty = g.positions[symbol]
+    logMsg = f'Order: {order.id}\n' + \
+        'Symbol: ' + tab(symbol, 6) + 'Have: ' + tab(positionQty, 6) + \
+        'Ordering: ' + tab(orderQty, 6) + f'@ {price}\n'
+    for algo in algos:
+        algoOrderQty = algo.queuedOrders[symbol]
+        algoPositionQty = algo.positions[symbol]['qty']
+        logMsg += tab(algo.name, 40) + 'Have: ' + tab(algoPositionQty, 6) + \
+            'Ordering: ' + tab(algoOrderQty, 6) + '\n'
+    log.info(logMsg)
 
 class TradeData: # for combinedOrders w/ zero qty
     def __init__(self, combinedOrder):

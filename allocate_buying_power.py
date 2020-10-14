@@ -26,12 +26,11 @@ def allocate_buying_power(algos):
             try: # get weight
                 metrics = algo.get_metrics(c.allocMetricDays)
                 if metrics['mean'] == None:
-                    log.warning(f'No performance data for {algo.name}')
                     metrics['mean'] = -1 # assume worst
                 weights.append(metrics['mean'])
             except Exception as e:
                 log.exception(e)
-                weights.append(0)
+                weights.append(-1)
 
             try: # get longShort
                 if algo.longShort == 'long': longShortVec.append(1)

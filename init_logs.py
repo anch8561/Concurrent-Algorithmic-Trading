@@ -77,6 +77,7 @@ def init_primary_logs(logLevel, env, fmtr):
     indicatorsLog.setLevel(logging.DEBUG)
 
 def init_algo_logs(allAlgos, fmtr):
+    # allAlgos: list of all algos
     # fmtr: logging.formatter instance
 
     for algo in allAlgos:
