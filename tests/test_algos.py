@@ -4,7 +4,7 @@ import globalVariables as g
 from algoClass import Algo
 
 from pandas import DataFrame
-from unittest.mock import Mock, call
+from unittest.mock import call, Mock, patch
 
 def test_momentum():
     # setup
@@ -31,31 +31,24 @@ def test_momentum():
     testAlgo.tick()
     testAlgo.queue_order.assert_not_called()
 
-    # long
+    # buy
     testAlgo.queue_order.reset_mock()
     bars = {'ticked': [False]*3, '1_min_momentum': [0.1, 0.2, 0.3]}
     g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
-    testAlgo.queue_order.assert_called_once_with('AAPL', 'long')
+    testAlgo.queue_order.assert_called_once_with('AAPL', 'buy')
 
-    # short
+    # sell
     testAlgo.queue_order.reset_mock()
     bars = {'ticked': [False]*3, '1_min_momentum': [0.1, -0.2, -0.3]}
     g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
-    testAlgo.queue_order.assert_called_once_with('AAPL', 'short')
+    testAlgo.queue_order.assert_called_once_with('AAPL', 'sell')
 
 def test_momentum_volume():
-    # setup
-    testAlgo = Algo(
-        algos.momentum_volume,
-        'short',
-        False,
-        numBars = 2,
-        barFreq = 'day')
-    def queue_order(symbol, longShort):
-        testAlgo.buyPow[longShort] -= c.minTradeBuyPow
-    testAlgo.queue_order = Mock(side_effect=queue_order)
+    ## SETUP
+
+    # bars
     bars = {'2_day_volume_stdevs': [0.1, 2.2], '2_day_momentum': [-0.3, 0.4]}
     g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b']) # 0.88
     bars = {'2_day_volume_stdevs': [0.4, 3.1], '2_day_momentum': [0.1, -0.2]}
@@ -65,29 +58,43 @@ def test_momentum_volume():
     bars = {'2_day_volume_stdevs': [1.2, 2.1], '2_day_momentum': [-0.7, -0.4]}
     g.assets['day']['TSLA'] = DataFrame(bars, ['a', 'b']) # -0.84
 
-    # metric < 0
-    testAlgo.queue_order.reset_mock()
-    cash = c.minTradeBuyPow * 3
-    testAlgo.buyPow = {'long': cash, 'short': cash}
-    testAlgo.tick()
-    calls = [
-        call('AAPL', 'long'),
-        call('MSFT', 'long'),
-        call('TSLA', 'short'),
-        call('GOOG', 'short')]
-    testAlgo.queue_order.assert_has_calls(calls)
-    assert testAlgo.queue_order.call_count == 4
+    # expected calls
+    calls = {
+        'long': [
+            call('AAPL', 'buy'),
+            call('MSFT', 'buy')],
+        'short': [
+            call('TSLA', 'sell'),
+            call('GOOG', 'sell')]}
 
-    # buying power
-    testAlgo.queue_order.reset_mock()
-    cash = c.minTradeBuyPow * 1.5
-    testAlgo.buyPow = {'long': cash, 'short': cash}
-    testAlgo.tick()
-    calls = [
-        call('AAPL', 'long'),
-        call('TSLA', 'short')]
-    testAlgo.queue_order.assert_has_calls(calls)
-    assert testAlgo.queue_order.call_count == 2
+    # algos
+    for longShort in ('long', 'short'):
+        def queue_order(symbol, side):
+            testAlgo.buyPow -= 100
+        testAlgo = Algo(
+            algos.momentum_volume,
+            longShort,
+            False,
+            numBars = 2,
+            barFreq = 'day')
+        testAlgo.queue_order = Mock(side_effect=queue_order)
+
+
+        ## TEST
+        with patch('algos.c.minTradeBuyPow', 100):
+                # metric < 0
+                testAlgo.queue_order.reset_mock()
+                testAlgo.buyPow = 500
+                testAlgo.tick()
+                testAlgo.queue_order.assert_has_calls(calls[longShort])
+                assert testAlgo.queue_order.call_count == 2
+
+                # buying power
+                testAlgo.queue_order.reset_mock()
+                testAlgo.buyPow = 150
+                testAlgo.tick()
+                testAlgo.queue_order.assert_has_calls(calls[longShort][:1])
+                assert testAlgo.queue_order.call_count == 1
 
 def test_crossover():
     # setup
@@ -121,11 +128,11 @@ def test_crossover():
     bars = {'ticked': [False]*2, '3_day_SMA': [1.2, 0.1], '5_day_EMA': [0.4, 0.3]}
     g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b'])
     testAlgo.tick()
-    testAlgo.queue_order.assert_called_once_with('AAPL', 'long')
+    testAlgo.queue_order.assert_called_once_with('AAPL', 'buy')
 
     # short
     testAlgo.queue_order.reset_mock()
     bars = {'ticked': [False]*2, '3_day_SMA': [0.1, 1.2], '5_day_EMA': [0.3, 0.4]}
     g.assets['day']['AAPL'] = DataFrame(bars, ['a', 'b'])
     testAlgo.tick()
-    testAlgo.queue_order.assert_called_once_with('AAPL', 'short')
+    testAlgo.queue_order.assert_called_once_with('AAPL', 'sell')

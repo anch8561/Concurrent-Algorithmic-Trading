@@ -61,7 +61,6 @@ def test_process_algo_trade(testAlgo):
     streaming.process_algo_trade('AAPL', testAlgo, -7, 10.00)
     assert testAlgo.positions['AAPL'] == {'qty': -8, 'basis': 8.50}
     assert testAlgo.buyPow == 1001.50
-    assert 'AAPL' not in testAlgo.pendingOrders
 
     # enter same side partial
     testAlgo.longShort = 'short'
@@ -71,7 +70,6 @@ def test_process_algo_trade(testAlgo):
     streaming.process_algo_trade('AAPL', testAlgo, -3, 10.00)
     assert testAlgo.positions['AAPL'] == {'qty': -6, 'basis': 8.00}
     assert testAlgo.buyPow == 1021.50
-    assert 'AAPL' not in testAlgo.pendingOrders
 
     # enter opposite side fill
     testAlgo.longShort = 'long'
@@ -81,7 +79,6 @@ def test_process_algo_trade(testAlgo):
     streaming.process_algo_trade('AAPL', testAlgo, -7, 10.00)
     assert testAlgo.positions['AAPL'] == {'qty': 8, 'basis': 8.50}
     assert testAlgo.buyPow == 1000.50
-    assert 'AAPL' not in testAlgo.pendingOrders
 
     # enter opposite side partial
     testAlgo.longShort = 'long'
@@ -91,7 +88,6 @@ def test_process_algo_trade(testAlgo):
     streaming.process_algo_trade('AAPL', testAlgo, -3, 10.00)
     assert testAlgo.positions['AAPL'] == {'qty': 8, 'basis': 8.50}
     assert testAlgo.buyPow == 1000.50
-    assert 'AAPL' not in testAlgo.pendingOrders
 
     # exit same side fill
     testAlgo.longShort = 'short'
@@ -101,7 +97,6 @@ def test_process_algo_trade(testAlgo):
     streaming.process_algo_trade('AAPL', testAlgo, 7, 10.00)
     assert testAlgo.positions['AAPL'] == {'qty': -3, 'basis': 6.00}
     assert testAlgo.buyPow == 1010.00
-    assert 'AAPL' not in testAlgo.pendingOrders
 
     # exit same side partial
     testAlgo.longShort = 'short'
@@ -111,7 +106,6 @@ def test_process_algo_trade(testAlgo):
     streaming.process_algo_trade('AAPL', testAlgo, 3, 10.00)
     assert testAlgo.positions['AAPL'] == {'qty': -5, 'basis': 6.00}
     assert testAlgo.buyPow == 1006.00
-    assert 'AAPL' not in testAlgo.pendingOrders
 
     # exit opposite side fill
     testAlgo.longShort = 'long'
@@ -121,7 +115,6 @@ def test_process_algo_trade(testAlgo):
     streaming.process_algo_trade('AAPL', testAlgo, 7, 10.00)
     assert testAlgo.positions['AAPL'] == {'qty': 3, 'basis': 6.00}
     assert testAlgo.buyPow == 1050.00
-    assert 'AAPL' not in testAlgo.pendingOrders
 
     # exit opposite side partial
     testAlgo.longShort = 'long'
@@ -131,7 +124,6 @@ def test_process_algo_trade(testAlgo):
     streaming.process_algo_trade('AAPL', testAlgo, 3, 10.00)
     assert testAlgo.positions['AAPL'] == {'qty': 3, 'basis': 6.00}
     assert testAlgo.buyPow == 1050.00
-    assert 'AAPL' not in testAlgo.pendingOrders
 
 def test_process_trade():
     ## SETUP
@@ -163,6 +155,7 @@ def test_process_trade():
     
 
     ## TEST
+
     with patch('streaming.process_algo_trade') as process_algo_trade:
         streaming.process_trade(data)
         assert g.positions['AAPL'] == 0
@@ -174,6 +167,8 @@ def test_process_trade():
             call('AAPL', algos[3], -0, 10.00)]
         process_algo_trade.assert_has_calls(calls)
         assert process_algo_trade.call_count == 4
+        for algo in algos:
+            assert 'AAPL' not in algo.pendingOrders
 
 def test_process_bars_backlog(indicators):
     # setup

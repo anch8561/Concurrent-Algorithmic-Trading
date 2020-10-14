@@ -59,11 +59,11 @@ def test_get_limit_price():
 
         # buy
         price = tick_algos.get_limit_price('AAPL', 'buy')
-        assert price == 122.221
+        assert price == 122.22 # 122.221
 
         # sell
         price = tick_algos.get_limit_price('AAPL', 'sell')
-        assert price == 99.999
+        assert price == 100 # 99.999
 
 @fixture
 def alpaca():
@@ -77,8 +77,6 @@ def alpaca():
     return alpaca
 
 def test_submit_order_LIMIT(alpaca, combinedOrder):
-    algos = combinedOrder['algos']
-    expectedPendingOrders = [algo.queuedOrders['AAPL'] for algo in algos]
     with patch('tick_algos.g.alpaca', alpaca):
         tick_algos.submit_order(combinedOrder)
         alpaca.submit_order.assert_called_once_with(
@@ -92,14 +90,10 @@ def test_submit_order_LIMIT(alpaca, combinedOrder):
             'symbol': 'AAPL',
             'qty': -11,
             'price': 20.00,
-            'algos': algos}
-        testPendingOrders = [algo.pendingOrders['AAPL'] for algo in algos]
-        assert testPendingOrders == expectedPendingOrders
+            'algos': combinedOrder['algos']}
 
 def test_submit_order_MARKET(alpaca, combinedOrder):
     combinedOrder['price'] = None
-    algos = combinedOrder['algos']
-    expectedPendingOrders = [algo.queuedOrders['AAPL'] for algo in algos]
     with patch('tick_algos.g.alpaca', alpaca):
         tick_algos.submit_order(combinedOrder)
         alpaca.submit_order.assert_called_once_with(
@@ -112,9 +106,7 @@ def test_submit_order_MARKET(alpaca, combinedOrder):
             'symbol': 'AAPL',
             'qty': -11,
             'price': None,
-            'algos': algos}
-        testPendingOrders = [algo.pendingOrders['AAPL'] for algo in algos]
-        assert testPendingOrders == expectedPendingOrders
+            'algos': combinedOrder['algos']}
 
 def test_process_queued_orders(alpaca, allAlgos):
     # setup
@@ -129,6 +121,8 @@ def test_process_queued_orders(alpaca, allAlgos):
     allAlgos[3].queuedOrders['MSFT'] = {'qty':  9, 'price': 11.00}
     # -5 AAPL, 10 MSFT, 0 TSLA
     g.positions = {'AAPL': 3, 'MSFT': 5, 'TSLA': 7}
+    expectedPendingOrders = [algo.queuedOrders.copy() for algo in allAlgos]
+    expectedPendingOrders[2]['AAPL']['qty'] = -4
 
     # test
     with patch('tick_algos.random.shuffle') as shuffle, \
@@ -170,6 +164,8 @@ def test_process_queued_orders(alpaca, allAlgos):
         process_trade.assert_called_once()
         for algo in allAlgos:
             assert algo.queuedOrders == {}
+        testPendingOrders = [algo.pendingOrders for algo in allAlgos]
+        assert testPendingOrders == expectedPendingOrders
 
 def test_tick_algos_NIGHT(algos, bars, indicators):
     # setup

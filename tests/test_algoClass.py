@@ -146,15 +146,15 @@ def test_update_history(testAlgo):
     with patch('algoClass.get_date', return_value='1996-02-13'), \
         patch('algoClass.get_time_str', side_effect=['a', 'b']):
         testAlgo.equity = 123
-        testAlgo.update_history('test1')
+        testAlgo.update_history('start')
         assert testAlgo.history == {'1996-02-13': {
-            'a': {'event': 'test1', 'equity': 123}}}
+            'a': {'event': 'start', 'equity': 123}}}
 
         testAlgo.equity = 456
-        testAlgo.update_history('test2')
+        testAlgo.update_history('stop')
         assert testAlgo.history == {'1996-02-13': {
-            'a': {'event': 'test1', 'equity': 123},
-            'b': {'event': 'test2', 'equity': 456}}}
+            'a': {'event': 'start', 'equity': 123},
+            'b': {'event': 'stop', 'equity': 456}}}
 
 def test_get_metrics(testAlgo): pass # WIP
 

@@ -24,11 +24,12 @@ def alpaca():
 
     class Ticker:
         def __init__(self, ticker,
-            volume = c.minDayVolume + 1,
-            low = c.minSharePrice + 1
+            volume = 10001,
+            low = 21.00,
+            high = 22.00
         ):
             self.ticker = ticker
-            self.prevDay = {'v': volume, 'l': low}
+            self.prevDay = {'v': volume, 'l': low, 'h': high}
 
     class alpaca:
         def list_assets(*args): # pylint: disable=no-method-argument
@@ -41,16 +42,18 @@ def alpaca():
                 Asset('GOOG'),
                 Asset('MSFT'),
                 Asset('WMT'),
-                Asset('EBAY')]
+                Asset('EBAY'),
+                Asset('SPY')]
 
         class polygon:
             def all_tickers(): # pylint: disable=no-method-argument
                 return [
-                    Ticker('FB', volume=0),
-                    Ticker('GOOG', low=0.00),
-                    Ticker('MSFT'),
+                    Ticker('FB', volume=9999),
+                    Ticker('GOOG', low=19.99),
+                    Ticker('MSFT', high=21.01),
                     Ticker('WMT'),
-                    Ticker('EBAY')]
+                    Ticker('EBAY'),
+                    Ticker('SPY')]
                 
             def historic_agg_v2(*args): # pylint: disable=no-method-argument
                 class data:
@@ -67,11 +70,14 @@ def test_init_assets(alpaca, allAlgos, indicators):
     g.alpaca = alpaca
 
     # test
-    with patch('init_assets.add_asset') as add_asset:
+    with patch('init_assets.c.minSharePrice', 20), \
+        patch('init_assets.c.minDayVolume', 10000), \
+        patch('init_assets.c.minDaySpread', 0.01), \
+        patch('init_assets.add_asset') as add_asset:
         init_assets.init_assets(2, allAlgos, indicators)
         calls = [
-            call('MSFT', allAlgos, indicators),
-            call('WMT', allAlgos, indicators)]
+            call('WMT', allAlgos, indicators),
+            call('EBAY', allAlgos, indicators)]
         add_asset.assert_has_calls(calls)
         assert add_asset.call_count == 2
 

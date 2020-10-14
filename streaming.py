@@ -1,6 +1,7 @@
 import config as c
 import globalVariables as g
 import timing
+from tab import tab
 
 import asyncio
 from datetime import timedelta
@@ -133,43 +134,35 @@ def process_algo_trade(symbol, algo, fillQty, fillPrice):
 def process_trade(data):
     # NOTE: ignore 'new', 'partial_fill', 'done_for_day', and 'replaced' events
 
-    try: # get trade info
-        event = data.event
-        orderID = data.order['id']
-        side = data.order['side']
-        fillQty = int(data.order['filled_qty'])
-        if side == 'sell': fillQty *= -1
-        if fillQty:
-            fillPrice = float(data.order['filled_avg_price'])
-        else:
-            fillPrice = 0
-        log.info(f'Order {orderID} {event}')
-    except Exception as e:
-        log.exception(f'{e}\n{data}')
-        return
-
+    event = data.event
     if event in ('fill', 'canceled', 'expired', 'rejected'):
-        try: # get order info
-            order = g.orders[orderID] # FIX: missing orders
-            symbol = order['symbol']
-            algos = order['algos']
-        except Exception as e:
-            if orderID == 'internal':
-                symbol = data.symbol
-                algos = data.algos
-            elif orderID not in g.orders:
-                log.warning(f'Unknown order id\n{data}')
-                return
+        try: # get trade info
+            orderID = data.order['id']
+            symbol = data.order['symbol']
+            side = data.order['side']
+            fillQty = int(data.order['filled_qty'])
+            if side == 'sell': fillQty *= -1
+            if fillQty:
+                fillPrice = float(data.order['filled_avg_price'])
             else:
-                log.exception(e)
-                return
+                fillPrice = 0
+            log.info(f'Order {orderID} {event}\n' + \
+                tab(symbol, 6) + tab(fillQty, 6) + f'@ {fillPrice}')
+        except Exception as e:
+            log.exception(f'{e}\n{data}')
+            return
+
+        try: # get order info
+            algos = g.orders[orderID]['algos']
+        except Exception as e:
+            log.exception(e)
+            return
 
         try: # update global position and remove order
             g.positions[symbol] += fillQty
             g.orders.pop(orderID)
         except Exception as e:
-            if orderID != 'internal':
-                log.exception(f'{e}\n{data}')
+            log.exception(f'{e}\n{data}')
 
         for algo in algos:
             try: # process opposing algo trades

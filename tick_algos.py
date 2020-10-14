@@ -56,7 +56,8 @@ def update_algo_orders(combinedOrder):
                 break
     
     # remove canceled algos
-    for algo in canceledAlgos: algos.remove(algo)
+    for algo in canceledAlgos:
+        algos.remove(algo)
 
 def get_price(symbol):
     # symbol: e.g. 'AAPL'
@@ -76,11 +77,12 @@ def get_limit_price(symbol, side):
     try:
         price = get_price(symbol)
         if side == 'buy':
-            return price * (1 + c.limitPriceFrac)
+            price *= (1 + c.limitPriceFrac)
         elif side == 'sell':
-            return price * (1 - c.limitPriceFrac)
+            price *= (1 - c.limitPriceFrac)
         else:
             log.error(f'Unknown side: {side}')
+        return round(price, 2)
     except Exception as e:
         if price == None:
             log.debug(e, stack_info=True)
@@ -120,8 +122,6 @@ def submit_order(combinedOrder):
         'qty': orderQty,
         'price': price,
         'algos': algos}
-    for algo in algos:
-        algo.pendingOrders[symbol] = algo.queuedOrders[symbol]
 
     # log message
     positionQty = g.positions[symbol]
@@ -129,22 +129,30 @@ def submit_order(combinedOrder):
         'Symbol: ' + tab(symbol, 6) + 'Have: ' + tab(positionQty, 6) + \
         'Ordering: ' + tab(orderQty, 6) + f'@ {price}\n'
     for algo in algos:
-        algoOrderQty = algo.queuedOrders[symbol]
+        algoOrderQty = algo.queuedOrders[symbol]['qty']
+        algoOrderPrice = algo.queuedOrders[symbol]['price']
         algoPositionQty = algo.positions[symbol]['qty']
         logMsg += tab(algo.name, 40) + 'Have: ' + tab(algoPositionQty, 6) + \
-            'Ordering: ' + tab(algoOrderQty, 6) + '\n'
+            'Ordering: ' + tab(algoOrderQty, 6) + f'@ {algoOrderPrice}\n'
     log.info(logMsg)
 
 class TradeData: # for combinedOrders w/ zero qty
     def __init__(self, combinedOrder):
         # combinedOrder: dict; {symbol, qty, price, algoOrders}
+
+        g.orders['internal'] = {
+            'symbol': combinedOrder['symbol'], # unused
+            'qty': combinedOrder['qty'], # unused
+            'price': combinedOrder['price'], # unused
+            'algos': combinedOrder['algos']}
+
         self.event = 'fill'
         self.order = {
             'id': 'internal',
+            'symbol': combinedOrder['symbol'],
             'side': 'buy', # zero
-            'fillQty': 0}
-        self.symbol = combinedOrder['symbol']
-        self.price = combinedOrder['price']
+            'filled_avg_price': combinedOrder['price'],
+            'filled_qty': 0}
         self.algos = combinedOrder['algos']
 
 def process_queued_orders(allAlgos):
@@ -163,6 +171,7 @@ def process_queued_orders(allAlgos):
                 combinedOrders[symbol] = {
                     'symbol': symbol,
                     'qty': order['qty'],
+                    'price': None, # don't know side yet
                     'algos': [algo]}
 
     # submit orders
@@ -177,9 +186,11 @@ def process_queued_orders(allAlgos):
             log.exception(e)
             continue
 
-        try: # shuffle algos and update orders
-            random.shuffle(order['algos']) # for qty adjustments and partial fills
-            update_algo_orders(order)
+        try: # update algos
+            random.shuffle(order['algos']) # shuffle algos for qty adjustments and partial fills
+            update_algo_orders(order) # adjust algo order qty to match combined order qty
+            for algo in order['algos']: # add pending orders
+                algo.pendingOrders[symbol] = algo.queuedOrders[symbol]
         except Exception as e:
             log.exception(e)
             continue
@@ -207,6 +218,9 @@ def tick_algos(algos, indicators, state):
     # indicators: dict of lists of indicators; {sec, min, day, all}
     # state: str; 'day' or 'night'
     # returns: state
+
+    # TODO: allow night algos to wait for best price
+    # TODO: allow internal trades during transitions
 
     g.lock.acquire()
     g.alpaca.cancel_all_orders()
