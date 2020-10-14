@@ -182,22 +182,18 @@ def test_tick_algos_NIGHT(algos, bars, indicators):
 
         # setup
         g.assets['min'] = {'AAPL': bars.copy()}
-        for algo in algos['overnight']: algo.active = True
+        for algo in algos['night']: algo.active = True
 
         # test
         state = tick_algos.tick_algos(algos, indicators, 'night')
-        for algo in algos['overnight']:
+        for algo in algos['night']:
             algo.activate.assert_not_called()
             algo.deactivate.assert_called_once()
             algo.tick.assert_not_called()
-        for algo in algos['intraday']:
+        for algo in algos['day']:
             algo.activate.assert_not_called()
             algo.deactivate.assert_not_called()
             algo.tick.assert_not_called()
-        for algo in algos['multiday']:
-            algo.activate.assert_not_called()
-            algo.deactivate.assert_not_called()
-            algo.tick.called_once()
             
         process_queued_orders.assert_called_once()
         assert g.assets['min']['AAPL'].ticked[-1]
@@ -215,22 +211,18 @@ def test_tick_algos_NIGHT(algos, bars, indicators):
         process_queued_orders.reset_mock()
         g.assets['min'] = {'AAPL': bars.copy()}
         process_backlogs.reset_mock()
-        for algo in algos['overnight']: algo.active = False
+        for algo in algos['night']: algo.active = False
 
         # test
         state = tick_algos.tick_algos(algos, indicators, 'night')
-        for algo in algos['overnight']:
+        for algo in algos['night']:
             algo.activate.assert_not_called()
             algo.deactivate.assert_called_once()
             algo.tick.assert_not_called()
-        for algo in algos['intraday']:
+        for algo in algos['day']:
             algo.activate.called_once()
             algo.deactivate.assert_not_called()
             algo.tick.assert_not_called()
-        for algo in algos['multiday']:
-            algo.activate.assert_not_called()
-            algo.deactivate.assert_not_called()
-            algo.tick.called_once()
         
         process_queued_orders.assert_called_once_with(algos['all'])
         assert g.assets['min']['AAPL'].ticked[-1]
@@ -252,18 +244,14 @@ def test_tick_algos_DAY(algos, bars, indicators):
         patch('tick_algos.streaming.process_backlogs') as process_backlogs:
 
         state = tick_algos.tick_algos(algos, indicators, 'day')
-        for algo in algos['intraday']:
+        for algo in algos['day']:
             algo.activate.assert_not_called()
             algo.deactivate.assert_not_called()
             algo.tick.assert_called_once()
-        for algo in algos['overnight']:
+        for algo in algos['night']:
             algo.activate.assert_not_called()
             algo.deactivate.assert_not_called()
             algo.tick.assert_not_called()
-        for algo in algos['multiday']:
-            algo.activate.assert_not_called()
-            algo.deactivate.assert_not_called()
-            algo.tick.called_once()
         
         process_queued_orders.assert_called_once_with(algos['all'])
         assert g.assets['min']['AAPL'].ticked[-1]
@@ -285,18 +273,14 @@ def test_tick_algos_NIGHT_CLOSING_SOON(algos, bars, indicators):
         patch('tick_algos.streaming.process_backlogs') as process_backlogs:
 
         state = tick_algos.tick_algos(algos, indicators, 'night')
-        for algo in algos['intraday']:
+        for algo in algos['day']:
             algo.activate.assert_not_called()
             algo.deactivate.assert_not_called()
             algo.tick.assert_not_called()
-        for algo in algos['overnight']:
+        for algo in algos['night']:
             algo.activate.assert_not_called()
             algo.deactivate.assert_not_called()
             algo.tick.assert_called_once()
-        for algo in algos['multiday']:
-            algo.activate.assert_not_called()
-            algo.deactivate.assert_not_called()
-            algo.tick.called_once()
         
         process_queued_orders.assert_called_once_with(algos['all'])
         assert g.assets['min']['AAPL'].ticked[-1]
@@ -319,22 +303,18 @@ def test_tick_algos_DAY_CLOSING_SOON(algos, bars, indicators):
 
         # setup
         g.assets['min'] = {'AAPL': bars.copy()}
-        for algo in algos['intraday']: algo.active = True
+        for algo in algos['day']: algo.active = True
 
         # test
         state = tick_algos.tick_algos(algos, indicators, 'day')
-        for algo in algos['intraday']:
+        for algo in algos['day']:
             algo.activate.assert_not_called()
             algo.deactivate.assert_called_once()
             algo.tick.assert_not_called()
-        for algo in algos['overnight']:
+        for algo in algos['night']:
             algo.activate.assert_not_called()
             algo.deactivate.assert_not_called()
             algo.tick.assert_not_called()
-        for algo in algos['multiday']:
-            algo.activate.assert_not_called()
-            algo.deactivate.assert_not_called()
-            algo.tick.called_once()
 
         compile_day_bars.assert_not_called()
         process_queued_orders.assert_called_once_with(algos['all'])
@@ -354,22 +334,18 @@ def test_tick_algos_DAY_CLOSING_SOON(algos, bars, indicators):
         process_queued_orders.reset_mock()
         g.assets['min'] = {'AAPL': bars.copy()}
         process_backlogs.reset_mock()
-        for algo in algos['intraday']: algo.active = False
+        for algo in algos['day']: algo.active = False
 
         # test
         state = tick_algos.tick_algos(algos, indicators, 'day')
-        for algo in algos['intraday']:
+        for algo in algos['day']:
             algo.activate.assert_not_called()
             algo.deactivate.assert_called_once()
             algo.tick.assert_not_called()
-        for algo in algos['overnight']:
+        for algo in algos['night']:
             algo.activate.assert_called_once()
             algo.deactivate.assert_not_called()
             algo.tick.assert_not_called()
-        for algo in algos['multiday']:
-            algo.activate.assert_not_called()
-            algo.deactivate.assert_not_called()
-            algo.tick.called_once()
 
         compile_day_bars.assert_called_once_with(indicators)
         process_queued_orders.assert_called_once_with(algos['all'])

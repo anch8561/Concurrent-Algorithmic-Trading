@@ -57,12 +57,14 @@ def add_asset(symbol, allAlgos, indicators):
     columns = ['open', 'high', 'low', 'close', 'volume', 'ticked']
     for indicator in indicators['sec']: columns.append(indicator.name)
     data = dict.fromkeys(columns)
+    data['ticked'] = True
     g.assets['sec'][symbol] = DataFrame(data, [timing.get_market_open()])
 
     # init minute bars
     columns = ['open', 'high', 'low', 'close', 'volume', 'ticked']
     for indicator in indicators['min']: columns.append(indicator.name)
     data = dict.fromkeys(columns)
+    data['ticked'] = True
     g.assets['min'][symbol] = DataFrame(data, [timing.get_market_open()])
 
 
@@ -78,7 +80,7 @@ def add_asset(symbol, allAlgos, indicators):
         return
 
     # get indicators
-    bars['ticked'] = False
+    bars['ticked'] = True
     for indicator in indicators['day']:
         bars[indicator.name] = None
         jj = bars.columns.get_loc(indicator.name)

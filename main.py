@@ -32,11 +32,11 @@ init_timing()
 
 # init algos
 algos = init_algos()
+if args.reset: reset(algos['all'])
 init_logs.init_algo_logs(algos['all'], logFormatter)
-allocate_buying_power(algos)
+allocate_buying_power(algos) # TODO: subtract positions
 for algo in algos['all']: # FIX: no performance data
     algo.buyPow = 5000
-if args.reset: reset(algos['all'])
 
 # init indicators, assets, and streaming
 indicators = init_indicators()
@@ -44,6 +44,9 @@ init_assets(args.numAssets, algos['all'], indicators)
 Thread(target=stream, args=(g.conn, algos['all'], indicators)).start()
 # NOTE: begin using g.lock
 # TODO: update global positions (careful of add_asset)
+
+# FIX: not getting new bars after first few
+# TODO: move barFreq to Algo() and use to get price
 
 # start algos
 log.warning('Starting active algos')

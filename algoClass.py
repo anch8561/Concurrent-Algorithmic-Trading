@@ -154,7 +154,7 @@ class Algo:
         # numDays: positive number of past days to evaluate
         # returns: {mean, stdev}
         
-        try: # get growth # FIX: overnight algos start and stop on different days
+        try: # get growth # FIX: night algos start and stop on different days
             growth = []
             dates = sorted(self.history, reverse=True)
             for ii, date in enumerate(dates[:numDays]):
@@ -248,13 +248,13 @@ class Algo:
 
         try: # exit position
             position = self.positions[symbol]['qty']
-            if ((
+            if (
                 side == 'buy' and
                 position < 0 # short algo
             ) or (
                 side == 'sell' and
                 position > 0 # long algo
-            )):
+            ):
                 if symbol in self.pendingOrders:
                     self.log.debug(f'Pending order to exit {symbol}')
                 else:

@@ -214,7 +214,7 @@ def process_queued_orders(allAlgos):
         algo.queuedOrders.clear()
 
 def tick_algos(algos, indicators, state):
-    # algos: dict of lists of algos; {intraday, overnight, multiday, all}
+    # algos: dict of lists of algos; {day, night, all}
     # indicators: dict of lists of indicators; {sec, min, day, all}
     # state: str; 'day' or 'night'
     # returns: state
@@ -228,41 +228,35 @@ def tick_algos(algos, indicators, state):
 
     # tick algos
     try:
-        if state == 'night' and not closingSoon:
-            log.warning('Deactivating overnight algos')
-            for algo in algos['overnight']: algo.deactivate()
-            
-            if any(algo.active for algo in algos['overnight']):
-                log.info('Some overnight algos are still active')
-            else:
-                log.info('All overnight algos are deactivated')
-                log.warning('Activating intraday algos')
-                for algo in algos['intraday']: algo.activate()
-                state = 'day'
-
-        elif state == 'day' and not closingSoon:
-            log.info('Ticking intraday algos')
-            for algo in algos['intraday']: algo.tick() # TODO: parallel
-
-        elif state == 'day' and closingSoon:
-            log.warning('Deactivating intraday algos')
-            for algo in algos['intraday']: algo.deactivate()
-            
-            if any(algo.active for algo in algos['intraday']):
-                log.info('Some intraday algos are still active')
-            else:
-                log.info('All intraday algos are deactivated')
-                log.warning('Activating overnight algos')
-                for algo in algos['overnight']: algo.activate()
-                state = 'night'
-                streaming.compile_day_bars(indicators)
-
-        elif state == 'night' and closingSoon:
-            log.info('Ticking overnight algos')
-            for algo in algos['overnight']: algo.tick() # TODO: parallel
+        if (
+            state == 'day' and
+            not closingSoon
+        ) or (
+            state == 'night' and
+            closingSoon
+        ):
+            log.info(f'Ticking {state} algos')
+            for algo in algos[state]: algo.tick() # TODO: parallel
         
-        log.info('Ticking multiday algos')
-        for algo in algos['multiday']: algo.tick() # TODO: parallel
+        elif (
+            state == 'day' and
+            closingSoon
+        ) or (
+            state == 'night' and
+            not closingSoon
+        ):
+            log.warning(f'Deactivating {state} algos')
+            for algo in algos[state]: algo.deactivate()
+            
+            if any(algo.active for algo in algos[state]):
+                log.info(f'Some {state} algos are still active')
+            else:
+                log.info(f'All {state} algos are deactivated')
+                state = 'night' if state == 'day' else 'day' # swap state
+                log.warning(f'Activating {state} algos')
+                for algo in algos[state]: algo.activate()
+                if state == 'night':
+                    streaming.compile_day_bars(indicators)
 
         process_queued_orders(algos['all'])
     except Exception as e: log.exception(e)

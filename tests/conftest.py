@@ -30,23 +30,19 @@ def testAlgo(reloadGlobalVariables):
 
 @fixture
 def algos(reloadGlobalVariables):
-    intraday = [
+    dayAlgos = [
         Algo(print, 'long', False, n=0),
         Algo(print, 'short', False, n=1),
         Algo(print, 'long', False, n=2),
         Algo(print, 'short', False, n=3)]
-    overnight = [
+    nightAlgos = [
         Algo(print, 'long', False, n=4),
         Algo(print, 'short', False, n=5),
         Algo(print, 'long', False, n=6)]
-    multiday = [
-        Algo(print, 'long', False, n=7),
-        Algo(print, 'short', False, n=8)]
     return {
-        'intraday': intraday,
-        'overnight': overnight,
-        'multiday': multiday,
-        'all': intraday + overnight + multiday}
+        'day': dayAlgos,
+        'night': nightAlgos,
+        'all': dayAlgos + nightAlgos}
 
 @fixture
 def allAlgos(algos):

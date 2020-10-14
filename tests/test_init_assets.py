@@ -103,17 +103,19 @@ def test_add_asset(alpaca, allAlgos, indicators):
     # sec asset
     columns = ['open', 'high', 'low', 'close', 'volume', 'ticked', '1_sec_momentum']
     data = dict.fromkeys(columns)
+    data['ticked'] = True
     expectedAsset = DataFrame(data, ['a'])
     assert g.assets['sec']['AAPL'].equals(expectedAsset)
 
     # min asset
     columns = ['open', 'high', 'low', 'close', 'volume', 'ticked', '1_min_momentum']
     data = dict.fromkeys(columns)
+    data['ticked'] = True
     expectedAsset = DataFrame(data, ['a'])
     assert g.assets['min']['AAPL'].equals(expectedAsset)
 
     # day asset
     bars = g.alpaca.polygon.historic_agg_v2().df
-    bars['ticked'] = False
+    bars['ticked'] = True
     bars['1_day_momentum'] = 123
     assert_frame_equal(g.assets['day']['AAPL'], bars, False)

@@ -106,13 +106,13 @@ def process_algo_trade(symbol, algo, fillQty, fillPrice):
 
     try: # update buying power and basis
         basis = algo.positions[symbol]['basis']
-        if (( # enter
+        if ( # enter
             fillQty > 0 and
             algo.longShort == 'long'
         ) or (
             fillQty < 0 and
             algo.longShort == 'short'
-        )):
+        ):
             # buying power
             algo.buyPow += abs(algoQty) * algoPrice - abs(fillQty) * fillPrice
 
