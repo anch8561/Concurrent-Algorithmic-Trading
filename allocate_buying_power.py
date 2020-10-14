@@ -8,7 +8,7 @@ import scipy.optimize as opt
 log = getLogger('main')
 
 def allocate_buying_power(algos):
-    # algos: dict of lists of algos; {intraday, overnight, multiday, all}
+    # algos: dict of lists of algos; {day, night, all}
 
     log.warning('Allocating buying power')
 
@@ -46,9 +46,8 @@ def allocate_buying_power(algos):
 
     try: # get weight region lengths
         n_all = len(algos['all'])
-        n_intraday = len(algos['intraday'])
-        n_overnight = len(algos['overnight'])
-        n_multiday = len(algos['multiday'])
+        n_day = len(algos['day'])
+        n_night = len(algos['night'])
     except Exception as e: log.exception(e)
 
     try: # set objective function and initial guess
@@ -59,7 +58,7 @@ def allocate_buying_power(algos):
     try: # set allocation bounds
         bounds = opt.Bounds(
             lb = [0] * n_all,
-            ub = [c.maxAllocFrac] * n_all
+            ub = [c.maxAllocFrac] * n_day + [c.maxAllocFrac * regTBuyPow / buyPow] * n_night
         )
     except Exception as e: log.exception(e)
     
@@ -67,28 +66,28 @@ def allocate_buying_power(algos):
         constraints = opt.LinearConstraint(
             A = [
                 # day longShortFrac bounds
-                longShortVec[:n_intraday] + [0] * n_overnight + longShortVec[-n_multiday:],
+                longShortVec[:n_day] + [0] * n_night,
                 
                 # night longShortFrac bounds
-                [0] * n_intraday + longShortVec[-(n_overnight + n_multiday):],
+                [0] * n_day + longShortVec[-n_night:],
 
-                # intraday + multiday <= daytrading
-                [1] * n_intraday + [0] * n_overnight + [1] * n_multiday,
+                # day <= daytrading
+                [1] * n_day + [0] * n_night,
 
-                # overnight + multiday <= regT
-                [0] * n_intraday + [1] * (n_overnight + n_multiday)
+                # night <= regT
+                [0] * n_day + [1] * n_night
             ],
             lb = [
                 c.minLongShortFrac * 2 - 1, # day longShortFrac bounds (scale 0<->1 to -1<->1)
-                c.minLongShortFrac - 0.5, # night longShortFrac bounds (scale 0<->1 to -1<->1)
-                0, # intraday + multiday <= daytrading
-                0 # overnight + multiday <= regT
+                (c.minLongShortFrac * 2 - 1) * regTBuyPow / buyPow, # night longShortFrac bounds
+                0, # day <= daytrading
+                0 # night <= regT
             ],
             ub = [
                 c.maxLongShortFrac * 2 - 1, # day longShortFrac bounds (scale 0<->1 to -1<->1)
-                c.maxLongShortFrac - 0.5, # night longShortFrac bounds (scale 0<->1 to -1<->1)
-                1, # intraday + multiday <= daytrading
-                regTBuyPow / buyPow # overnight + multiday <= regT
+                (c.maxLongShortFrac * 2 - 1) * regTBuyPow / buyPow, # night longShortFrac bounds
+                1, # day <= daytrading
+                regTBuyPow / buyPow # night <= regT
             ]
         )
     except Exception as e: log.exception(e)
