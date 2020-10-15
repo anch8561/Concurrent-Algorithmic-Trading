@@ -5,9 +5,9 @@ from algoClass import Algo
 # NOTE: kwargs must be in correct order to generate correct name
 
 # day
-def momentum(self): # kwargs: numUpBars, numDownBars, barFreq
+def momentum(self): # kwargs: numUpBars, numDownBars
     indicator = str(1) + '_' + self.barFreq + '_momentum'
-    # NOTE: could use multibar momentum also
+    # TODO: try multibar momentum also
     
     for symbol, bars in g.assets[self.barFreq].items():
         try:
@@ -25,9 +25,9 @@ def momentum(self): # kwargs: numUpBars, numDownBars, barFreq
 
 # TODO: momentumMACD
 
-def crossover(self): # kwargs: barFreq, fastNumBars, fastMovAvg, slowNumBars, slowMovAvg
-    fastInd = str(self.fastNumBars) + '_' + self.barFreq + '_' + self.fastMovAvg
-    slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_' + self.slowMovAvg
+def crossover(self): # kwargs: fastNumBars, slowNumBars
+    fastInd = str(self.fastNumBars) + '_' + self.barFreq + '_EMA'
+    slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_EMA'
 
     for symbol, bars in g.assets[self.barFreq].items():
         try:
@@ -51,31 +51,21 @@ def init_day_algos() -> list:
         # momentum
         for numUpBars in (1, 2, 3):
             for numDownBars in (1, 2, 3):
-                algos += [
-                    Algo(momentum,
-                        longShort,
-                        numUpBars = numUpBars,
-                        numDownBars = numDownBars,
-                        barFreq = 'min')]
+                algos.append(Algo('min', momentum, longShort,
+                    numUpBars = numUpBars, numDownBars = numDownBars))
         
         # moving average crossover
-        for movAvg in ('SMA', 'EMA', 'KAMA'): # TODO: try combos
-            for slowNumBars in (5, 10, 20):
-                for fastNumBars in (3, 5, 10):
-                    if slowNumBars > fastNumBars:
-                        algos += [
-                            Algo(crossover,
-                                longShort,
-                                barFreq = 'min',
-                                fastNumBars = fastNumBars,
-                                fastMovAvg = movAvg,
-                                slowNumBars = slowNumBars,
-                                slowMovAvg = movAvg)]
+        for slowNumBars in (5, 10, 20):
+            for fastNumBars in (3, 5, 10):
+                if slowNumBars > fastNumBars:
+                    algos.append(Algo('min', crossover, longShort,
+                        fastNumBars = fastNumBars, slowNumBars = slowNumBars))
     return algos
 
 # night
-def momentum_volume(self): # kwargs: numBars, barFreq
+def momentum_volume(self): # kwargs: numBars
     # sort symbols
+    # TODO: move to global resource
     indicatorPrefix = str(self.numBars) + '_' + self.barFreq
     metrics = {}
     for symbol, bars in g.assets[self.barFreq].items():
@@ -109,11 +99,7 @@ def init_night_algos() -> list:
     algos = []
     for longShort in ('long', 'short'):
         for numBars in (3, 5, 10):
-            algos.append(
-                Algo(momentum_volume,
-                    longShort,
-                    numBars=numBars,
-                    barFreq='day'))
+            algos.append(Algo('day', momentum_volume, longShort, numBars=numBars))
     return algos
 
 

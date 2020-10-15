@@ -84,7 +84,7 @@ def test_init_assets(alpaca, allAlgos, indicators):
 def test_add_asset(alpaca, allAlgos, indicators):
     ## SETUP
     g.alpaca = alpaca
-    allAlgos = [Algo(print, 'short', False)]
+    allAlgos = [Algo('min', print, 'short', False)]
     class timing:
         get_market_open = Mock(return_value='a')
         get_market_date = Mock()

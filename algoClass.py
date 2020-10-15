@@ -16,7 +16,8 @@ try: mkdir(c.algoPath)
 except Exception: pass
 
 class Algo:
-    def __init__(self, func: FunctionType, longShort: str, loadData: bool=True, **kwargs):
+    def __init__(self, barFreq: str, func: FunctionType, longShort: str, loadData: bool=True, **kwargs):
+        self.barFreq = barFreq # 'sec', 'min', or 'day'; size of market data aggregates used
         self.func = func # function to determine when to buy and sell
         self.longShort = longShort # 'long' or 'short'; algo equity type
 
@@ -25,12 +26,14 @@ class Algo:
         for key, val in kwargs.items():
             self.__setattr__(key, val)
             self.name += str(val) + '_'
-        self.name += self.func.__name__ + '_' + longShort
+        self.name += barFreq + '_' + self.func.__name__ + '_' + longShort
         self.log = getLogger(self.name)
 
-        # check longShort
+        # input validation
         if longShort not in ('long', 'short'):
             self.log.critical(f'Unknown longShort {longShort}')
+        if barFreq not in g.assets:
+            self.log.critical(f'Unknown barFreq {barFreq}')
 
         # state variables
         self.active = True # whether algo might have open positions

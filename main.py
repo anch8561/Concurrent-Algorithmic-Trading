@@ -46,7 +46,7 @@ Thread(target=stream, args=(g.conn, algos['all'], indicators)).start()
 # TODO: update global positions (careful of add_asset)
 
 # FIX: not getting new bars after first few
-# TODO: move barFreq to Algo() and use to get price
+# TODO: use barFreq to get price
 
 # start algos
 log.warning('Starting active algos')

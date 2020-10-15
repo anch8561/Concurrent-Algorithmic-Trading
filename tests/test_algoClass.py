@@ -9,8 +9,14 @@ from pandas import DataFrame
 from unittest.mock import call, Mock, patch
 
 def test_Algo():
-    testAlgo = algoClass.Algo(print, 'short', a=1, b=2)
-    assert testAlgo.name == '1_2_print_short'
+    # pylint: disable=no-member
+    testAlgo = algoClass.Algo('min', print, 'short', False, a=1, b=2)
+    assert testAlgo.barFreq == 'min'
+    assert testAlgo.func == print
+    assert testAlgo.longShort == 'short'
+    assert testAlgo.a == 1
+    assert testAlgo.b == 2
+    assert testAlgo.name == '1_2_min_print_short'
 
 def test_activate(testAlgo):
     # setup

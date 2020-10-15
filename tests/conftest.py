@@ -24,21 +24,21 @@ def reloadGlobalVariables():
 
 @fixture
 def testAlgo(reloadGlobalVariables):
-    testAlgo = Algo(print, 'short', False)
+    testAlgo = Algo('min', print, 'short', False)
     testAlgo.positions['AAPL'] = {'qty': 0, 'basis': 0}
     return testAlgo
 
 @fixture
 def algos(reloadGlobalVariables):
     dayAlgos = [
-        Algo(print, 'long', False, n=0),
-        Algo(print, 'short', False, n=1),
-        Algo(print, 'long', False, n=2),
-        Algo(print, 'short', False, n=3)]
+        Algo('min', print, 'long', False, n=0),
+        Algo('min', print, 'short', False, n=1),
+        Algo('min', print, 'long', False, n=2),
+        Algo('min', print, 'short', False, n=3)]
     nightAlgos = [
-        Algo(print, 'long', False, n=4),
-        Algo(print, 'short', False, n=5),
-        Algo(print, 'long', False, n=6)]
+        Algo('min', print, 'long', False, n=4),
+        Algo('min', print, 'short', False, n=5),
+        Algo('min', print, 'long', False, n=6)]
     return {
         'day': dayAlgos,
         'night': nightAlgos,

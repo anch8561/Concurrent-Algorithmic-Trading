@@ -132,7 +132,7 @@ def test_process_trade():
     algos = []
     orders = [-9, 3, -7, -5]
     for qty in orders:
-        algo = Algo(print, 'short', False)
+        algo = Algo('min', print, 'short', False)
         algo.pendingOrders['AAPL'] = {'qty': qty}
         algos.append(algo)
 

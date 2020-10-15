@@ -10,23 +10,23 @@ from unittest.mock import call, Mock, patch
 
 @fixture
 def combinedOrder():
-    algo1 = Algo(print, 'short', False) # enter
+    algo1 = Algo('min', print, 'short', False) # enter
     algo1.positions['AAPL'] = {'qty': -5, 'basis': 9.00}
     algo1.queuedOrders['AAPL'] = {'qty': -1, 'price': 11.00}
 
-    algo2 = Algo(print, 'long', False) # opposing enter
+    algo2 = Algo('min', print, 'long', False) # opposing enter
     algo2.positions['AAPL'] = {'qty': 4, 'basis': 9.00}
     algo2.queuedOrders['AAPL'] = {'qty':  2, 'price': 11.00}
 
-    algo3 = Algo(print, 'long', False) # exit
+    algo3 = Algo('min', print, 'long', False) # exit
     algo3.positions['AAPL'] = {'qty': 3, 'basis': 9.00}
     algo3.queuedOrders['AAPL'] = {'qty': -3, 'price': 11.00}
 
-    algo4 = Algo(print, 'short', False) # enter
+    algo4 = Algo('min', print, 'short', False) # enter
     algo4.positions['AAPL'] = {'qty': -2, 'basis': 9.00}
     algo4.queuedOrders['AAPL'] = {'qty': -4, 'price': 11.00}
 
-    algo5 = Algo(print, 'short', False) # enter
+    algo5 = Algo('min', print, 'short', False) # enter
     algo5.positions['AAPL'] = {'qty': -1, 'basis': 9.00}
     algo5.queuedOrders['AAPL'] = {'qty': -5, 'price': 11.00}
 
