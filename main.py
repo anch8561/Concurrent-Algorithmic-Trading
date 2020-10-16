@@ -16,86 +16,88 @@ import sys
 from datetime import timedelta
 from logging import getLogger
 from threading import Thread
-from time import sleep
 
-def main_loop():
-    log.warning('Entering main loop')
-    state = 'night'
-    marketIsOpen = True
-    try:
-        while True:
-            update_time()
+# parse arguments
+args = parse_args(sys.argv[1:])
 
-            if ( # market is open
-                g.TTOpen < timedelta(0) and
-                g.TTClose > timedelta(0)
-            ):
-                # update market state
-                if not marketIsOpen:
-                    marketIsOpen = True
-                    log.warning('Market is open')
+# init logs
+logFormatter = init_logs.init_formatter()
+init_logs.init_primary_logs(args.log, args.env, logFormatter)
+log = getLogger('main')
 
-                # update new bar delay
-                try: isAfterNewBarDelay = g.now - g.lastBarReceivedTime > c.tickDelay
-                except Exception as e:
-                    if g.lastBarReceivedTime == None:isAfterNewBarDelay = False
-                    else: log.exception(e)
-                
-                if ( # new bars
+# init alpaca and timing
+init_alpaca(args.env)
+init_timing()
+
+# init algos
+algos = init_algos()
+if args.reset: reset(algos['all'])
+init_logs.init_algo_logs(algos['all'], logFormatter)
+allocate_buying_power(algos) # TODO: subtract positions
+for algo in algos['all']: # FIX: no performance data
+    algo.buyPow = 5000
+
+# init indicators, assets, and streaming
+indicators = init_indicators()
+init_assets(args.numAssets, algos['all'], indicators)
+Thread(target=stream, args=(g.conn, algos['all'], indicators)).start()
+# NOTE: begin using g.lock
+# TODO: update global positions (careful of add_asset)
+
+# FIX: not getting new bars after first few
+# TODO: use barFreq to get price
+
+# start algos
+log.warning('Starting active algos')
+for algo in algos['all']:
+    if algo.active: algo.start()
+
+# main loop
+log.warning('Entering main loop')
+state = 'night'
+marketIsOpen = True
+try:
+    while True:
+        update_time()
+
+        if ( # market is open
+            g.TTOpen < timedelta(0) and
+            g.TTClose > timedelta(0)
+        ):
+            # update market state
+            if not marketIsOpen:
+                marketIsOpen = True
+                log.warning('Market is open')
+
+            # update new bar delay
+            try: isAfterNewBarDelay = g.now - g.lastBarReceivedTime > c.tickDelay
+            except Exception as e:
+                if g.lastBarReceivedTime == None: # no bars received yet
+                    isAfterNewBarDelay = False
+                else: log.exception(e)
+            
+            try: # check for unticked bars
+                if (
                     isAfterNewBarDelay and
                     any(bars.ticked[-1] == False for bars in g.assets['min'].values())
                 ):
                     state = tick_algos(algos, indicators, state)
                     log.info('Waiting for bars')
-            else:
-                # update market state
-                if marketIsOpen:
-                    marketIsOpen = False
-                    log.warning('Market is closed')
+            except Exception as e: log.exception(e)
 
-    except BaseException as e:
-        log.exception(e)
+        else:
+            # update market state
+            if marketIsOpen:
+                marketIsOpen = False
+                log.warning('Market is closed')
 
-        g.lock.acquire()
-        log.warning('Stopping active algos')
-        for algo in algos['all']:
-            if algo.active: algo.stop()
-        g.lock.release()
+except BaseException as e:
+    log.exception(e)
 
-        pass # removes need for double keyboard interrupt
-
-if __name__ == '__main__':
-    # parse arguments
-    args = parse_args(sys.argv[1:])
-
-    # init logs
-    logFormatter = init_logs.init_formatter()
-    init_logs.init_primary_logs(args.log, args.env, logFormatter)
-    log = getLogger()
-
-    # init alpaca and timing
-    init_alpaca(args.env)
-    init_timing()
-
-    # init algos
-    algos = init_algos()
-    init_logs.init_algo_logs(algos['all'], logFormatter)
-    # TODO: update global positions
-    allocate_buying_power(algos)
-    for algo in algos['all']: # FIX: no performance data
-        algo.buyPow['long'] = 5000
-        algo.buyPow['short'] = 5000
-    if args.reset: reset(algos['all'])
-    log.warning('Starting active algos')
+    g.lock.acquire()
+    log.warning('Stopping active algos')
     for algo in algos['all']:
-        if algo.active: algo.start()
+        if algo.active: algo.stop()
+    g.lock.release()
 
-    # init indicators, assets, and streaming
-    indicators = init_indicators()
-    init_assets(args.numAssets, algos['all'], indicators)
-    conn = g.connPaper # TODO: integrate with env arg
-    Thread(target=stream, args=(conn, algos['all'], indicators)).start()
-    # NOTE: begin using g.lock
-
-    # main loop
-    main_loop()
+    pass # removes need for double keyboard interrupt

@@ -1,5 +1,6 @@
 import globalVariables as g
 import streaming
+from algoClass import Algo
 
 from datetime import datetime
 from pandas import DataFrame
@@ -51,92 +52,123 @@ def test_compile_day_bars(bars, indicators):
         streaming.compile_day_bars(indicators)
     assert_frame_equal(g.assets['day']['AAPL'], expected, False)
 
-@fixture
-def tradeSetup(testAlgo):
+def test_process_algo_trade(testAlgo):
+    # enter same side fill
+    testAlgo.longShort = 'short'
+    testAlgo.pendingOrders['AAPL'] = {'qty': -5, 'price': 10.30}
+    testAlgo.positions['AAPL'] = {'qty': -3, 'basis': 6.00}
+    testAlgo.buyPow = 1000.00
+    streaming.process_algo_trade('AAPL', testAlgo, -7, 10.00)
+    assert testAlgo.positions['AAPL'] == {'qty': -8, 'basis': 8.50}
+    assert testAlgo.buyPow == 1001.50
+
+    # enter same side partial
+    testAlgo.longShort = 'short'
+    testAlgo.pendingOrders['AAPL'] = {'qty': -5, 'price': 10.30}
+    testAlgo.positions['AAPL'] = {'qty': -3, 'basis': 6.00}
+    testAlgo.buyPow = 1000.00
+    streaming.process_algo_trade('AAPL', testAlgo, -3, 10.00)
+    assert testAlgo.positions['AAPL'] == {'qty': -6, 'basis': 8.00}
+    assert testAlgo.buyPow == 1021.50
+
+    # enter opposite side fill
+    testAlgo.longShort = 'long'
+    testAlgo.pendingOrders['AAPL'] = {'qty': 5, 'price': 10.10}
+    testAlgo.positions['AAPL'] = {'qty': 3, 'basis': 6.00}
+    testAlgo.buyPow = 1000.00
+    streaming.process_algo_trade('AAPL', testAlgo, -7, 10.00)
+    assert testAlgo.positions['AAPL'] == {'qty': 8, 'basis': 8.50}
+    assert testAlgo.buyPow == 1000.50
+
+    # enter opposite side partial
+    testAlgo.longShort = 'long'
+    testAlgo.pendingOrders['AAPL'] = {'qty': 5, 'price': 10.10}
+    testAlgo.positions['AAPL'] = {'qty': 3, 'basis': 6.00}
+    testAlgo.buyPow = 1000.00
+    streaming.process_algo_trade('AAPL', testAlgo, -3, 10.00)
+    assert testAlgo.positions['AAPL'] == {'qty': 8, 'basis': 8.50}
+    assert testAlgo.buyPow == 1000.50
+
+    # exit same side fill
+    testAlgo.longShort = 'short'
+    testAlgo.pendingOrders['AAPL'] = {'qty': 5, 'price': 9.90}
+    testAlgo.positions['AAPL'] = {'qty': -8, 'basis': 6.00}
+    testAlgo.buyPow = 1000.00
+    streaming.process_algo_trade('AAPL', testAlgo, 7, 10.00)
+    assert testAlgo.positions['AAPL'] == {'qty': -3, 'basis': 6.00}
+    assert testAlgo.buyPow == 1010.00
+
+    # exit same side partial
+    testAlgo.longShort = 'short'
+    testAlgo.pendingOrders['AAPL'] = {'qty': 5, 'price': 9.90}
+    testAlgo.positions['AAPL'] = {'qty': -8, 'basis': 6.00}
+    testAlgo.buyPow = 1000.00
+    streaming.process_algo_trade('AAPL', testAlgo, 3, 10.00)
+    assert testAlgo.positions['AAPL'] == {'qty': -5, 'basis': 6.00}
+    assert testAlgo.buyPow == 1006.00
+
+    # exit opposite side fill
+    testAlgo.longShort = 'long'
+    testAlgo.pendingOrders['AAPL'] = {'qty': -5, 'price': 9.90}
+    testAlgo.positions['AAPL'] = {'qty': 8, 'basis': 6.00}
+    testAlgo.buyPow = 1000.00
+    streaming.process_algo_trade('AAPL', testAlgo, 7, 10.00)
+    assert testAlgo.positions['AAPL'] == {'qty': 3, 'basis': 6.00}
+    assert testAlgo.buyPow == 1050.00
+
+    # exit opposite side partial
+    testAlgo.longShort = 'long'
+    testAlgo.pendingOrders['AAPL'] = {'qty': -5, 'price': 9.90}
+    testAlgo.positions['AAPL'] = {'qty': 8, 'basis': 6.00}
+    testAlgo.buyPow = 1000.00
+    streaming.process_algo_trade('AAPL', testAlgo, 3, 10.00)
+    assert testAlgo.positions['AAPL'] == {'qty': 3, 'basis': 6.00}
+    assert testAlgo.buyPow == 1050.00
+
+def test_process_trade():
+    ## SETUP
+
+    # algos
+    algos = []
+    orders = [-9, 3, -7, -5]
+    for qty in orders:
+        algo = Algo('min', print, 'short', False)
+        algo.pendingOrders['AAPL'] = {'qty': qty}
+        algos.append(algo)
+
     # global
-    g.paperOrders['54321'] = {
+    g.orders['54321'] = {
         'symbol': 'AAPL',
         'qty': -12,
-        'limit': 222.22,
-        'enterExit': 'enter',
-        'algo': testAlgo}
-    g.paperPositions['AAPL'] = {'qty': 23, 'basis': 221.02}
-
-    # algo
-    testAlgo.buyPow = {'long': 10000, 'short': 10000}
-    testAlgo.orders = g.paperOrders.copy()
-    testAlgo.positions['AAPL'] = {'qty': 0, 'basis': 0}
+        'price': 9.90,
+        'algos': algos}
+    g.positions['AAPL'] = 12
 
     # websocket
     class data:
-        event = 'fill'
+        event = 'canceled'
         order = {'id': '54321',
             'symbol': 'AAPL',
             'side': 'sell',
-            'qty': '12',
             'filled_qty': '12',
-            'limit_price': '222.22',
-            'filled_avg_price': '222.11'}
+            'filled_avg_price': '10.00'}
     
-    # exit
-    return data, testAlgo
 
-def test_process_trade_ENTER(tradeSetup):
-    data, testAlgo = tradeSetup
-    streaming.process_trade(data)
-    assert g.paperPositions['AAPL']['qty'] == 11
-    assert g.paperPositions['AAPL']['basis'] - 219.830909 < 1e-6
-    # (23 * 221.02 - 12 * 222.11) / (23 - 12)
-    assert testAlgo.positions['AAPL'] == {'qty': -12, 'basis': 222.11}
-    assert testAlgo.buyPow == {'long': 10000, 'short': 10001.32}
-    # 10000 + 12 * (222.11 - 222.22)
-    assert '54321' not in g.paperOrders
-    assert '54321' not in testAlgo.orders
+    ## TEST
 
-def test_process_trade_EXIT_NO_LIMIT(tradeSetup):
-    data, testAlgo = tradeSetup
-
-    # setup
-    g.paperOrders['54321']['enterExit'] = 'exit'
-    testAlgo.orders['54321']['enterExit'] = 'exit'
-    testAlgo.positions['AAPL'] = {'qty': 12, 'basis': 222.01}
-    
-    g.paperOrders['54321']['limit'] = None
-    testAlgo.orders['54321']['limit'] = None
-    data.order.pop('limit_price')
-
-    # test
-    streaming.process_trade(data)
-    assert g.paperPositions['AAPL']['qty'] == 11
-    assert g.paperPositions['AAPL']['basis'] - 219.830909 < 1e-6
-    # (23 * 221.02 - 12 * 222.11) / (23 - 12)
-    assert testAlgo.positions['AAPL'] == {'qty': 0, 'basis': 0}
-    assert testAlgo.buyPow == {'long': 12665.32, 'short': 10000}
-    # 10000 + 12 * 222.11
-    assert '54321' not in g.paperOrders
-    assert '54321' not in testAlgo.orders
-
-def test_process_trade_PARTIAL_FILL(tradeSetup):
-    data, testAlgo = tradeSetup
-    data.event = 'partial_fill'
-    streaming.process_trade(data)
-    assert g.paperPositions['AAPL']['qty'] == 23
-    assert g.paperPositions['AAPL']['basis'] == 221.02
-    assert testAlgo.positions['AAPL'] == {'qty': 0, 'basis': 0}
-    assert testAlgo.buyPow == {'long': 10000, 'short': 10000}
-    assert '54321' in g.paperOrders
-    assert '54321' in testAlgo.orders
-
-def test_process_trade_REJECTED(tradeSetup):
-    data, testAlgo = tradeSetup
-    data.event = 'rejected'
-    streaming.process_trade(data)
-    assert g.paperPositions['AAPL']['qty'] == 23
-    assert g.paperPositions['AAPL']['basis'] == 221.02
-    assert testAlgo.positions['AAPL'] == {'qty': 0, 'basis': 0}
-    assert testAlgo.buyPow == {'long': 10000, 'short': 12666.64}
-    assert '54321' not in g.paperOrders
-    assert '54321' not in testAlgo.orders
+    with patch('streaming.process_algo_trade') as process_algo_trade:
+        streaming.process_trade(data)
+        assert g.positions['AAPL'] == 0
+        assert '54321' not in g.orders
+        calls = [
+            call('AAPL', algos[1], -12, 10.00),
+            call('AAPL', algos[0], -15, 10.00),
+            call('AAPL', algos[2], -6, 10.00),
+            call('AAPL', algos[3], -0, 10.00)]
+        process_algo_trade.assert_has_calls(calls)
+        assert process_algo_trade.call_count == 4
+        for algo in algos:
+            assert 'AAPL' not in algo.pendingOrders
 
 def test_process_bars_backlog(indicators):
     # setup
@@ -178,4 +210,4 @@ def test_process_backlogs(indicators):
         process_trades_backlog.assert_called_once_with()
         backlogLock.release.assert_called_once_with()
 
-# NOTE: skip stream as it depends on websockets
+# NOTE: skip stream

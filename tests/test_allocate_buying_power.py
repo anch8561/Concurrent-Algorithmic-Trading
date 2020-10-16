@@ -1,105 +1,43 @@
+import algoClass
 import config as c
 import globalVariables as g
-from algoClasses import Algo
 from allocate_buying_power import allocate_buying_power
 
-import numpy as np
-import scipy.optimize as opt
+from numpy import array
+from unittest.mock import Mock, patch
 
 def test_allocate_buying_power(algos):
     # setup alpaca.get_account
     class alpaca:
         class account:
-            daytrading_buying_power = '123456.78'
-            regt_buying_power = '45678.90'
+            daytrading_buying_power = '10000'
+            regt_buying_power = '6000'
         def get_account(): # pylint: disable=no-method-argument
             return alpaca.account
-    g.alpacaPaper = alpaca
+    g.alpaca = alpaca
 
     # setup algo.get_metrics
-    def metric(reset=False):
-        ii = 0
-        while True:
-            yield dict(mean=dict(long=ii-5, short=5-ii))
-            ii += 1
-            if reset: ii = 0
-    def get_metrics(days=0, reset=False):
-        return next(metric(reset))
-    Algo.get_metrics = get_metrics
+    means = [None, 0.3, 0.1, 0.2, 0.3, 0.1, 0.2]
+    for ii, algo in enumerate(algos['all']):
+        algo.get_metrics = Mock(return_value={'mean': means[ii], 'stdev': None})
 
     # test
-    allocate_buying_power(algos)
+    with patch('allocate_buying_power.c.allocMetricDays', 3), \
+        patch('allocate_buying_power.c.maxAllocFrac', 0.5), \
+        patch('allocate_buying_power.c.minLongShortFrac', 0.4), \
+        patch('allocate_buying_power.c.maxLongShortFrac', 0.7):
+        allocate_buying_power(algos)
     testBPs = []
     for algo in algos['all']:
         testBPs.append(algo.buyPow)
-    
-    ## REAL
-
-    # get buying power
-    buyPow = float(alpaca.account.daytrading_buying_power)
-    regTBuyPow = float(alpaca.account.regt_buying_power)
-
-    # get performance weights
-    get_metrics(reset=True)
-    w = []
-    for algo in algos['all']:
-        metrics = algo.get_metrics(c.allocMetricDays)
-        w.append(metrics['mean']['long'])
-        w.append(metrics['mean']['short'])
-    w = np.array(w)
-
-    # get weight region lengths
-    n_all = 18
-    n_intraday = 4
-    n_overnight = 6
-    n_multiday = 8
-
-    # set objective function and initial guess
-    func = lambda x: - np.dot(x, w)
-    x0 = [0] * n_all
-
-    # set allcoation bounds
-    bounds = opt.Bounds(
-        lb = [0] * n_all,
-        ub = [c.maxAllocFrac] * n_all
-    )
-
-    # set allocation constraints
-    constraints = opt.LinearConstraint(
-        A = [
-            [1, -1] * int(n_all / 2), # longShortFrac bounds
-
-            # overnight + multiday <= regT
-            [0] * n_intraday + [1] * (n_overnight + n_multiday),
-
-            # intraday + multiday <= daytrading
-            [1] * n_intraday + [0] * n_overnight + [1] * n_multiday
-        ],
-        lb = [
-            c.minLongShortFrac * 2 - 1, # longShortFrac bounds
-            0, # overnight + multiday <= regT
-            0 # intraday + multiday <= daytrading
-        ],
-        ub = [
-            c.maxLongShortFrac * 2 - 1, # longShortFrac bounds
-            regTBuyPow / buyPow, # overnight + multiday <= regT
-            1 # intraday + multiday <= daytrading
-        ]
-    )
-
-    # calculate allocation
-    results = opt.minimize(func, x0,
-        bounds = bounds,
-        constraints = constraints)
-    allocFrac = results.x
-
-    # distribute buying power
-    for ii, algo in enumerate(algos['all']):
-        algo.buyPow['long'] = int(allocFrac[ii*2] * buyPow)
-        algo.buyPow['short'] = int(allocFrac[ii*2+1] * buyPow)
-    
-    # test
-    realBPs = []
-    for algo in algos['all']:
-        realBPs.append(algo.buyPow)
-    assert testBPs == realBPs
+        algo.get_metrics.assert_called_once_with(3)
+    testBPs = array(testBPs)
+    realBPs = array([
+        0,      # day   long  -1  (no performance data)
+        5000,   # day   short 0.3 (maxAllocFrac)
+        4000,   # day   long  0.1 (buyPow)
+        1000,   # day   short 0.2 (minLongShortFrac)
+        3000,   # night long  0.3 (maxAllocFrac)
+        1800,   # night short 0.1 (regTBuyPow)
+        1200])  # night long  0.2 (maxLongShortFrac)
+    assert all(testBPs - realBPs < 5)

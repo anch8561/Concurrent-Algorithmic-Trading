@@ -58,5 +58,5 @@ def test_EMA(bars):
 def test_KAMA(bars):
     testInd = Indicator(3, 'min', indicators.KAMA)
     testVal = testInd.get(bars)
-    realVal = ta.momentum.kama(bars.close[-3:], 3)[-1]
+    realVal = ta.momentum.kama(bars.close, 3)[-1]
     assert testVal == realVal

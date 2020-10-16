@@ -5,15 +5,15 @@ import timing
 from logging import getLogger
 from pandas import DataFrame
 
-log = getLogger()
+log = getLogger('main')
 
 def init_assets(numAssets, allAlgos, indicators):
     # numAssets: int; number of symbols to stream (-1 means all)
     log.warning('Populating assets')
 
     # get alpaca assets and polygon tickers
-    alpacaAssets = g.alpacaPaper.list_assets('active', 'us_equity')
-    polygonTickers = g.alpacaPaper.polygon.all_tickers()
+    alpacaAssets = g.alpaca.list_assets('active', 'us_equity')
+    polygonTickers = g.alpaca.polygon.all_tickers()
 
     # get active symbols
     activeSymbols = []
@@ -25,12 +25,16 @@ def init_assets(numAssets, allAlgos, indicators):
             not any(x in asset.name.lower() for x in c.leverageStrings)
         ):
             for ticker in polygonTickers:
-                if (
-                    ticker.ticker == asset.symbol and
-                    ticker.prevDay['v'] > c.minDayVolume and
-                    ticker.prevDay['l'] > c.minSharePrice
-                ):
-                    activeSymbols.append(asset.symbol)
+                if ticker.ticker == asset.symbol:
+                    high = ticker.prevDay['h']
+                    low = ticker.prevDay['l']
+                    volume = ticker.prevDay['v']
+                    if (
+                        low > c.minSharePrice and
+                        volume > c.minDayVolume and
+                        (high - low) / low > c.minDaySpread
+                    ):
+                        activeSymbols.append(asset.symbol)
                     break
         
         # check numAssets
@@ -44,22 +48,23 @@ def init_assets(numAssets, allAlgos, indicators):
 
 def add_asset(symbol, allAlgos, indicators):
     # add zero positions
-    positionsLists = [g.paperPositions, g.livePositions]
-    positionsLists += [algo.positions for algo in allAlgos]
-    for positions in positionsLists:
-        if symbol not in positions:
-            positions[symbol] = {'qty': 0, 'basis': 0}
+    g.positions[symbol] = 0
+    for algo in allAlgos:
+        if symbol not in algo.positions:
+            algo.positions[symbol] = {'qty': 0, 'basis': 0}
 
     # init second bars
     columns = ['open', 'high', 'low', 'close', 'volume', 'ticked']
     for indicator in indicators['sec']: columns.append(indicator.name)
     data = dict.fromkeys(columns)
+    data['ticked'] = True
     g.assets['sec'][symbol] = DataFrame(data, [timing.get_market_open()])
 
     # init minute bars
     columns = ['open', 'high', 'low', 'close', 'volume', 'ticked']
     for indicator in indicators['min']: columns.append(indicator.name)
     data = dict.fromkeys(columns)
+    data['ticked'] = True
     g.assets['min'][symbol] = DataFrame(data, [timing.get_market_open()])
 
 
@@ -67,7 +72,7 @@ def add_asset(symbol, allAlgos, indicators):
     try: # get historic aggs
         fromDate = timing.get_market_date(-c.numHistoricDays)
         toDate = timing.get_date()
-        bars = g.alpacaPaper.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
+        bars = g.alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
     except Exception as e:
         log.exception(e)
         g.assets['sec'].pop(symbol)
@@ -75,6 +80,7 @@ def add_asset(symbol, allAlgos, indicators):
         return
 
     # get indicators
+    bars['ticked'] = True
     for indicator in indicators['day']:
         bars[indicator.name] = None
         jj = bars.columns.get_loc(indicator.name)
