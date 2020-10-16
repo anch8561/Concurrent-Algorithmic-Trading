@@ -8,15 +8,10 @@ import json
 import statistics as stats
 from alpaca_trade_api.rest import APIError
 from logging import getLogger
-from os import mkdir
 from types import FunctionType
 
-# create algoPath if needed
-try: mkdir(c.algoPath)
-except Exception: pass
-
 class Algo:
-    def __init__(self, barFreq: str, func: FunctionType, longShort: str, loadData: bool=True, **kwargs):
+    def __init__(self, barFreq: str, func: FunctionType, longShort: str, loadData: bool, **kwargs):
         self.barFreq = barFreq # 'sec', 'min', or 'day'; size of market data aggregates used
         self.func = func # function to determine when to buy and sell
         self.longShort = longShort # 'long' or 'short'; algo equity type

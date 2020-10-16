@@ -1,6 +1,10 @@
 import config as c
 import globalVariables as g
 from algoClass import Algo
+from init_logs import init_algo_logs
+
+from logging import Formatter
+from os import mkdir
 
 # NOTE: kwargs must be in correct order to generate correct name
 
@@ -45,20 +49,20 @@ def crossover(self): # kwargs: fastNumBars, slowNumBars
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
-def init_day_algos() -> list:
+def init_day_algos(loadData: bool) -> list:
     algos = []
     for longShort in ('long', 'short'):
         # momentum
         for numUpBars in (1, 2, 3):
             for numDownBars in (1, 2, 3):
-                algos.append(Algo('min', momentum, longShort,
+                algos.append(Algo('min', momentum, longShort, loadData,
                     numUpBars = numUpBars, numDownBars = numDownBars))
         
         # moving average crossover
         for slowNumBars in (5, 10, 20):
             for fastNumBars in (3, 5, 10):
                 if slowNumBars > fastNumBars:
-                    algos.append(Algo('min', crossover, longShort,
+                    algos.append(Algo('min', crossover, longShort, loadData,
                         fastNumBars = fastNumBars, slowNumBars = slowNumBars))
     return algos
 
@@ -95,19 +99,35 @@ def momentum_volume(self): # kwargs: numBars
             if metrics[symbol] >= 0: break
             self.queue_order(symbol, 'sell')
 
-def init_night_algos() -> list:
+def init_night_algos(loadData: bool) -> list:
     algos = []
     for longShort in ('long', 'short'):
         for numBars in (3, 5, 10):
-            algos.append(Algo('day', momentum_volume, longShort, numBars=numBars))
+            algos.append(Algo('day', momentum_volume, longShort, loadData, numBars=numBars))
     return algos
 
 
 # all
-def init_algos() -> dict:
-    dayAlgos = init_day_algos()
-    nightAlgos = init_night_algos()
-    return {
+def init_algos(loadData: bool, logFmtr: Formatter) -> dict:
+    # loadData: whether to load algo data files
+    # logFmtr: for custom log formatting
+
+    # create algoPath if needed
+    try: mkdir(c.algoPath)
+    except Exception: pass
+
+    # create algos
+    dayAlgos = init_day_algos(loadData)
+    nightAlgos = init_night_algos(loadData)
+
+    # populate dictionary
+    algos = {
         'day': dayAlgos,
         'night': nightAlgos,
         'all': dayAlgos + nightAlgos}
+    
+    # init logs
+    init_algo_logs(algos['all'], logFmtr)
+
+    # exit
+    return algos

@@ -1,11 +1,11 @@
 import config as c
 import globalVariables as g
-import init_logs
 from algos import init_algos
 from allocate_buying_power import allocate_buying_power
 from indicators import init_indicators
 from init_alpaca import init_alpaca
 from init_assets import init_assets
+from init_logs import init_log_formatter, init_primary_logs
 from parse_args import parse_args
 from reset import reset
 from streaming import stream
@@ -21,31 +21,29 @@ from threading import Thread
 args = parse_args(sys.argv[1:])
 
 # init logs
-logFormatter = init_logs.init_formatter()
-init_logs.init_primary_logs(args.log, args.env, logFormatter)
+logFmtr = init_log_formatter()
+init_primary_logs(args.log, args.env, logFmtr)
 log = getLogger('main')
 
 # init alpaca and timing
 init_alpaca(args.env)
 init_timing()
 
-# init algos
-algos = init_algos()
-if args.reset: reset(algos['all'])
-init_logs.init_algo_logs(algos['all'], logFormatter)
-allocate_buying_power(algos) # TODO: subtract positions
-for algo in algos['all']: # FIX: no performance data
-    algo.buyPow = 5000
-
-# init indicators, assets, and streaming
+# init indicators and algos
 indicators = init_indicators()
+algos = init_algos(True, logFmtr)
+if args.reset: reset(algos['all'])
+allocate_buying_power(algos) # TODO: subtract positions
+for algo in algos['all']: algo.buyPow = 5000 # FIX: no performance data
+
+# init assets and streaming
 init_assets(args.numAssets, algos['all'], indicators)
 Thread(target=stream, args=(g.conn, algos['all'], indicators)).start()
 # NOTE: begin using g.lock
 # TODO: update global positions (careful of add_asset)
 
 # FIX: not getting new bars after first few
-# TODO: use barFreq to get price
+# TODO: use algo.barFreq to get price?
 
 # start algos
 log.warning('Starting active algos')
