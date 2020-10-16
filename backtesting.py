@@ -1,12 +1,16 @@
-import credentials
+import config as c
 import globalVariables as g
-import main
-import timing
 from algoClass import Algo
+from algos import init_algos
+from credentials import dev
+from indicators import init_indicators
+from init_logs import init_log_formatter, init_primary_logs
+from streaming import process_algo_trade
 
 import alpaca_trade_api, sys
 from argparse import ArgumentParser
 from datetime import datetime
+from logging import getLogger
 from pandas import DataFrame
 from pytz import timezone
 from unittest.mock import patch
@@ -33,19 +37,34 @@ from unittest.mock import patch
 
 if __name__ == '__main__':
     # parse arguments
-    parse_args(sys.argv[1:])
+    args = parse_args(sys.argv[1:])
 
-    # init backtest logs
+    # update paths
+    c.logPath = 'backtest/' + c.logPath
+    c.algoPath = 'backtest/' + c.algoPath
 
-    # init / patch alpaca and timing
-    realAlpaca = alpaca_trade_api.REST(*credentials.dev.paper)
+    # init logs
+    logFmtr = init_log_formatter()
+    init_primary_logs(args.log, 'backtest', logFmtr)
+    log = getLogger('backtest')
 
-    # init algos
+    # init indicators and algos
+    indicators = init_indicators()
+    algos = init_algos(False, logFmtr)
+    for algo in algos['all']: algo.buyPow = 1e5
 
-    # init indicators and assets
+    # init assets and "streaming"
+    bars = get_historic_bars(symbols, fromDate, toDate) # TODO: figure out these args
 
-    # main loop (including "streaming")
-
+    # main loop
+    with patch('algoClass.get_time_str', get_time_str), \
+    patch('algoClass.get_date', get_date):
+        while True:
+            # reset between days
+            get_next_bars()
+            process_trades()
+            tick_indicators(indicators)
+            tick_algos(algos)
 
 
 def parse_args(args):
@@ -66,39 +85,6 @@ def parse_args(args):
             'black swan: days with deltas over 5%\n') # estimates subject to change
     return parser.parse_args(args)
 
-
-# overnight needs day bars
-# intraday needs minute bars
-
-def init_algos() -> list:
-    # intialize algos to be backtested
-    pass
-
-def init_indicators() -> list:
-    # initialize indicators needed by algos
-    pass
-
-def tick_indicators(indicators):
-    for indicator in indicators:
-        jj = bars.columns.get_loc(indicator.name)
-        bars.iloc[-1, jj] = indicator.get(bars)
-
-def tick_algos(algos):
-    for algo in algos:
-        algo.tick()
-
-def main_loop():
-    bars = get_historic_bars(symbols, fromDate, toDate)
-    indicators = init_indicators()
-    algos = init_algos()
-
-    while True:
-        # reset between days
-        get_next_bars()
-        process_trades()
-        tick_indicators(indicators)
-        tick_algos(algos)
-
 def get_historic_bars(symbols, fromDate, toDate):
     # symbols: list of str
     # fromDate: str; e.g. '2004-01-01'
@@ -108,6 +94,7 @@ def get_historic_bars(symbols, fromDate, toDate):
     toDate = g.nyc.localize(datetime.strptime(toDate, '%Y-%m-%d'))
 
     bars = {}
+    alpaca = alpaca_trade_api.REST(*dev.paper)
     while fromDate < toDate:
         for symbol in symbols:
             bars[symbol] = DataFrame()
@@ -119,7 +106,11 @@ def get_historic_bars(symbols, fromDate, toDate):
         fromDate = bars[symbols[0]].index[-1]
     # bars.to_csv('test.txt')
 
-def get_next_minute_bars(): pass
+def get_time_str(): pass
+
+def get_date(): pass
+
+def get_next_bars(): pass
 
 def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
     qty = algo.pendingOrders[symbol]['qty']
@@ -143,64 +134,11 @@ def process_trades(algos):
             fillQty, fillPrice = get_trade_fill(symbol, algo)
             process_algo_trade(symbol, algo, fillQty, fillPrice)
 
-# patching main and streaming is inefficient (not worth less code)
-# elements of main:
-# initialize everything (daily vs once?)
-# get bars, tick algos, process trades
+def tick_indicators(indicators):
+    for indicator in indicators:
+        jj = bars.columns.get_loc(indicator.name)
+        bars.iloc[-1, jj] = indicator.get(bars)
 
-class Alpaca:
-    def __init__(self):
-        self.calendar = realAlpaca.get_calendar()
-        self.order_id = 0
-        self.orders = {}
-
-    def cancel_order(self, order_id):
-        # NOTE: may not need it
-        self.orders.pop(order_id)
-
-    def get_calendar(self):
-        return self.calendar
-
-    def get_last_trade(self, symbol):
-        # NOTE: may not need it
-        class trade:
-            price = 0 # TODO: get price
-        return trade
-    
-    def submit_order(self, symbol, qty, side, type, time_in_force, limit_price):
-        self.order_id += 1
-        self.orders[self.order_id] = {
-            'symbol': symbol,
-            'qty': qty,
-            'side': side,
-            'type': type,
-            'time_in_force': time_in_force,
-            'limit_price': limit_price}
-        return self.order_id
-
-
-# patch streaming.py (not streamconn)
-
-class datetimeOverride(datetime):
-    def set_time(self, time):
-        self.time = g.nyc.localize(datetime(1996, 2, 13, 12, 34, 56))
-    def now(self, tz):
-        return self.time
-
-class streamingOverride:
-    def stream(conn, allAlgos, indicators):
-
-
-# run main each day in calendar
-datetimeOverride.set_time(startDate)
-
-i_today += 1
-time = 
-datetimeOverride.set_time(time)
-with patch('main.timing.datetime', datetimeOverride), \
-    patch('main.streaming', streamingOverride):
-    main()
-
-
-time = timing.get_market_open()
-datetime_override.set_time(time)
+def tick_algos(algos):
+    for algo in algos:
+        algo.tick()
