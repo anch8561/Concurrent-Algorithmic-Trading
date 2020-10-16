@@ -18,7 +18,7 @@ maxLongShortFrac = 0.7 # max fraction of total buying power to allocate long
 # init assets
 numAssets = 10 # default number of symbols to stream (-1 means all)
 minSharePrice = 20
-minDayVolume = 1e6
+minDayCashFlow = 1e6
 minDaySpread = 0.01
 leverageStrings = ('leveraged', '1.5x', '2x', '3x')
 numHistoricDays = 20

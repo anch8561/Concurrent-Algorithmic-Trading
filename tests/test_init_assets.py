@@ -24,12 +24,13 @@ def alpaca():
 
     class Ticker:
         def __init__(self, ticker,
-            volume = 10001,
+            high = 22.00,
             low = 21.00,
-            high = 22.00
+            close = 21.50,
+            volume = 1000
         ):
             self.ticker = ticker
-            self.prevDay = {'v': volume, 'l': low, 'h': high}
+            self.prevDay = {'v': volume, 'h': high, 'l': low, 'c': close}
 
     class alpaca:
         def list_assets(*args): # pylint: disable=no-method-argument
@@ -48,7 +49,7 @@ def alpaca():
         class polygon:
             def all_tickers(): # pylint: disable=no-method-argument
                 return [
-                    Ticker('FB', volume=9999),
+                    Ticker('FB', volume=10),
                     Ticker('GOOG', low=19.99),
                     Ticker('MSFT', high=21.01),
                     Ticker('WMT'),
@@ -71,7 +72,7 @@ def test_init_assets(alpaca, allAlgos, indicators):
 
     # test
     with patch('init_assets.c.minSharePrice', 20), \
-        patch('init_assets.c.minDayVolume', 10000), \
+        patch('init_assets.c.minDayCashFlow', 2e4), \
         patch('init_assets.c.minDaySpread', 0.01), \
         patch('init_assets.add_asset') as add_asset:
         init_assets.init_assets(2, allAlgos, indicators)

@@ -28,10 +28,11 @@ def init_assets(numAssets, allAlgos, indicators):
                 if ticker.ticker == asset.symbol:
                     high = ticker.prevDay['h']
                     low = ticker.prevDay['l']
+                    close = ticker.prevDay['c']
                     volume = ticker.prevDay['v']
                     if (
                         low > c.minSharePrice and
-                        volume > c.minDayVolume and
+                        volume * close > c.minDayCashFlow and
                         (high - low) / low > c.minDaySpread
                     ):
                         activeSymbols.append(asset.symbol)
