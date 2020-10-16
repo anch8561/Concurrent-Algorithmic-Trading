@@ -2,6 +2,7 @@ import credentials
 import globalVariables as g
 import main
 import timing
+from algoClass import Algo
 
 import alpaca_trade_api, sys
 from argparse import ArgumentParser
@@ -66,7 +67,37 @@ def parse_args(args):
     return parser.parse_args(args)
 
 
+# overnight needs day bars
+# intraday needs minute bars
 
+def init_algos() -> list:
+    # intialize algos to be backtested
+    pass
+
+def init_indicators() -> list:
+    # initialize indicators needed by algos
+    pass
+
+def tick_indicators(indicators):
+    for indicator in indicators:
+        jj = bars.columns.get_loc(indicator.name)
+        bars.iloc[-1, jj] = indicator.get(bars)
+
+def tick_algos(algos):
+    for algo in algos:
+        algo.tick()
+
+def main_loop():
+    bars = get_historic_bars(symbols, fromDate, toDate)
+    indicators = init_indicators()
+    algos = init_algos()
+
+    while True:
+        # reset between days
+        get_next_bars()
+        process_trades()
+        tick_indicators(indicators)
+        tick_algos(algos)
 
 def get_historic_bars(symbols, fromDate, toDate):
     # symbols: list of str
@@ -84,12 +115,33 @@ def get_historic_bars(symbols, fromDate, toDate):
             newBars = newBars.df.iloc[:5000] # remove extra toDate data
             bars[symbol] = bars[symbol].append(newBars).drop_duplicates()
             # TODO: drop extended hours
+            # TODO: replace drop_duplicates
         fromDate = bars[symbols[0]].index[-1]
     # bars.to_csv('test.txt')
 
 def get_next_minute_bars(): pass
 
-def process_trades(): pass
+def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
+    qty = algo.pendingOrders[symbol]['qty']
+    limit = algo.pendingOrders[symbol]['price']
+    high = g.assets[symbol].high[-1]
+    low = g.assets[symbol].low[-1]
+    if qty > 0: # buy
+        if low <= limit:
+            return qty, min(high, limit)
+    else: # sell
+        if limit <= high:
+            return qty, max(low, limit)
+    return 0, 0
+
+def process_trades(algos):
+    for algo in algos:
+        algo.pendingOrders = algo.queuedOrders
+        algo.queuedOrder = {}
+        # FIX: short enter algo price is NOT limit price
+        for symbol in algo.pendingOrders:
+            fillQty, fillPrice = get_trade_fill(symbol, algo)
+            process_algo_trade(symbol, algo, fillQty, fillPrice)
 
 # patching main and streaming is inefficient (not worth less code)
 # elements of main:
