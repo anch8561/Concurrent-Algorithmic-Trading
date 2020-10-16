@@ -7,11 +7,11 @@ from pytz import timezone
 
 @fixture
 def formatter():
-    return init_logs.init_formatter()
+    return init_logs.init_log_formatter()
 
-def test_init_formatter():
+def test_init_log_formatter():
     # setup
-    fmtr = init_logs.init_formatter()
+    fmtr = init_logs.init_log_formatter()
     record = logging.LogRecord(
         name = 'test',
         level = logging.DEBUG,

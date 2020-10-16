@@ -4,12 +4,12 @@ from credentials import email
 from datetime import datetime
 
 import logging, logging.handlers
-from os import mkdir
 import pandas as pd
+from os import mkdir
 from pytz import timezone
 
-def init_formatter():
-    def formatDatetime(record, datefmt=None):
+def init_log_formatter():
+    def formatDatetime(record, datefmt=None) -> logging.Formatter:
         # pylint: disable=undefined-variable
         ct = datetime.fromtimestamp(record.created, g.nyc)
         if datefmt:
@@ -25,10 +25,10 @@ def init_formatter():
     fmtr.formatTime = formatDatetime
     return fmtr
 
-def init_primary_logs(logLevel, env, fmtr):
-    # logLevel: string; logging level to print to terminal
-    # env: string; environment (only send alert emails if env == 'prod')
-    # fmtr: logging.formatter instance
+def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
+    # logLevel: e.g. 'info'; logging level to print to terminal
+    # env: environment; only send alert emails if env == 'prod'
+    # fmtr: for custom log formatting
 
     # create logPath if needed
     try: mkdir(c.logPath)
@@ -76,9 +76,9 @@ def init_primary_logs(logLevel, env, fmtr):
     indicatorsLog = logging.getLogger('indicators')
     indicatorsLog.setLevel(logging.DEBUG)
 
-def init_algo_logs(allAlgos, fmtr):
+def init_algo_logs(allAlgos, fmtr: logging.Formatter):
     # allAlgos: list of all algos
-    # fmtr: logging.formatter instance
+    # fmtr: for custom log formatting
 
     for algo in allAlgos:
         # handler
