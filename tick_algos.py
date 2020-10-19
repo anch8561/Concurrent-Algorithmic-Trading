@@ -5,6 +5,7 @@ from tab import tab
 
 import random
 from logging import getLogger
+from threading import Thread
 
 log = getLogger('main')
 
@@ -134,7 +135,7 @@ def submit_order(combinedOrder):
         algoPositionQty = algo.positions[symbol]['qty']
         logMsg += tab(algo.name, 40) + 'Have: ' + tab(algoPositionQty, 6) + \
             'Ordering: ' + tab(algoOrderQty, 6) + f'@ {algoOrderPrice}\n'
-    log.info(logMsg)
+    log.debug(logMsg)
 
 class TradeData: # for combinedOrders w/ zero qty
     def __init__(self, combinedOrder):
@@ -175,6 +176,7 @@ def process_queued_orders(allAlgos):
                     'algos': [algo]}
 
     # submit orders
+    threads = []
     for symbol, order in combinedOrders.items():
         try: # check for zero crossings
             positionQty = g.positions[symbol]
@@ -199,7 +201,7 @@ def process_queued_orders(allAlgos):
             if order['qty']: # send to alpaca
                 side = 'buy' if order['qty'] > 0 else 'sell'
                 order['price'] = get_limit_price(symbol, side)
-                submit_order(order)
+                threads.append(Thread(target=submit_order, args=[order])) # submit order in new thread
             else: # process internally
                 order['price'] = get_price(symbol)
                 if order['price'] == None:
@@ -208,6 +210,8 @@ def process_queued_orders(allAlgos):
         except Exception as e:
             log.exception(e)
             continue
+    for thread in threads: thread.start()
+    for thread in threads: thread.join()
 
     # clear queuedOrders
     for algo in allAlgos:
@@ -250,6 +254,7 @@ def tick_algos(algos, indicators, state):
             
             if any(algo.active for algo in algos[state]):
                 log.info(f'Some {state} algos are still active')
+                # TODO: partial handoff in case algo can't deactivate
             else:
                 log.info(f'All {state} algos are deactivated')
                 state = 'night' if state == 'day' else 'day' # swap state
