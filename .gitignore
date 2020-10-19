@@ -1,6 +1,7 @@
-.vscode/
 __pycache__/
+.vscode/
+*.csv
+*.data
+*.log
 credentials.py
 test.py
-*.log
-*.data
