@@ -121,12 +121,11 @@ def get_historic_bars(symbols: list, fromDateStr: str, toDateStr: str):
     for ii, date in enumerate(calendar): # get fromDateStr or next market day
         if date._raw['date'] >= fromDateStr:
             fromDateStr = date._raw['date']
-            i_fromDate = ii
+            fromDateIdx = ii
             break
-    for ii, date in enumerate(reversed(calendar)): # get toDateStr or prev market day
+    for date in reversed(calendar): # get toDateStr or prev market day
         if date._raw['date'] <= toDateStr:
             toDateStr = date._raw['date']
-            i_toDate = ii
             break
 
     # get toDate as datetime
@@ -147,16 +146,47 @@ def get_historic_bars(symbols: list, fromDateStr: str, toDateStr: str):
         # get minute bars
         fromDate = dayBars.index[0]
         while fromDate < toDate:
+            # download bars
             newBars = alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate)
-            newBars = newBars.df.iloc[:5000] # remove extra toDate data
-            try:
+            newBars = newBars.df[:5000] # remove extra toDate data
+
+            # drop extended hours
+            extendedHours = []
+            while fromDate < newBars.index[-1]:
+                # get market open and close
+                marketOpen = datetime.combine(
+                    date = fromDate,
+                    time = calendar[fromDateIdx].open,
+                    tzinfo = fromDate.tzinfo)
+                marketClose = datetime.combine(
+                    date = fromDate,
+                    time = calendar[fromDateIdx].close,
+                    tzinfo = fromDate.tzinfo)
+                
+                # get extended hours
+                for timestamp in newBars.index:
+                    if timestamp.date() == fromDate.date():
+                        if timestamp < marketOpen or timestamp > marketClose:
+                            extendedHours.append(timestamp)
+                    elif timestamp.date() > fromDate.date():
+                        break
+
+                # get next market day
+                fromDateIdx += 1
+                fromDateStr = calendar[fromDateIdx]._raw['date']
+                fromDate = g.nyc.localize(datetime.strptime(fromDateStr, '%Y-%m-%d'))
+            newBars = newBars.drop(extendedHours)
+            
+            try: # add new bars
                 newBars = newBars[minBars.index[-1]:][1:] # remove overlap
                 minBars = minBars.append(newBars)
             except:
                 minBars = newBars
+            
             fromDate = minBars.index[-1]
-            # TODO: drop extended hours
-        minBars.to_csv(f'backtest/bars/{symbol}_min.csv')
+
+        # save bars
+        minBars.to_csv(f'backtest/bars/{symbol}_min_EH.csv')
 
 def get_time_str(): pass
 
