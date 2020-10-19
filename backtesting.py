@@ -3,15 +3,16 @@ import globalVariables as g
 from algoClass import Algo
 from algos import init_algos
 from credentials import dev
+from backtest.get_historic_bars import get_historic_bars
 from indicators import init_indicators
 from init_logs import init_log_formatter, init_primary_logs
 from streaming import process_algo_trade
 
 import alpaca_trade_api, os, sys
+import pandas as pd
 from argparse import ArgumentParser
 from datetime import datetime
 from logging import getLogger
-from pandas import DataFrame
 from pytz import timezone
 from unittest.mock import patch
 
@@ -39,17 +40,23 @@ if __name__ == '__main__':
 
     # init alpaca and "timing"
     alpaca = alpaca_trade_api.REST(*dev.paper)
+    calendar = alpaca.get_calendar()
+    for ii, date in enumerate(calendar):
+        if date._raw['date'] >= args.dates[0]: # current or next market day
+            todayIdx = ii
+            break
 
     # init assets and "streaming"
-    allSymbols = get_symbols()
-    get_historic_bars(symbols, fromDate, toDate) # TODO: figure out these args
 
-    # multiday loop
+    get_historic_bars(alpaca, calendar, symbols, *args.dates)
+    barGens = init_bar_gens(['min', 'day'], symbols)
+
+    # main loops
     with patch('algoClass.get_time_str', get_time_str), \
     patch('algoClass.get_date', get_date):
-        while True:
-            init_assets()
-            while True:
+        while True: # multiday loop
+            new_day(args.numAssets)
+            while True: # intraday loop
                 # TODO: reset between days
                 get_next_bars()
                 process_trades()
@@ -72,9 +79,14 @@ def parse_args(args):
             'rally: weeks with gains over 5%\n' + \
             'crash: weeks with drops over 5%\n' + \
             'black swan: days with deltas over 5%\n') # estimates subject to change
+    parser.add_argument(
+        '--numAssets',
+        default = c.numAssets,
+        type = int,
+        help = f'number of symbols to stream (default {c.numAssets}, -1 means all)')
     return parser.parse_args(args)
 
-def get_symbols() -> list:
+def get_symbols(numSymbols) -> list:
     # NOTE: uses alpaca global
     symbols = []
     alpacaAssets = alpaca.list_assets('active', 'us_equity')
@@ -87,119 +99,30 @@ def get_symbols() -> list:
                     # ignore price, cash flow, and spread
                     symbols.append(asset.symbol)
                     break
+        if numSymbols > 0 and len(symbols) == numSymbols: break
     return symbols
 
-def init_assets(symbols: list):
+def init_assets() -> (list, dict):
+    symbols = get_symbols(args.numAssets)
+    assets = {'sec': {}, 'min': {}, 'day': {}}
+    for barFreq in assets:
+        for symbol in symbols:
+            assets[barFreq][symbol] = pd.DataFrame()
+
+
+
+def new_day(symbols: list):
     for symbol in symbols:
         # TODO: check price, cash flow, and spread
         pass
 
-def get_historic_bars(symbols: list, fromDateStr: str, toDateStr: str):
-    # symbols: list of str
-    # fromDate: e.g. '2004-01-01'
-    # toDate: e.g. 2020-01-01'
-    # saves csv for each symbol w/ bars from date range
-    # NOTE: uses alpaca and log globals
+def get_time_str(assets: dict):
+    symbol = list(assets.keys())[0]
+    return assets['day'][symbol].index[-1].strftime('%H:%M:%S.%f')
 
-    log.warning('Getting historic bars')
-
-    # create bars dir if needed
-    try: os.mkdir('backtest/bars')
-    except Exception: pass
-
-    # check date bounds
-    if fromDateStr < '2004':
-        log.error('No historic bars before 2004')
-        return
-    if toDateStr >= datetime.now(g.nyc).strftime('%Y-%m-%d'):
-        log.error('No historic bars after yesterday')
-        return
-
-    # convert dates to market dates (inf loop if toDate not market day)
-    # also allows for partial dates (e.g. '2005' -> '2005-01-01')
-    calendar = alpaca.get_calendar()
-    for ii, date in enumerate(calendar): # get fromDateStr or next market day
-        if date._raw['date'] >= fromDateStr:
-            fromDateStr = date._raw['date']
-            fromDateIdx = ii
-            break
-    for date in reversed(calendar): # get toDateStr or prev market day
-        if date._raw['date'] <= toDateStr:
-            toDateStr = date._raw['date']
-            break
-
-    # get toDate as datetime
-    toDate = g.nyc.localize(datetime.strptime(toDateStr, '%Y-%m-%d'))
-
-    # get bars
-    for ii, symbol in enumerate(symbols):
-        log.info(f'Downloading asset {ii+1} / {len(symbols)}\t{symbol}')
-
-        # reset fromDate
-        fromDate = g.nyc.localize(datetime.strptime(fromDateStr, '%Y-%m-%d'))
-
-        # get day bars
-        # NOTE: will not work with start dates over 20 yrs ago
-        dayBars = alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
-        dayBars.to_csv(f'backtest/bars/{symbol}_day.csv')
-
-        # get minute bars
-        fromDate = dayBars.index[0]
-        while fromDate < toDate:
-            # download bars
-            newBars = alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate)
-            newBars = newBars.df[:5000] # remove extra toDate data
-
-            # drop extended hours
-            extendedHours = []
-            while fromDate < newBars.index[-1]:
-                # get market open and close
-                marketOpen = datetime.combine(
-                    date = fromDate,
-                    time = calendar[fromDateIdx].open,
-                    tzinfo = fromDate.tzinfo)
-                marketClose = datetime.combine(
-                    date = fromDate,
-                    time = calendar[fromDateIdx].close,
-                    tzinfo = fromDate.tzinfo)
-                
-                # get extended hours
-                for timestamp in newBars.index:
-                    if timestamp.date() == fromDate.date():
-                        if timestamp < marketOpen or timestamp > marketClose:
-                            extendedHours.append(timestamp)
-                    elif timestamp.date() > fromDate.date():
-                        break
-
-                # get next market day
-                fromDateIdx += 1
-                fromDateStr = calendar[fromDateIdx]._raw['date']
-                fromDate = g.nyc.localize(datetime.strptime(fromDateStr, '%Y-%m-%d'))
-            newBars = newBars.drop(extendedHours)
-            
-            try: # add new bars
-                newBars = newBars[minBars.index[-1]:][1:] # remove overlap
-                minBars = minBars.append(newBars)
-            except:
-                minBars = newBars
-            
-            fromDate = minBars.index[-1]
-
-        # save bars
-        minBars.to_csv(f'backtest/bars/{symbol}_min_EH.csv')
-
-def get_time_str(): pass
-
-def get_date(): pass
-
-def get_next_bars(symbols):
-    for symbol in symbols:
-        bars = DataFrame.from_csv(f'historic_bars/{symbol}.csv')
-
-def get_next_bar(symbol):
-    with open(f'historic_bars/{symbol}.csv') as bars:
-        for bar in bars:
-            yield bar
+def get_date(assets: dict) -> str:
+    symbol = list(assets.keys())[0]
+    return assets['day'][symbol].index[-1].strftime('%Y-%m-%d')
 
 def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
     qty = algo.pendingOrders[symbol]['qty']
