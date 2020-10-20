@@ -5,71 +5,89 @@ from logging import getLogger
 import numpy as np
 import scipy.optimize as opt
 
-log = getLogger()
+log = getLogger('main')
 
 def allocate_buying_power(algos):
-    # algos: dict of lists of algos (keys: 'intraday', 'overnight', 'multiday', 'all')
+    # algos: dict of lists of algos; {day, night, all}
 
     log.warning('Allocating buying power')
 
     # get buying power
-    account = g.alpacaPaper.get_account() # FIX: paper
+    account = g.alpaca.get_account()
     buyPow = float(account.daytrading_buying_power)
     regTBuyPow = float(account.regt_buying_power)
     log.warning(f'Daytrading buying power: {buyPow}')
     log.warning(f'Overnight buying power:  {regTBuyPow}')
 
-    try: # get performance weights
-        w = []
+    try: # get algo metrics
+        weights = []
+        longShortVec = []
         for algo in algos['all']:
-            metrics = algo.get_metrics(c.allocMetricDays)
-            w.append(metrics['mean']['long'])
-            w.append(metrics['mean']['short'])
-            algo.log.debug(
-                f"\tlong growth:  {metrics['mean']['long']}\t+/- {metrics['stdev']['long']}\n" +
-                f"\tshort growth: {metrics['mean']['short']}\t+/- {metrics['stdev']['short']}")
-        w = np.array(w)
+            try: # get weight
+                metrics = algo.get_metrics(c.allocMetricDays)
+                if metrics['mean'] == None:
+                    metrics['mean'] = -1 # assume worst
+                weights.append(metrics['mean'])
+            except Exception as e:
+                log.exception(e)
+                weights.append(-1)
+
+            try: # get longShort
+                if algo.longShort == 'long': longShortVec.append(1)
+                else: longShortVec.append(-1)
+            except Exception as e:
+                log.exception(e)
+                longShortVec.append(0)
+
+            try: algo.log.debug(f"\tgrowth: {metrics['mean']}\t+/- {metrics['stdev']}")
+            except Exception as e: log.exception(e)
+        weights = np.array(weights)
     except Exception as e: log.exception(e)
 
     try: # get weight region lengths
-        n_all = len(algos['all']) * 2
-        n_intraday = len(algos['intraday']) * 2
-        n_overnight = len(algos['overnight']) * 2
-        n_multiday = len(algos['multiday']) * 2
+        n_all = len(algos['all'])
+        n_day = len(algos['day'])
+        n_night = len(algos['night'])
     except Exception as e: log.exception(e)
 
     try: # set objective function and initial guess
-        func = lambda x: - np.dot(x, w)
+        func = lambda x: - np.dot(x, weights)
         x0 = [0] * n_all
     except Exception as e: log.exception(e)
 
-    try: # set allcoation bounds
+    try: # set allocation bounds
         bounds = opt.Bounds(
             lb = [0] * n_all,
-            ub = [c.maxAllocFrac] * n_all
+            ub = [c.maxAllocFrac] * n_day + [c.maxAllocFrac * regTBuyPow / buyPow] * n_night
         )
     except Exception as e: log.exception(e)
     
     try: # set allocation constraints
         constraints = opt.LinearConstraint(
             A = [
-                [1, -1] * int(n_all / 2), # longShortFrac bounds
+                # day longShortFrac bounds
+                longShortVec[:n_day] + [0] * n_night,
+                
+                # night longShortFrac bounds
+                [0] * n_day + longShortVec[-n_night:],
 
-                # overnight + multiday <= regT
-                [0] * n_intraday + [1] * (n_overnight + n_multiday),
+                # day <= daytrading
+                [1] * n_day + [0] * n_night,
 
-                # intraday + multiday <= daytrading
-                [1] * n_intraday + [0] * n_overnight + [1] * n_multiday
+                # night <= regT
+                [0] * n_day + [1] * n_night
             ],
             lb = [
-                c.minLongShortFrac * 2 - 1, # longShortFrac bounds
-                0, # overnight + multiday <= regT
-                0 # intraday + multiday <= daytrading
+                c.minLongShortFrac * 2 - 1, # day longShortFrac bounds (scale 0<->1 to -1<->1)
+                (c.minLongShortFrac * 2 - 1) * regTBuyPow / buyPow, # night longShortFrac bounds
+                0, # day <= daytrading
+                0 # night <= regT
             ],
             ub = [
-                c.maxLongShortFrac * 2 - 1, # longShortFrac bounds
-                regTBuyPow / buyPow, # overnight + multiday <= regT
-                1 # intraday + multiday <= daytrading
+                c.maxLongShortFrac * 2 - 1, # day longShortFrac bounds (scale 0<->1 to -1<->1)
+                (c.maxLongShortFrac * 2 - 1) * regTBuyPow / buyPow, # night longShortFrac bounds
+                1, # day <= daytrading
+                regTBuyPow / buyPow # night <= regT
             ]
         )
     except Exception as e: log.exception(e)
@@ -83,7 +101,8 @@ def allocate_buying_power(algos):
 
     try: # distribute buying power
         for ii, algo in enumerate(algos['all']):
-            algo.buyPow['long'] = int(allocFrac[ii*2] * buyPow)
-            algo.buyPow['short'] = int(allocFrac[ii*2+1] * buyPow)
+            algo.buyPow = int(allocFrac[ii] * buyPow)
             algo.log.info(f'Buying power: {algo.buyPow}')
     except Exception as e: log.exception(e)
+
+    # TODO: add c.minAllocBuyPow threshold

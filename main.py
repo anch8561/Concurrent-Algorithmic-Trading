@@ -24,7 +24,7 @@ args = parse_args(sys.argv[1:])
 # init logs
 logFormatter = init_logs.init_formatter()
 init_logs.init_primary_logs(args.log, args.env, logFormatter)
-log = getLogger()
+log = getLogger('main')
 
 # init alpaca and timing
 init_alpaca(args.env)
@@ -32,23 +32,26 @@ init_timing()
 
 # init algos
 algos = init_algos()
-init_logs.init_algo_logs(algos['all'], logFormatter)
-# TODO: update global positions
-allocate_buying_power(algos)
-for algo in algos['all']: # FIX: no performance data
-    algo.buyPow['long'] = 5000
-    algo.buyPow['short'] = 5000
 if args.reset: reset(algos['all'])
-log.warning('Starting active algos')
-for algo in algos['all']:
-    if algo.active: algo.start()
+init_logs.init_algo_logs(algos['all'], logFormatter)
+allocate_buying_power(algos) # TODO: subtract positions
+for algo in algos['all']: # FIX: no performance data
+    algo.buyPow = 5000
 
 # init indicators, assets, and streaming
 indicators = init_indicators()
 init_assets(args.numAssets, algos['all'], indicators)
-conn = g.connPaper # TODO: integrate with env arg
-Thread(target=stream, args=(conn, algos['all'], indicators)).start()
+Thread(target=stream, args=(g.conn, algos['all'], indicators)).start()
 # NOTE: begin using g.lock
+# TODO: update global positions (careful of add_asset)
+
+# FIX: not getting new bars after first few
+# TODO: use barFreq to get price
+
+# start algos
+log.warning('Starting active algos')
+for algo in algos['all']:
+    if algo.active: algo.start()
 
 # main loop
 log.warning('Entering main loop')
@@ -70,15 +73,19 @@ try:
             # update new bar delay
             try: isAfterNewBarDelay = g.now - g.lastBarReceivedTime > c.tickDelay
             except Exception as e:
-                if g.lastBarReceivedTime == None:isAfterNewBarDelay = False
+                if g.lastBarReceivedTime == None: # no bars received yet
+                    isAfterNewBarDelay = False
                 else: log.exception(e)
             
-            if ( # new bars
-                isAfterNewBarDelay and
-                any(bars.ticked[-1] == False for bars in g.assets['min'].values())
-            ):
-                state = tick_algos(algos, indicators, state)
-                log.info('Waiting for bars')
+            try: # check for unticked bars
+                if (
+                    isAfterNewBarDelay and
+                    any(bars.ticked[-1] == False for bars in g.assets['min'].values())
+                ):
+                    state = tick_algos(algos, indicators, state)
+                    log.info('Waiting for bars')
+            except Exception as e: log.exception(e)
+
         else:
             # update market state
             if marketIsOpen:

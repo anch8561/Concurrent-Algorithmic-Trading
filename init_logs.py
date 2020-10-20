@@ -5,6 +5,7 @@ from datetime import datetime
 
 import logging, logging.handlers
 from os import mkdir
+import pandas as pd
 from pytz import timezone
 
 def init_formatter():
@@ -32,6 +33,9 @@ def init_primary_logs(logLevel, env, fmtr):
     # create logPath if needed
     try: mkdir(c.logPath)
     except Exception: pass
+
+    # display full dataframes
+    pd.set_option("display.max_rows", None, "display.max_columns", None)
 
     # handlers
     consoleHdlr = logging.StreamHandler()
@@ -63,6 +67,9 @@ def init_primary_logs(logLevel, env, fmtr):
         handlers = [consoleHdlr, debugHdlr, warningHdlr],
         force = True)
 
+    streamLog = logging.getLogger('main')
+    streamLog.setLevel(logging.DEBUG)
+
     streamLog = logging.getLogger('stream')
     streamLog.setLevel(logging.DEBUG)
 
@@ -70,6 +77,7 @@ def init_primary_logs(logLevel, env, fmtr):
     indicatorsLog.setLevel(logging.DEBUG)
 
 def init_algo_logs(allAlgos, fmtr):
+    # allAlgos: list of all algos
     # fmtr: logging.formatter instance
 
     for algo in allAlgos:

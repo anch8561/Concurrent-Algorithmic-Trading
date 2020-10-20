@@ -1,5 +1,5 @@
 import globalVariables as g
-from algoClasses import Algo
+from algoClass import Algo
 from indicators import Indicator, momentum
 
 import logging
@@ -20,34 +20,29 @@ logging.basicConfig(level=logging.DEBUG)
 @fixture(autouse=True)
 def reloadGlobalVariables():
     reload(g) # NOTE: reload does not update existing objects
+    g.positions['AAPL'] = 0
 
 @fixture
 def testAlgo(reloadGlobalVariables):
-    testAlgo = Algo(print, False)
-    testAlgo.alpaca = Mock()
-    testAlgo.allOrders = {}
-    testAlgo.allPositions = {}
+    testAlgo = Algo('min', print, 'short', False)
+    testAlgo.positions['AAPL'] = {'qty': 0, 'basis': 0}
     return testAlgo
 
 @fixture
 def algos(reloadGlobalVariables):
-    intraday = [
-        Algo(print, False, n=0),
-        Algo(print, False, n=1)]
-    overnight = [
-        Algo(print, False, n=2),
-        Algo(print, False, n=3),
-        Algo(print, False, n=4)]
-    multiday = [
-        Algo(print, False, n=5),
-        Algo(print, False, n=6),
-        Algo(print, False, n=7),
-        Algo(print, False, n=8)]
+    dayAlgos = [
+        Algo('min', print, 'long', False, n=0),
+        Algo('min', print, 'short', False, n=1),
+        Algo('min', print, 'long', False, n=2),
+        Algo('min', print, 'short', False, n=3)]
+    nightAlgos = [
+        Algo('min', print, 'long', False, n=4),
+        Algo('min', print, 'short', False, n=5),
+        Algo('min', print, 'long', False, n=6)]
     return {
-        'intraday': intraday,
-        'overnight': overnight,
-        'multiday': multiday,
-        'all': intraday + overnight + multiday}
+        'day': dayAlgos,
+        'night': nightAlgos,
+        'all': dayAlgos + nightAlgos}
 
 @fixture
 def allAlgos(algos):

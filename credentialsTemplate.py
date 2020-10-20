@@ -1,32 +1,32 @@
 class prod:
-    paper = ( # paper 1
+    paper = (
         '', # api key
         '', # secret key
         '') # endpoint
 
-    live = ( # live
+    live = (
         '',
         '',
         '')
 
 class test:
-    paper = ( # paper 2
+    paper = (
         '',
         '',
         '')
 
-    live = ( # paper 3
+    live = (
         '',
         '',
         '')
 
 class dev:
-    paper = ( # paper 4
+    paper = (
         '',
         '',
         '')
 
-    live = ( # paper 5
+    live = (
         '',
         '',
         '')
