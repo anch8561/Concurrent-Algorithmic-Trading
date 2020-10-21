@@ -10,39 +10,41 @@ from streaming import process_algo_trade
 
 import alpaca_trade_api, os, sys
 import pandas as pd
-from argparse import ArgumentParser
+from argparse import ArgumentParser, RawTextHelpFormatter
 from datetime import datetime
 from logging import getLogger
 from pytz import timezone
+from statistics import mean
 from unittest.mock import patch
 
 def parse_args(args):
-    parser = ArgumentParser()
+    parser = ArgumentParser(formatter_class=RawTextHelpFormatter)
     parser.add_argument(
-        'dates',
-        default = [2004, 2020],
+        '--dates',
+        default = ['2004-01-02', '2019-12-31'],
         nargs = 2,
-        help = 'e.g. 2004-01-01 (earliest date)')
+        help = '2 sequential market dates since 2004-01-01 (default: 2004-01-02 2019-12-31)')
     parser.add_argument(
         '--log',
         choices = ['debug', 'info', 'warn', 'warning', 'error', 'critical'],
         default = c.defaultLogLevel,
-        help = f'logging level to display (default {c.defaultLogLevel})')
+        help = f'logging level to display (default: {c.defaultLogLevel})')
     parser.add_argument(
         '--market',
         choices = ['bull', 'bear', 'volatile', 'stagnant', 'rally', 'crash', 'black swan'],
-        help = 'bull: 10 day SMA > 20 day SMA\n' + \
-            'bear: 10 day SMA < 20 day SMA\n' + \
-            'volatile: weeks with stdev (from 5 day SMA) > 1%\n' + \
-            'stagnant: weeks with stdev (from 5 day SMA) < 1%\n' + \
-            'rally: weeks with gains over 5%\n' + \
-            'crash: weeks with drops over 5%\n' + \
-            'black swan: days with deltas over 5%\n') # estimates subject to change
+        help =
+            'bull:       10 day SMA > 20 day SMA\n' + \
+            'bear:       10 day SMA < 20 day SMA\n' + \
+            'volatile:   weeks with stdev (from 5 day SMA) > 1%%\n' + \
+            'stagnant:   weeks with stdev (from 5 day SMA) < 1%%\n' + \
+            'rally:      weeks with gains over 5%%\n' + \
+            'crash:      weeks with drops over 5%%\n' + \
+            'black swan: days with deltas over 5%%\n') # estimates subject to change
     parser.add_argument(
         '--numAssets',
         default = c.numAssets,
         type = int,
-        help = f'number of symbols to stream (default {c.numAssets}, -1 means all)')
+        help = f'number of symbols to stream (default: {c.numAssets}, -1 means all)')
     return parser.parse_args(args) 
 
 def init_assets(
@@ -61,20 +63,24 @@ def init_assets(
     dayBars = {}
     alpacaAssets = alpaca.list_assets('active', 'us_equity')
     for ii, asset in enumerate(alpacaAssets):
-        log.info(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}')
+        log.info(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}\n' + \
+            f'Found {len(symbols)} / {numAssets}')
         # check leverage (ignore marginability and shortability)
         if not any(x in asset.name.lower() for x in c.leverageStrings):
-            try: # check price, cash flow, and spread
+            try: # check age, price, cash flow, and spread
                 bars = alpaca.polygon.historic_agg_v2(asset.symbol, 1, 'day', *dates).df
                 if (
+                    bars.index[0].strftime('%Y-%m-%d') == dates[0] and
                     all(bars.low > c.minSharePrice) and
                     all(bars.volume * bars.close > c.minDayCashFlow) and
-                    all((bars.high - bars.low) / bars.low > c.minDaySpread)
+                    mean((bars.high - bars.low) / bars.low) > c.minDaySpread
                 ):
                     # save day bars
                     dayBars[asset.symbol] = bars
                     bars.to_csv(f'backtest/bars/day_{asset.symbol}.csv')
-            except Exception as e: log.exception(e)
+            except Exception as e:
+                if len(bars.index): log.exception(e)
+                else:  log.debug(e)
         if len(symbols) == numAssets: break
 
     # get min bars
@@ -158,9 +164,8 @@ if __name__ == '__main__':
             break
 
     # init assets and "streaming"
-    symbols = get_symbols(args.numAssets)
-    assets = init_assets(symbols)
-    barGens = histBars.init_bar_gens(['min', 'day'], symbols)
+    init_assets(alpaca, calendar, algos['all'], args.numAssets, args.dates)
+    barGens = histBars.init_bar_gens(['min', 'day'], g.assets['day'])
 
     # main loops
     with patch('algoClass.get_time_str', get_time_str), \
