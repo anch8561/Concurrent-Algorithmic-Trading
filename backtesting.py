@@ -25,6 +25,9 @@ def parse_args(args):
         nargs = 2,
         help = '2 sequential market dates since 2004-01-01 (default: 2004-01-02 2019-12-31)')
     parser.add_argument(
+        '--getAssets',
+        help = 'download historic barsets')
+    parser.add_argument(
         '--log',
         choices = ['debug', 'info', 'warn', 'warning', 'error', 'critical'],
         default = c.defaultLogLevel,
@@ -59,20 +62,20 @@ def init_assets(
     except Exception: pass
 
     # get symbols and day bars
-    symbols = []
+    # TODO: check for existing files
     dayBars = {}
     alpacaAssets = alpaca.list_assets('active', 'us_equity')
     for ii, asset in enumerate(alpacaAssets):
         log.info(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}\n' + \
-            f'Found {len(symbols)} / {numAssets}')
+            f'Found {len(dayBars.keys())} / {numAssets}')
         # check leverage (ignore marginability and shortability)
         if not any(x in asset.name.lower() for x in c.leverageStrings):
             try: # check age, price, cash flow, and spread
                 bars = alpaca.polygon.historic_agg_v2(asset.symbol, 1, 'day', *dates).df
                 if (
                     bars.index[0].strftime('%Y-%m-%d') == dates[0] and
-                    all(bars.low > c.minSharePrice) and
-                    all(bars.volume * bars.close > c.minDayCashFlow) and
+                    bars.low[-1] > c.minSharePrice and
+                    mean(bars.volume * bars.close) > c.minDayCashFlow and
                     mean((bars.high - bars.low) / bars.low) > c.minDaySpread
                 ):
                     # save day bars
@@ -81,7 +84,7 @@ def init_assets(
             except Exception as e:
                 if len(bars.index): log.exception(e)
                 else:  log.debug(e)
-        if len(symbols) == numAssets: break
+        if len(dayBars.keys()) == numAssets: break
 
     # get min bars
     histBars.get_historic_min_bars(alpaca, calendar, dayBars)
