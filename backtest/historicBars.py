@@ -22,13 +22,16 @@ def get_historic_min_bars(
     # dayBars: get_historic_day_bars()
     # saves csv for each symbol w/ minute bars from day bar date range
 
+    # TODO: check for existing files
     log.warning('Getting historic minute bars')
     for ii, symbol in enumerate(dayBars.keys()):
         log.info(f'Downloading asset {ii+1} / {len(dayBars.keys())}\t{symbol}')
+        minBars = pd.DataFrame()
         fromDate = dayBars[symbol].index[0]
         toDate = dayBars[symbol].index[-1]
-        fromDateIdx = get_calendar_index(calendar, fromDate)
+        fromDateIdx = get_calendar_index(calendar, fromDate.strftime('%Y-%m-%d'))
         while fromDate < toDate:
+            print(f'Downloading minutes from {fromDate.date()}')
             # download bars
             newBars = alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate)
             newBars = newBars.df[:5000] # remove extra toDate data
@@ -61,7 +64,9 @@ def get_historic_min_bars(
             newBars = newBars.drop(extendedHours)
             
             # add new bars
-            minBars = minBars[:newBars.index[0]].append(newBars)
+            try: minBars = minBars[:newBars.index[0]] # remove overlap
+            except Exception as e: log.debug(e) # no overlap
+            minBars = minBars.append(newBars)
             fromDate = minBars.index[-1]
             # FIX: may not get full final day
 
@@ -69,25 +74,39 @@ def get_historic_min_bars(
         minBars.to_csv(f'backtest/bars/min_{symbol}.csv')
 
 def bar_gen(symbol: str, barFreq: str) -> pd.DataFrame:
-    csvFile = pd.read_csv(
-        f'backtesting/{barFreq}_{symbol}.csv',
-        header = 0,
-        index_col = 0,
-        parse_dates = True)
-    for bar in csvFile:
-        yield bar
+    with pd.read_csv(f'backtesting/{barFreq}_{symbol}.csv',
+        header = 0, index_col = 0, parse_dates = True) as csvFile:
+        for bar in csvFile:
+            yield bar
 
 def init_bar_gens(barFreqs: list, symbols: list) -> dict:
     barGens = {'sec': {}, 'min': {}, 'day': {}}
     for barFreq in barGens:
         for symbol in symbols:
-            barGens[barFreq][symbol] = bar_gen(symbol, barFreq)
+            barGens[barFreq][symbol] = {
+                'buffer': None,
+                'generator': bar_gen(symbol, barFreq)}
     return barGens
 
-def get_next_bars(barFreq: str, assets: dict, barGens: dict):
+def get_next_bars(barFreq: str, timestamp: datetime, assets: dict, barGens: dict):
     # barFreq: 'sec', 'min', or 'day'
-    # assets: dict of dict of bars; {day, min, sec} -> {symbol: bars}
-    # barGens: dict of dict of generators;  {day, min, sec} -> {symbol: gen}
+    # timestamp: expected bar index
+    # assets: dict of dict of bars; {barFreq: {symbol: bars}}
+    # barGens: dict of dict of generators;  {barFreq: {symbol: {buffer, generator}}}
     # append next bars to assets DataFrames
+
     for symbol, barGen in barGens[barFreq].items():
-        assets[barFreq][symbol].append(next(barGen), inplace=True)
+        # get next bar from buffer or generator
+        if barGen['buffer']:
+            nextBar = barGen['buffer']
+            barGen['buffer'] = None
+        else:
+            nextBar = next(barGen)
+
+        # check timestamp and append or store
+        if nextBar.index[0] == timestamp:
+            assets[barFreq][symbol].append(nextBar, inplace=True)
+        elif nextBar.index[0] > timestamp:
+            barGen['buffer'] = nextBar
+        else:
+            log.error(f'Bar index < expected: {nextBar.index[0]} < {timestamp}')
