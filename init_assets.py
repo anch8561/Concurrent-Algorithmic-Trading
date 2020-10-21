@@ -18,7 +18,8 @@ def init_assets(numAssets, allAlgos, indicators):
     # get symbols
     symbols = []
     for ii, asset in enumerate(alpacaAssets):
-        log.info(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}')
+        log.info(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}\n' + \
+            f'Found {len(symbols)} / {numAssets}')
         if ( # check marginability, shortability, and leverage
             asset.marginable and
             asset.shortable and
