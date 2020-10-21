@@ -15,17 +15,19 @@ def init_assets(numAssets, allAlgos, indicators):
     alpacaAssets = g.alpaca.list_assets('active', 'us_equity')
     polygonTickers = g.alpaca.polygon.all_tickers()
 
-    # get active symbols
-    activeSymbols = []
+    # get symbols
+    symbols = []
     for ii, asset in enumerate(alpacaAssets):
         log.info(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}')
-        if (
+        if ( # check marginability, shortability, and leverage
             asset.marginable and
             asset.shortable and
             not any(x in asset.name.lower() for x in c.leverageStrings)
         ):
+            # get polygon ticker
             for ticker in polygonTickers:
                 if ticker.ticker == asset.symbol:
+                    # check price, cash flow, and spread
                     high = ticker.prevDay['h']
                     low = ticker.prevDay['l']
                     close = ticker.prevDay['c']
@@ -35,15 +37,15 @@ def init_assets(numAssets, allAlgos, indicators):
                         volume * close > c.minDayCashFlow and
                         (high - low) / low > c.minDaySpread
                     ):
-                        activeSymbols.append(asset.symbol)
+                        symbols.append(asset.symbol)
                     break
         
         # check numAssets
-        if numAssets > 0 and len(activeSymbols) == numAssets: break
+        if numAssets > 0 and len(symbols) == numAssets: break
 
-    # add active assets
-    for ii, symbol in enumerate(activeSymbols):
-        log.info(f'Adding asset {ii+1} / {len(activeSymbols)}\t{symbol}')
+    # add assets
+    for ii, symbol in enumerate(symbols):
+        log.info(f'Adding asset {ii+1} / {len(symbols)}\t{symbol}')
         add_asset(symbol, allAlgos, indicators)
 
 

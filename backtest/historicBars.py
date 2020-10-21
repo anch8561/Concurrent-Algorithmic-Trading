@@ -7,36 +7,6 @@ from pytz import timezone
 nyc = timezone('America/New_York')
 log = getLogger('backtest')
 
-def get_historic_day_bars(
-    alpaca: alpaca_trade_api.REST,
-    calendar: list,
-    symbols: list,
-    fromDate: str,
-    toDate: str) -> dict:
-    # calendar: alpaca.get_calendar()
-    # symbols: list of str
-    # fromDate: e.g. '2004-01-01'
-    # toDate: e.g. 2020-01-01'
-    # returns: {symbol: DataFrame(bars)}
-    # saves csv for each symbol w/ day bars from date range
-    # NOTE: will not work with start dates over 20 yrs ago
-
-    # create bars dir if needed
-    try: os.mkdir('backtest/bars')
-    except Exception: pass
-
-    # get bars
-    bars = {}
-    for symbol in symbols:
-        # download bars
-        bars[symbol] = alpaca.polygon.historic_agg_v2(symbol, 1, 'day', fromDate, toDate).df
-
-        # save bars
-        bars[symbol].to_csv(f'backtest/bars/day_{symbol}.csv')
-    
-    # exit
-    return bars
-
 def get_calendar_index(calendar: list, date: str) -> int:
     # calendar: alpaca.get_calendar()
     # date: e.g. '1996-02-13'

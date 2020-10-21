@@ -48,34 +48,44 @@ def parse_args(args):
 def init_assets(
     alpaca: alpaca_trade_api.REST,
     calendar: list,
-    numSymbols: int,
-    dates: (str, str)
-) -> dict:
-    assets = {'sec': {}, 'min': {}, 'day': {}}
+    allAlgos: list,
+    numAssets: int,
+    dates: (str, str)):
 
+    # create bars dir if needed
+    try: os.mkdir('backtest/bars')
+    except Exception: pass
+
+    # get symbols and day bars
     symbols = []
+    dayBars = {}
     alpacaAssets = alpaca.list_assets('active', 'us_equity')
-    polygonTickers = alpaca.polygon.all_tickers()
-    for asset in alpacaAssets:
+    for ii, asset in enumerate(alpacaAssets):
+        log.info(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}')
         # check leverage (ignore marginability and shortability)
         if not any(x in asset.name.lower() for x in c.leverageStrings):
-            for ticker in polygonTickers:
-                if ticker.ticker == asset.symbol:
-                    dayBars = histBars.get_historic_day_bars(
-                        alpaca, calendar, symbols, *dates)
-                        # TODO: don't save til after check
-                    # TODO: check price, cash flow, and spread
-                    symbols.append(asset.symbol)
-                    break
-        if numSymbols > 0 and len(symbols) == numSymbols: break
+            try: # check price, cash flow, and spread
+                bars = alpaca.polygon.historic_agg_v2(asset.symbol, 1, 'day', *dates).df
+                if (
+                    all(bars.low > c.minSharePrice) and
+                    all(bars.volume * bars.close > c.minDayCashFlow) and
+                    all((bars.high - bars.low) / bars.low > c.minDaySpread)
+                ):
+                    # save day bars
+                    dayBars[asset.symbol] = bars
+                    bars.to_csv(f'backtest/bars/day_{asset.symbol}.csv')
+            except Exception as e: log.exception(e)
+        if len(symbols) == numAssets: break
 
-    for barFreq in assets:
-        for symbol in symbols:
-            assets[barFreq][symbol] = pd.DataFrame()
-    
+    # get min bars
     histBars.get_historic_min_bars(alpaca, calendar, dayBars)
 
-    return assets
+    # add symbols to assets and positions
+    for symbol in dayBars:
+        for assets in g.assets.values(): # all bar frequencies
+            assets[symbol] = pd.DataFrame()
+        for algo in allAlgos:
+            algo.positions[symbol] = {'qty': 0, 'basis': 0}
 
 def get_time_str(assets: dict):
     symbol = list(assets.keys())[0]
