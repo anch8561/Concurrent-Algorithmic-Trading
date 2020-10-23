@@ -1,4 +1,5 @@
 import backtest.historicBars as histBars
+import backtest.backtestTiming as timing
 import config as c
 import globalVariables as g
 from algoClass import Algo
@@ -8,10 +9,10 @@ from indicators import init_indicators
 from init_logs import init_log_formatter, init_primary_logs
 from streaming import process_algo_trade
 
-import alpaca_trade_api, os, sys
+import alpaca_trade_api, os, shutil, sys
 import pandas as pd
 from argparse import ArgumentParser, RawTextHelpFormatter
-from datetime import datetime
+from datetime import datetime, timedelta
 from logging import getLogger
 from pytz import timezone
 from statistics import mean
@@ -23,16 +24,17 @@ def parse_args(args):
         '--dates',
         default = ['2004-01-02', '2019-12-31'],
         nargs = 2,
-        help = '2 sequential market dates since 2004-01-01 (default: 2004-01-02 2019-12-31)')
+        help = '2 dates since 2004-01-01 (default: 2004-01-02 2019-12-31, must be market days)')
     parser.add_argument(
         '--getAssets',
-        help = 'download historic barsets')
+        action = 'store_true',
+        help = 'download historic barsets (default: already downloaded)')
     parser.add_argument(
         '--log',
         choices = ['debug', 'info', 'warn', 'warning', 'error', 'critical'],
         default = c.defaultLogLevel,
         help = f'logging level to display (default: {c.defaultLogLevel})')
-    parser.add_argument(
+    parser.add_argument( # unused
         '--market',
         choices = ['bull', 'bear', 'volatile', 'stagnant', 'rally', 'crash', 'black swan'],
         help =
@@ -47,47 +49,58 @@ def parse_args(args):
         '--numAssets',
         default = c.numAssets,
         type = int,
-        help = f'number of symbols to stream (default: {c.numAssets}, -1 means all)')
-    return parser.parse_args(args) 
+        help = f'number of tickers to use (default: {c.numAssets}, -1 means all)')
+    return parser.parse_args(args)
 
 def init_assets(
     alpaca: alpaca_trade_api.REST,
     calendar: list,
     allAlgos: list,
+    getAssets: bool,
     numAssets: int,
     dates: (str, str)):
 
-    # create bars dir if needed
-    try: os.mkdir('backtest/bars')
-    except Exception: pass
-
-    # get symbols and day bars
-    # TODO: check for existing files
     dayBars = {}
-    alpacaAssets = alpaca.list_assets('active', 'us_equity')
-    for ii, asset in enumerate(alpacaAssets):
-        log.info(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}\n' + \
-            f'Found {len(dayBars.keys())} / {numAssets}')
-        # check leverage (ignore marginability and shortability)
-        if not any(x in asset.name.lower() for x in c.leverageStrings):
-            try: # check age, price, cash flow, and spread
-                bars = alpaca.polygon.historic_agg_v2(asset.symbol, 1, 'day', *dates).df
-                if (
-                    bars.index[0].strftime('%Y-%m-%d') == dates[0] and
-                    bars.low[-1] > c.minSharePrice and
-                    mean(bars.volume * bars.close) > c.minDayCashFlow and
-                    mean((bars.high - bars.low) / bars.low) > c.minDaySpread
-                ):
-                    # save day bars
-                    dayBars[asset.symbol] = bars
-                    bars.to_csv(f'backtest/bars/day_{asset.symbol}.csv')
-            except Exception as e:
-                if len(bars.index): log.exception(e)
-                else:  log.debug(e)
-        if len(dayBars.keys()) == numAssets: break
+    if getAssets:
+        # delete old barsets
+        try: shutil.rmtree('backtest/bars')
+        except Exception: pass
+        os.mkdir('backtest/bars')
 
-    # get min bars
-    histBars.get_historic_min_bars(alpaca, calendar, dayBars)
+        # download day bars and choose assets
+        alpacaAssets = alpaca.list_assets('active', 'us_equity')
+        for ii, asset in enumerate(alpacaAssets):
+            log.info(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}\n' + \
+                f'Found {len(dayBars.keys())} / {numAssets}')
+            # check leverage (ignore marginability and shortability)
+            if not any(x in asset.name.lower() for x in c.leverageStrings):
+                try: # check age, price, cash flow, and spread
+                    bars = alpaca.polygon.historic_agg_v2(asset.symbol, 1, 'day', *dates).df
+                    if (
+                        bars.index[0].strftime('%Y-%m-%d') == dates[0] and
+                        bars.low[-1] > c.minSharePrice and
+                        mean(bars.volume * bars.close) > c.minDayCashFlow and
+                        mean((bars.high - bars.low) / bars.low) > c.minDaySpread
+                    ):
+                        # save day bars
+                        dayBars[asset.symbol] = bars
+                        bars.to_csv(f'backtest/bars/day_{asset.symbol}.csv')
+                except Exception as e:
+                    if len(bars.index): log.exception(e)
+                    else:  log.debug(e)
+            if len(dayBars.keys()) == numAssets: break
+
+        # download min bars
+        histBars.get_historic_min_bars(alpaca, calendar, dayBars)
+    else:
+        # read day bars
+        fileNames = os.listdir('backtest/bars')
+        for name in fileNames:
+            if name[:3] == 'day':
+                symbol = name[4:-4]
+                dayBars[symbol] = pd.read_csv(f'backtest/bars/{name}',
+                    header = 0, index_col = 0, parse_dates = True)
+                if len(dayBars.keys()) == numAssets: break
 
     # add symbols to assets and positions
     for symbol in dayBars:
@@ -95,14 +108,6 @@ def init_assets(
             assets[symbol] = pd.DataFrame()
         for algo in allAlgos:
             algo.positions[symbol] = {'qty': 0, 'basis': 0}
-
-def get_time_str(assets: dict):
-    symbol = list(assets.keys())[0]
-    return assets['day'][symbol].index[-1].strftime('%H:%M:%S.%f')
-
-def get_date(assets: dict) -> str:
-    symbol = list(assets.keys())[0]
-    return assets['day'][symbol].index[-1].strftime('%Y-%m-%d')
 
 def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
     qty = algo.pendingOrders[symbol]['qty']
@@ -117,8 +122,8 @@ def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
             return qty, max(low, limit)
     return 0, 0
 
-def process_trades(algos):
-    for algo in algos:
+def process_trades(allAlgos: list):
+    for algo in allAlgos:
         algo.pendingOrders = algo.queuedOrders
         algo.queuedOrder = {}
         # FIX: short enter algo price is NOT limit price
@@ -161,23 +166,25 @@ if __name__ == '__main__':
     # init alpaca and "timing"
     alpaca = alpaca_trade_api.REST(*dev.paper)
     calendar = alpaca.get_calendar()
-    for ii, date in enumerate(calendar):
-        if date._raw['date'] >= args.dates[0]: # current or next market day
-            todayIdx = ii
-            break
+    dateIdx = timing.get_calendar_index(calendar, args.dates[0])
 
     # init assets and "streaming"
-    init_assets(alpaca, calendar, algos['all'], args.numAssets, args.dates)
+    init_assets(alpaca, calendar, algos['all'],
+        args.getAssets, args.numAssets, args.dates)
     barGens = histBars.init_bar_gens(['min', 'day'], g.assets['day'])
 
     # main loops
-    with patch('algoClass.get_time_str', get_time_str), \
-    patch('algoClass.get_date', get_date):
-        while True: # multiday loop
-            new_day(args.numAssets)
-            while True: # intraday loop
-                # TODO: reset between days
-                histBars.get_next_bars('min', assets, barGens)
+    with patch('algoClass.get_time_str', timing.get_time_str), \
+    patch('algoClass.get_date', lambda: timing.get_assets_date(g.assets)):
+        dateStr = args.dates[0]
+        while dateStr < args.dates[1]: # multiday loop
+            # TODO: reset between days
+            date = timing.get_market_open(calendar, dateIdx)
+            histBars.get_next_bars('day', date, barGens, g.assets)
+            while g.TTClose > timedelta(0): # intraday loop
+                histBars.get_next_bars('min', g.now, barGens, g.assets)
                 process_trades(algos['all'])
                 tick_indicators(indicators)
                 tick_algos(algos)
+                update_time()
+            dateIdx += 1

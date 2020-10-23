@@ -1,18 +1,11 @@
-import alpaca_trade_api, os
+import backtestTiming as timing
+
+import alpaca_trade_api, os, pytz
 import pandas as pd
 from datetime import datetime
 from logging import getLogger
-from pytz import timezone
 
-nyc = timezone('America/New_York')
 log = getLogger('backtest')
-
-def get_calendar_index(calendar: list, date: str) -> int:
-    # calendar: alpaca.get_calendar()
-    # date: e.g. '1996-02-13'
-    for ii, day in enumerate(calendar):
-        if day._raw['date'] == date:
-            return ii
 
 def get_historic_min_bars(
     alpaca: alpaca_trade_api.REST,
@@ -22,14 +15,13 @@ def get_historic_min_bars(
     # dayBars: get_historic_day_bars()
     # saves csv for each symbol w/ minute bars from day bar date range
 
-    # TODO: check for existing files
     log.warning('Getting historic minute bars')
     for ii, symbol in enumerate(dayBars.keys()):
         log.info(f'Downloading asset {ii+1} / {len(dayBars.keys())}\t{symbol}')
         minBars = pd.DataFrame()
         fromDate = dayBars[symbol].index[0]
         toDate = dayBars[symbol].index[-1]
-        fromDateIdx = get_calendar_index(calendar, fromDate.strftime('%Y-%m-%d'))
+        fromDateIdx = timing.get_calendar_index(calendar, fromDate.strftime('%Y-%m-%d'))
         while fromDate < toDate:
             print(f'Downloading minutes from {fromDate.date()}')
             # download bars
@@ -40,14 +32,8 @@ def get_historic_min_bars(
             extendedHours = []
             while fromDate < newBars.index[-1]:
                 # get market open and close
-                marketOpen = datetime.combine(
-                    date = fromDate,
-                    time = calendar[fromDateIdx].open,
-                    tzinfo = fromDate.tzinfo)
-                marketClose = datetime.combine(
-                    date = fromDate,
-                    time = calendar[fromDateIdx].close,
-                    tzinfo = fromDate.tzinfo)
+                marketOpen = timing.get_market_open(calendar, fromDateIdx)
+                marketClose = timing.get_market_close(calendar, fromDateIdx)
                 
                 # get extended hours
                 for timestamp in newBars.index:
@@ -59,8 +45,7 @@ def get_historic_min_bars(
 
                 # get next market day
                 fromDateIdx += 1
-                fromDateStr = calendar[fromDateIdx]._raw['date']
-                fromDate = nyc.localize(datetime.strptime(fromDateStr, '%Y-%m-%d'))
+                fromDate = timing.get_date(calendar, fromDateIdx)
             newBars = newBars.drop(extendedHours)
             
             # add new bars
@@ -88,11 +73,11 @@ def init_bar_gens(barFreqs: list, symbols: list) -> dict:
                 'generator': bar_gen(symbol, barFreq)}
     return barGens
 
-def get_next_bars(barFreq: str, timestamp: datetime, assets: dict, barGens: dict):
+def get_next_bars(barFreq: str, timestamp: datetime, barGens: dict, assets: dict):
     # barFreq: 'sec', 'min', or 'day'
     # timestamp: expected bar index
-    # assets: dict of dict of bars; {barFreq: {symbol: bars}}
     # barGens: dict of dict of generators;  {barFreq: {symbol: {buffer, generator}}}
+    # assets: dict of dict of bars; {barFreq: {symbol: bars}}
     # append next bars to assets DataFrames
 
     for symbol, barGen in barGens[barFreq].items():
