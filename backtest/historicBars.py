@@ -1,4 +1,4 @@
-import backtestTiming as timing
+import backtest.timing as timing
 
 import alpaca_trade_api, os, pytz
 import pandas as pd
@@ -45,8 +45,11 @@ def get_historic_min_bars(
 
                 # get next market day
                 fromDateIdx += 1
-                fromDate = timing.get_date(calendar, fromDateIdx)
-            newBars = newBars.drop(extendedHours)
+                fromDate = timing.get_calendar_date(calendar, fromDateIdx)
+            try: newBars = newBars.drop(extendedHours)
+            except Exception as e:
+                if extendedHours == []: log.debug(e)
+                else: log.exception(e)
             
             # add new bars
             try: minBars = minBars[:newBars.index[0]] # remove overlap
@@ -91,7 +94,14 @@ def get_next_bars(barFreq: str, timestamp: datetime, barGens: dict, assets: dict
         # check timestamp and append or store
         if nextBar.index[0] == timestamp:
             assets[barFreq][symbol].append(nextBar, inplace=True)
+
         elif nextBar.index[0] > timestamp:
             barGen['buffer'] = nextBar
         else:
             log.error(f'Bar index < expected: {nextBar.index[0]} < {timestamp}')
+
+        # tick indicators
+        bars = assets[barFreq][symbol]
+        for indicator in indicators[barFreq]:
+            jj = bars.columns.get_loc(indicator.name)
+            bars.iloc[-1, jj] = indicator.get(bars)

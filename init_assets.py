@@ -7,7 +7,7 @@ from pandas import DataFrame
 
 log = getLogger('main')
 
-def init_assets(numAssets, allAlgos, indicators):
+def init_assets(numAssets: int, allAlgos: list, indicators: dict):
     # numAssets: int; number of symbols to stream (-1 means all)
     log.warning('Populating assets')
 

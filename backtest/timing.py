@@ -34,9 +34,9 @@ def update_time(now: datetime, calendar: list, dateIdx: int) -> (datetime, timed
     return now, TTOpen, TTClose
 
 def get_time_str(assets: dict):
-    symbol = list(assets.keys())[0]
-    return assets['day'][symbol].index[-1].strftime('%H:%M:%S.%f')
+    symbol = list(assets['min'].keys())[0]
+    return assets['min'][symbol].index[-1].strftime('%H:%M:%S.%f')
 
 def get_assets_date(assets: dict) -> str:
-    symbol = list(assets.keys())[0]
-    return assets['day'][symbol].index[-1].strftime('%Y-%m-%d')
+    symbol = list(assets['min'].keys())[0]
+    return assets['min'][symbol].index[-1].strftime('%Y-%m-%d')

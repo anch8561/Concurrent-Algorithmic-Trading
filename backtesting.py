@@ -1,21 +1,22 @@
 import backtest.historicBars as histBars
-import backtest.backtestTiming as timing
-import config as c
+import backtest.timing as timing
+import backtest.config as c
 import globalVariables as g
+import tick_algos
 from algoClass import Algo
 from algos import init_algos
+from backtest.init_assets import init_assets
 from credentials import dev
 from indicators import init_indicators
 from init_logs import init_log_formatter, init_primary_logs
 from streaming import process_algo_trade
 
-import alpaca_trade_api, os, shutil, sys
+import alpaca_trade_api, os, sys
 import pandas as pd
 from argparse import ArgumentParser, RawTextHelpFormatter
 from datetime import datetime, timedelta
 from logging import getLogger
 from pytz import timezone
-from statistics import mean
 from unittest.mock import patch
 
 def parse_args(args):
@@ -52,64 +53,12 @@ def parse_args(args):
         help = f'number of tickers to use (default: {c.numAssets}, -1 means all)')
     return parser.parse_args(args)
 
-def init_assets(
-    alpaca: alpaca_trade_api.REST,
-    calendar: list,
-    allAlgos: list,
-    getAssets: bool,
-    numAssets: int,
-    dates: (str, str)):
-
-    dayBars = {}
-    if getAssets:
-        # delete old barsets
-        try: shutil.rmtree('backtest/bars')
-        except Exception: pass
-        os.mkdir('backtest/bars')
-
-        # download day bars and choose assets
-        alpacaAssets = alpaca.list_assets('active', 'us_equity')
-        for ii, asset in enumerate(alpacaAssets):
-            log.info(f'Checking asset {ii+1} / {len(alpacaAssets)}\t{asset.symbol}\n' + \
-                f'Found {len(dayBars.keys())} / {numAssets}')
-            # check leverage (ignore marginability and shortability)
-            if not any(x in asset.name.lower() for x in c.leverageStrings):
-                try: # check age, price, cash flow, and spread
-                    bars = alpaca.polygon.historic_agg_v2(asset.symbol, 1, 'day', *dates).df
-                    if (
-                        bars.index[0].strftime('%Y-%m-%d') == dates[0] and
-                        bars.low[-1] > c.minSharePrice and
-                        mean(bars.volume * bars.close) > c.minDayCashFlow and
-                        mean((bars.high - bars.low) / bars.low) > c.minDaySpread
-                    ):
-                        # save day bars
-                        dayBars[asset.symbol] = bars
-                        bars.to_csv(f'backtest/bars/day_{asset.symbol}.csv')
-                except Exception as e:
-                    if len(bars.index): log.exception(e)
-                    else:  log.debug(e)
-            if len(dayBars.keys()) == numAssets: break
-
-        # download min bars
-        histBars.get_historic_min_bars(alpaca, calendar, dayBars)
-    else:
-        # read day bars
-        fileNames = os.listdir('backtest/bars')
-        for name in fileNames:
-            if name[:3] == 'day':
-                symbol = name[4:-4]
-                dayBars[symbol] = pd.read_csv(f'backtest/bars/{name}',
-                    header = 0, index_col = 0, parse_dates = True)
-                if len(dayBars.keys()) == numAssets: break
-
-    # add symbols to assets and positions
-    for symbol in dayBars:
-        for assets in g.assets.values(): # all bar frequencies
-            assets[symbol] = pd.DataFrame()
-        for algo in allAlgos:
-            algo.positions[symbol] = {'qty': 0, 'basis': 0}
+def get_day_bars(indicators: dict):
+    timestamp = timing.get_calendar_date(calendar, dateIdx)
+    histBars.get_next_bars('day', timestamp, barGens, g.assets)
 
 def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
+    # returns: qty, fillPrice
     qty = algo.pendingOrders[symbol]['qty']
     limit = algo.pendingOrders[symbol]['price']
     high = g.assets[symbol].high[-1]
@@ -131,16 +80,6 @@ def process_trades(allAlgos: list):
             fillQty, fillPrice = get_trade_fill(symbol, algo)
             process_algo_trade(symbol, algo, fillQty, fillPrice)
 
-def tick_indicators(indicators: dict):
-    for bars in g.assets['min'].values():
-        for indicator in indicators:
-            jj = bars.columns.get_loc(indicator.name)
-            bars.iloc[-1, jj] = indicator.get(bars)
-
-def tick_algos(algos: dict):
-    for algo in algos:
-        algo.tick()
-
 if __name__ == '__main__':
     # parse arguments
     args = parse_args(sys.argv[1:])
@@ -148,10 +87,6 @@ if __name__ == '__main__':
     # create backtest dir if needed
     try: os.mkdir('backtest')
     except Exception: pass
-
-    # update paths
-    c.logPath = 'backtest/' + c.logPath
-    c.algoPath = 'backtest/' + c.algoPath
 
     # init logs
     logFmtr = init_log_formatter()
@@ -161,30 +96,46 @@ if __name__ == '__main__':
     # init indicators and algos
     indicators = init_indicators()
     algos = init_algos(False, logFmtr)
-    for algo in algos['all']: algo.buyPow = 1e5
+    for algo in algos['all']: algo.buyPow = c.buyPow
 
-    # init alpaca and "timing"
+    # init alpaca and timing
     alpaca = alpaca_trade_api.REST(*dev.paper)
     calendar = alpaca.get_calendar()
-    dateIdx = timing.get_calendar_index(calendar, args.dates[0])
+    dateStr = args.dates[0]
+    dateIdx = timing.get_calendar_index(calendar, dateStr)
+    state = 'night'
 
     # init assets and "streaming"
-    init_assets(alpaca, calendar, algos['all'],
+    init_assets(alpaca, calendar, algos['all'], indicators,
         args.getAssets, args.numAssets, args.dates)
     barGens = histBars.init_bar_gens(['min', 'day'], g.assets['day'])
 
     # main loops
     with patch('algoClass.get_time_str', timing.get_time_str), \
-    patch('algoClass.get_date', lambda: timing.get_assets_date(g.assets)):
-        dateStr = args.dates[0]
-        while dateStr < args.dates[1]: # multiday loop
-            # TODO: reset between days
-            date = timing.get_market_open(calendar, dateIdx)
-            histBars.get_next_bars('day', date, barGens, g.assets)
-            while g.TTClose > timedelta(0): # intraday loop
+    patch('algoClass.get_date', lambda: timing.get_assets_date(g.assets)), \
+    patch('globalVariables.alpaca'), \
+    patch('globalVariables.lock'), \
+    patch('tick_algos.c', c), \
+    patch('tick_algos.log', log), \
+    patch('tick_algos.streaming.compile_day_bars', get_day_bars), \
+    patch('tick_algos.process_queued_orders', process_trades):
+        # multiday loop
+        while dateStr <= args.dates[1]:
+            # update time
+            g.now = timing.get_market_open(calendar, dateIdx)
+            g.now, g.TTOpen, g.TTClose = timing.update_time(g.now, calendar, dateIdx)
+
+            # intraday loop
+            while g.TTClose > timedelta(0):
                 histBars.get_next_bars('min', g.now, barGens, g.assets)
                 process_trades(algos['all'])
-                tick_indicators(indicators)
-                tick_algos(algos)
-                update_time()
+                state = tick_algos.tick_algos(algos, indicators, state)
+                g.now, g.TTOpen, g.TTClose = timing.update_time(g.now, calendar, dateIdx)
+
+            # update date
             dateIdx += 1
+            dateStr = calendar[dateIdx]._raw['date']
+
+            # clear min bars
+            for bars in g.assets['min'].values():
+                bars = bars[0:0] # FIX: iloc[-1] error
