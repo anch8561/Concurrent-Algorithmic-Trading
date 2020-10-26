@@ -76,10 +76,11 @@ def init_bar_gens(barFreqs: list, symbols: list) -> dict:
                 'generator': bar_gen(symbol, barFreq)}
     return barGens
 
-def get_next_bars(barFreq: str, timestamp: datetime, barGens: dict, assets: dict):
+def get_next_bars(barFreq: str, timestamp: datetime, barGens: dict, indicators: dict, assets: dict):
     # barFreq: 'sec', 'min', or 'day'
     # timestamp: expected bar index
     # barGens: dict of dict of generators;  {barFreq: {symbol: {buffer, generator}}}
+    # indicators: dict of lists of indicators; {barFreq: indicators}
     # assets: dict of dict of bars; {barFreq: {symbol: bars}}
     # append next bars to assets DataFrames
 

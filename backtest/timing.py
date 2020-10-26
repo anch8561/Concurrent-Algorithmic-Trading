@@ -33,10 +33,8 @@ def update_time(now: datetime, calendar: list, dateIdx: int) -> (datetime, timed
     TTClose = get_market_close(calendar, dateIdx) - now
     return now, TTOpen, TTClose
 
-def get_time_str(assets: dict):
-    symbol = list(assets['min'].keys())[0]
-    return assets['min'][symbol].index[-1].strftime('%H:%M:%S.%f')
+def get_time_str(g):
+    return g.now.strftime('%H:%M:%S.%f')
 
-def get_assets_date(assets: dict) -> str:
-    symbol = list(assets['min'].keys())[0]
-    return assets['min'][symbol].index[-1].strftime('%Y-%m-%d')
+def get_assets_date(g) -> str:
+    return g.now.strftime('%Y-%m-%d')

@@ -55,7 +55,7 @@ def parse_args(args):
 
 def get_day_bars(indicators: dict):
     timestamp = timing.get_calendar_date(calendar, dateIdx)
-    histBars.get_next_bars('day', timestamp, barGens, g.assets)
+    histBars.get_next_bars('day', timestamp, barGens, indicators, g.assets)
 
 def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
     # returns: qty, fillPrice
@@ -111,8 +111,8 @@ if __name__ == '__main__':
     barGens = histBars.init_bar_gens(['min', 'day'], g.assets['day'])
 
     # main loops
-    with patch('algoClass.get_time_str', timing.get_time_str), \
-    patch('algoClass.get_date', lambda: timing.get_assets_date(g.assets)), \
+    with patch('algoClass.get_time_str', lambda: timing.get_time_str(g)), \
+    patch('algoClass.get_date', lambda: timing.get_assets_date(g)), \
     patch('globalVariables.alpaca'), \
     patch('globalVariables.lock'), \
     patch('tick_algos.c', c), \
@@ -127,7 +127,7 @@ if __name__ == '__main__':
 
             # intraday loop
             while g.TTClose > timedelta(0):
-                histBars.get_next_bars('min', g.now, barGens, g.assets)
+                histBars.get_next_bars('min', g.now, barGens, indicators, g.assets)
                 process_trades(algos['all'])
                 state = tick_algos.tick_algos(algos, indicators, state)
                 g.now, g.TTOpen, g.TTClose = timing.update_time(g.now, calendar, dateIdx)
