@@ -93,14 +93,14 @@ class Algo:
         except Exception as e: self.log.exception(e)
         
         try: # write data
-            fileName = c.algoPath + self.name + '.data'
+            fileName = c.algoPath + self.name + '.json'
             with open(fileName, 'w') as f:
-                json.dump(data, f)
+                json.dump(data, f, indent=4)
         except Exception as e: self.log.exception(e)
 
     def load_data(self):
         try: # read data
-            fileName = c.algoPath + self.name + '.data'
+            fileName = c.algoPath + self.name + '.json'
             with open(fileName, 'r') as f:
                 data = json.load(f)
         except Exception as e:

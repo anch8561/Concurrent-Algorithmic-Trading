@@ -1,7 +1,7 @@
 __pycache__/
 .vscode/
 *.csv
-*.data
+*.json
 *.log
 credentials.py
 test.py
