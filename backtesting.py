@@ -2,18 +2,19 @@ import backtest.historicBars as histBars
 import backtest.timing as timing
 import backtest.config as c
 import globalVariables as g
+import init_logs
 import tick_algos
 from algoClass import Algo
 from algos import init_algos
 from backtest.init_assets import init_assets
 from credentials import dev
 from indicators import init_indicators
-from init_logs import init_log_formatter, init_primary_logs
 from streaming import process_algo_trade
 
 import alpaca_trade_api, os, sys
 import pandas as pd
 from argparse import ArgumentParser, RawTextHelpFormatter
+from contextlib import ExitStack
 from datetime import datetime, timedelta
 from logging import getLogger
 from pytz import timezone
@@ -89,14 +90,15 @@ if __name__ == '__main__':
     except Exception: pass
 
     # init logs
-    logFmtr = init_log_formatter()
-    init_primary_logs(args.log, 'backtest', logFmtr)
-    log = getLogger('backtest')
+    with patch('algos.c', c), patch('init_logs.c', c):
+        logFmtr = init_logs.init_log_formatter()
+        init_logs.init_primary_logs(args.log, 'backtest', logFmtr)
+        log = getLogger('backtest')
 
-    # init indicators and algos
-    indicators = init_indicators()
-    algos = init_algos(False, logFmtr)
-    for algo in algos['all']: algo.buyPow = c.buyPow
+        # init indicators and algos
+        indicators = init_indicators()
+        algos = init_algos(False, logFmtr)
+        for algo in algos['all']: algo.buyPow = c.buyPow
 
     # init alpaca and timing
     alpaca = alpaca_trade_api.REST(*dev.paper)
@@ -111,14 +113,18 @@ if __name__ == '__main__':
     barGens = histBars.init_bar_gens(['min', 'day'], g.assets['day'])
 
     # main loops
-    with patch('algoClass.get_time_str', lambda: timing.get_time_str(g)), \
-    patch('algoClass.get_date', lambda: timing.get_assets_date(g)), \
-    patch('globalVariables.alpaca'), \
-    patch('globalVariables.lock'), \
-    patch('tick_algos.c', c), \
-    patch('tick_algos.log', log), \
-    patch('tick_algos.streaming.compile_day_bars', get_day_bars), \
-    patch('tick_algos.process_queued_orders', process_trades):
+    with ExitStack() as stack:
+        stack.enter_context(patch('algoClass.get_date', lambda: timing.get_assets_date(g)))
+        stack.enter_context(patch('algoClass.get_time_str', lambda: timing.get_time_str(g)))
+        stack.enter_context(patch('algoClass.c', c)) # algoPath, minTradeBuyPow, maxPosFrac
+        stack.enter_context(patch('globalVariables.alpaca'))
+        stack.enter_context(patch('globalVariables.lock'))
+        stack.enter_context(patch('init_logs.c', c)) # logPath
+        stack.enter_context(patch('tick_algos.c', c)) # limitPriceFrac, marketCloseTransitionPeriod
+        stack.enter_context(patch('tick_algos.log', log))
+        stack.enter_context(patch('tick_algos.streaming.compile_day_bars', get_day_bars))
+        stack.enter_context(patch('tick_algos.process_queued_orders', process_trades))
+
         # multiday loop
         while dateStr <= args.dates[1]:
             # update time
@@ -138,4 +144,4 @@ if __name__ == '__main__':
 
             # clear min bars
             for bars in g.assets['min'].values():
-                bars = bars[0:0] # FIX: iloc[-1] error
+                bars = bars[0:0]

@@ -4,7 +4,7 @@ from datetime import timedelta
 algoPath = 'algos/' # path for algo data files
 logPath = 'logs/' # path for log files
 
-# init logging
+# init logs
 defaultLogLevel = 'info' # default min log level sent to stderr
 criticalEmails = ['ancharters@gmail.com']
 
@@ -24,20 +24,21 @@ leverageStrings = ('leveraged', '1.5x', '2x', '3x')
 numHistoricDays = 20
 
 # main
-barTimeout = 2.5 # number of bar periods without new bar before asset is removed
 tickDelay = timedelta(seconds=0.1) # time between last bar received and ticking algos
-marketCloseTransitionPeriod = timedelta(minutes=10)
 
 # queue order
 minTradeBuyPow = 100
 
 # get trade qty
-maxSectorFrac = 0.1
-maxIndustryFrac = 0.05
+maxSectorFrac = 0.1 # unused
+maxIndustryFrac = 0.05 # unused
 maxPositionFrac = 0.02
 
 # get limit price
 limitPriceFrac = 0.001
+
+# tick algos
+marketCloseTransitionPeriod = timedelta(minutes=10)
 
 # assertions
 assert minTradeBuyPow <= minAllocBuyPow * maxPositionFrac
