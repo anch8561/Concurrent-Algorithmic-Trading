@@ -34,7 +34,7 @@ def process_bar(barFreq, data, indicators):
     except Exception as e: log.exception(f'{e}\n{data}')
     
     try: # get indicators
-        for indicator in indicators[barFreq]:
+        for indicator in indicators[barFreq]: # TODO: parallel
             jj = bars.columns.get_loc(indicator.name)
             bars.iloc[-1, jj] = indicator.get(bars)
     except Exception as e: log.exception(f'{e}\n{data}')
@@ -70,7 +70,7 @@ def compile_day_bars(indicators):
         except Exception as e: log.exception(e)
         
         try: # get indicators
-            for indicator in indicators['day']:
+            for indicator in indicators['day']: # TODO: parallel
                 jj = dayBars.columns.get_loc(indicator.name)
                 dayBars.iloc[-1, jj] = indicator.get(dayBars)
         except Exception as e: log.exception(e)
