@@ -62,8 +62,8 @@ def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
     # returns: qty, fillPrice
     qty = algo.pendingOrders[symbol]['qty']
     limit = algo.pendingOrders[symbol]['price']
-    high = g.assets[symbol].high[-1]
-    low = g.assets[symbol].low[-1]
+    high = g.assets['min'][symbol].high[-1]
+    low = g.assets['min'][symbol].low[-1]
     if qty > 0: # buy
         if low <= limit:
             return qty, min(high, limit)
@@ -129,7 +129,7 @@ if __name__ == '__main__':
         # multiday loop
         while dateStr <= args.dates[1]:
             # update time
-            g.now = timing.get_market_open(calendar, dateIdx)
+            g.now = timing.get_market_open(calendar, dateIdx) - timedelta(minutes=1)
             g.now, g.TTOpen, g.TTClose = timing.update_time(g.now, calendar, dateIdx)
 
             # intraday loop
