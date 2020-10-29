@@ -120,6 +120,7 @@ if __name__ == '__main__':
         stack.enter_context(patch('globalVariables.alpaca'))
         stack.enter_context(patch('globalVariables.lock'))
         stack.enter_context(patch('init_logs.c', c)) # logPath
+        stack.enter_context(patch('streaming.log', log))
         stack.enter_context(patch('tick_algos.c', c)) # limitPriceFrac, marketCloseTransitionPeriod
         stack.enter_context(patch('tick_algos.log', log))
         stack.enter_context(patch('tick_algos.streaming.compile_day_bars', get_day_bars))
