@@ -101,6 +101,11 @@ def init_indicators():
     ## DAY
     barFreq = 'day'
 
+    # momentum
+    for numBars in (3, 5, 10):
+        indicators[barFreq] += [
+            Indicator(numBars, barFreq, momentum)]
+
     # volume stdevs
     for numBars in (3, 5, 10):
         indicators[barFreq] += [
