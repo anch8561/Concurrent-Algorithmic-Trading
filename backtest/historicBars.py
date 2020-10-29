@@ -62,7 +62,7 @@ def get_historic_min_bars(
         minBars.to_csv(f'backtest/bars/min_{symbol}.csv')
 
 def bar_gen(symbol: str, barFreq: str) -> pd.DataFrame:
-    with pd.read_csv(f'backtesting/{barFreq}_{symbol}.csv',
+    with pd.read_csv(f'backtest/bars/{barFreq}_{symbol}.csv',
         header = 0, index_col = 0, parse_dates = True) as csvFile:
         for bar in csvFile:
             yield bar
@@ -90,7 +90,7 @@ def get_next_bars(barFreq: str, timestamp: datetime, barGens: dict, indicators: 
             nextBar = barGen['buffer']
             barGen['buffer'] = None
         else:
-            nextBar = next(barGen)
+            nextBar = next(barGen['generator'])
 
         # check timestamp and append or store
         if nextBar.index[0] == timestamp:
