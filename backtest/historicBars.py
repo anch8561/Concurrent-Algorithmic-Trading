@@ -1,9 +1,9 @@
 import backtest.timing as timing
 
 import alpaca_trade_api, os, pytz
-import pandas as pd
 from datetime import datetime
 from logging import getLogger
+from pandas import DataFrame, read_csv
 
 log = getLogger('backtest')
 
@@ -18,7 +18,7 @@ def get_historic_min_bars(
     log.warning('Getting historic minute bars')
     for ii, symbol in enumerate(dayBars.keys()):
         log.info(f'Downloading asset {ii+1} / {len(dayBars.keys())}\t{symbol}')
-        minBars = pd.DataFrame()
+        minBars = DataFrame()
         fromDate = dayBars[symbol].index[0]
         toDate = dayBars[symbol].index[-1]
         fromDateIdx = timing.get_calendar_index(calendar, fromDate.strftime('%Y-%m-%d'))
@@ -61,19 +61,14 @@ def get_historic_min_bars(
         # save bars
         minBars.to_csv(f'backtest/bars/min_{symbol}.csv')
 
-def bar_gen(symbol: str, barFreq: str) -> pd.DataFrame:
-    with pd.read_csv(f'backtest/bars/{barFreq}_{symbol}.csv',
-        header = 0, index_col = 0, parse_dates = True) as csvFile:
-        for bar in csvFile:
-            yield bar
-
 def init_bar_gens(barFreqs: list, symbols: list) -> dict:
     barGens = {'sec': {}, 'min': {}, 'day': {}}
-    for barFreq in barGens:
+    for barFreq in barFreqs:
         for symbol in symbols:
             barGens[barFreq][symbol] = {
                 'buffer': None,
-                'generator': bar_gen(symbol, barFreq)}
+                'generator': read_csv(f'backtest/bars/{barFreq}_{symbol}.csv',
+                    header=0, index_col=0, chunksize=1, parse_dates=True)}
     return barGens
 
 def get_next_bars(barFreq: str, timestamp: datetime, barGens: dict, indicators: dict, assets: dict):
@@ -85,24 +80,27 @@ def get_next_bars(barFreq: str, timestamp: datetime, barGens: dict, indicators: 
     # append next bars to assets DataFrames
 
     for symbol, barGen in barGens[barFreq].items():
-        # get next bar from buffer or generator
-        if barGen['buffer']:
-            nextBar = barGen['buffer']
+        # check buffer and get next bar
+        if type(barGen['buffer']) == DataFrame:
+            nextBar = barGen['buffer'] # get bar from buffer
             barGen['buffer'] = None
         else:
-            nextBar = next(barGen['generator'])
+            nextBar = next(barGen['generator']) # get bar from generator
 
-        # check timestamp and append or store
-        if nextBar.index[0] == timestamp:
-            assets[barFreq][symbol].append(nextBar, inplace=True)
+        # check timestamp and process bar
+        if nextBar.index[0] == timestamp: # expected timestamp
+            # add bar to assets
+            bars = assets[barFreq][symbol].append(nextBar)
 
-        elif nextBar.index[0] > timestamp:
-            barGen['buffer'] = nextBar
-        else:
+            # get indicators
+            for indicator in indicators[barFreq]:
+                jj = bars.columns.get_loc(indicator.name)
+                bars.iloc[-1, jj] = indicator.get(bars)
+            
+            # save bars
+            assets[barFreq][symbol] = bars
+            
+        elif nextBar.index[0] > timestamp: # future timestamp
+            barGen['buffer'] = nextBar # save to buffer
+        else: # past timestamp
             log.error(f'Bar index < expected: {nextBar.index[0]} < {timestamp}')
-
-        # tick indicators
-        bars = assets[barFreq][symbol]
-        for indicator in indicators[barFreq]:
-            jj = bars.columns.get_loc(indicator.name)
-            bars.iloc[-1, jj] = indicator.get(bars)
