@@ -15,17 +15,15 @@ def get_calendar_date(calendar: list, dateIdx: int) -> datetime:
 
 def get_market_open(calendar: list, dateIdx: int) -> datetime:
     # returns: nyc market open datetime
-    return datetime.combine(
+    return nyc.localize(datetime.combine(
         date = calendar[dateIdx].date,
-        time = calendar[dateIdx].open,
-        tzinfo = nyc)
+        time = calendar[dateIdx].open))
 
 def get_market_close(calendar: list, dateIdx: int) -> datetime:
     # returns: nyc market close datetime
-    return datetime.combine(
+    return nyc.localize(datetime.combine(
         date = calendar[dateIdx].date,
-        time = calendar[dateIdx].close,
-        tzinfo = nyc)
+        time = calendar[dateIdx].close))
 
 def update_time(now: datetime, calendar: list, dateIdx: int) -> (datetime, timedelta, timedelta):
     now += timedelta(minutes=1)
