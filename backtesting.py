@@ -108,7 +108,7 @@ if __name__ == '__main__':
     state = 'night'
 
     # init assets and "streaming"
-    init_assets(alpaca, calendar, algos['all'], indicators,
+    g.assets = init_assets(alpaca, calendar, algos['all'], indicators,
         args.getAssets, args.numAssets, args.dates)
     barGens = histBars.init_bar_gens(['min', 'day'], g.assets['day'])
 
