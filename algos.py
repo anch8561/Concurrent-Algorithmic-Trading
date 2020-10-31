@@ -11,7 +11,6 @@ from os import mkdir
 # day
 def momentum(self): # kwargs: numUpBars, numDownBars
     indicator = str(1) + '_' + self.barFreq + '_momentum'
-    # TODO: try multibar momentum also
     
     for symbol, bars in g.assets[self.barFreq].items():
         try:
@@ -53,8 +52,8 @@ def init_day_algos(loadData: bool) -> list:
     algos = []
     for longShort in ('long', 'short'):
         # momentum
-        for numUpBars in (1, 2, 3):
-            for numDownBars in (1, 2, 3):
+        for numUpBars in (3, 5, 10):
+            for numDownBars in (3, 5, 10):
                 algos.append(Algo('min', momentum, longShort, loadData,
                     numUpBars = numUpBars, numDownBars = numDownBars))
         
