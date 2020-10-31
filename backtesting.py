@@ -54,6 +54,12 @@ def parse_args(args):
         help = f'number of tickers to use (default: {c.numAssets}, -1 means all)')
     return parser.parse_args(args)
 
+def activate():
+    # pylint: disable=undefined-variable
+    self.buyPow = c.buyPow
+    self.active = True
+    self.start()
+
 def get_day_bars(indicators: dict):
     timestamp = timing.get_calendar_date(calendar, dateIdx)
     histBars.get_next_bars('day', timestamp, barGens, indicators, g.assets)
@@ -74,8 +80,8 @@ def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
 
 def process_trades(allAlgos: list):
     for algo in allAlgos:
-        algo.pendingOrders = algo.queuedOrders
-        algo.queuedOrder = {}
+        algo.pendingOrders = algo.queuedOrders # copy reference
+        algo.queuedOrders = {} # new reference
         # FIX: short enter algo price is NOT limit price
         for symbol in algo.pendingOrders:
             fillQty, fillPrice = get_trade_fill(symbol, algo)
@@ -90,7 +96,7 @@ if __name__ == '__main__':
     except Exception: pass
 
     # init logs
-    with patch('algos.c', c), patch('init_logs.c', c):
+    with patch('algos.c', c), patch('init_logs.c', c): # file paths
         logFmtr = init_logs.init_log_formatter()
         init_logs.init_primary_logs(args.log, 'backtest', logFmtr)
         log = getLogger('backtest')
@@ -98,7 +104,6 @@ if __name__ == '__main__':
         # init indicators and algos
         indicators = init_indicators()
         algos = init_algos(False, logFmtr)
-        for algo in algos['all']: algo.buyPow = c.buyPow
 
     # init alpaca and timing
     alpaca = alpaca_trade_api.REST(*dev.paper)
@@ -114,6 +119,7 @@ if __name__ == '__main__':
 
     # main loops
     with ExitStack() as stack:
+        stack.enter_context(patch('algoClass.activate', activate))
         stack.enter_context(patch('algoClass.get_date', lambda: timing.get_assets_date(g)))
         stack.enter_context(patch('algoClass.get_time_str', lambda: timing.get_time_str(g)))
         stack.enter_context(patch('algoClass.c', c)) # algoPath, minTradeBuyPow, maxPosFrac
@@ -128,6 +134,8 @@ if __name__ == '__main__':
 
         # multiday loop
         while dateStr <= args.dates[1]:
+            log.warning(dateStr)
+
             # update time
             g.now = timing.get_market_open(calendar, dateIdx) - timedelta(minutes=1)
             g.now, g.TTOpen, g.TTClose = timing.update_time(g.now, calendar, dateIdx)
