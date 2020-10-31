@@ -246,7 +246,8 @@ def tick_algos(algos, indicators, state):
             not closingSoon
         ):
             log.warning(f'Deactivating {state} algos')
-            for algo in algos[state]: algo.deactivate()
+            for algo in algos[state]:
+                if algo.active: algo.deactivate()
             
             if any(algo.active for algo in algos[state]):
                 log.info(f'Some {state} algos are still active')
