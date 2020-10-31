@@ -1,4 +1,5 @@
 import backtest.timing as timing
+from tab import tab
 
 import alpaca_trade_api, os, pytz
 from datetime import datetime
@@ -80,27 +81,32 @@ def get_next_bars(barFreq: str, timestamp: datetime, barGens: dict, indicators: 
     # append next bars to assets DataFrames
 
     for symbol, barGen in barGens[barFreq].items():
-        # check buffer and get next bar
-        if type(barGen['buffer']) == DataFrame:
-            nextBar = barGen['buffer'] # get bar from buffer
-            barGen['buffer'] = None
-        else:
-            nextBar = next(barGen['generator']) # get bar from generator
+        while True: # loop if bar index < expected
+            # check buffer and get next bar
+            if type(barGen['buffer']) == DataFrame:
+                nextBar = barGen['buffer'] # get bar from buffer
+                barGen['buffer'] = None
+            else:
+                nextBar = next(barGen['generator']) # get bar from generator
 
-        # check timestamp and process bar
-        if nextBar.index[0] == timestamp: # expected timestamp
-            # add bar to assets
-            bars = assets[barFreq][symbol].append(nextBar)
+            # check timestamp and process bar
+            if nextBar.index[0] == timestamp: # expected timestamp
+                # add bar to assets
+                bars = assets[barFreq][symbol].append(nextBar)
+                jj = bars.columns.get_loc('ticked')
+                bars.iloc[-1, jj] = False
 
-            # get indicators
-            for indicator in indicators[barFreq]:
-                jj = bars.columns.get_loc(indicator.name)
-                bars.iloc[-1, jj] = indicator.get(bars)
-            
-            # save bars
-            assets[barFreq][symbol] = bars
-            
-        elif nextBar.index[0] > timestamp: # future timestamp
-            barGen['buffer'] = nextBar # save to buffer
-        else: # past timestamp
-            log.error(f'Bar index < expected: {nextBar.index[0]} < {timestamp}')
+                # get indicators
+                for indicator in indicators[barFreq]:
+                    jj = bars.columns.get_loc(indicator.name)
+                    bars.iloc[-1, jj] = indicator.get(bars)
+                
+                # save bars
+                assets[barFreq][symbol] = bars
+                break
+                
+            elif nextBar.index[0] > timestamp: # future timestamp
+                barGen['buffer'] = nextBar # save to buffer
+                break
+            else: # past timestamp
+                log.error(tab(symbol, 6) + f'bar index < expected: {nextBar.index[0]} < {timestamp}')
