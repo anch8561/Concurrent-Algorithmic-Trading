@@ -32,7 +32,7 @@ def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
 
     # create logPath if needed
     try: mkdir(c.logPath)
-    except Exception: pass
+    except: pass
 
     # display full dataframes
     pd.set_option("display.max_rows", None, "display.max_columns", None)

@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
     # create backtest dir if needed
     try: os.mkdir('backtest')
-    except Exception: pass
+    except: pass
 
     # init logs
     with patch('algos.c', c), patch('init_logs.c', c): # file paths

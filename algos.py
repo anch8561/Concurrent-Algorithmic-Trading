@@ -113,7 +113,7 @@ def init_algos(loadData: bool, logFmtr: Formatter) -> dict:
 
     # create algoPath if needed
     try: mkdir(c.algoPath)
-    except Exception: pass
+    except: pass
 
     # create algos
     dayAlgos = init_day_algos(loadData)

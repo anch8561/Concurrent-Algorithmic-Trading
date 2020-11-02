@@ -29,7 +29,7 @@ def init_assets(
     if getAssets:
         # delete old barsets
         try: shutil.rmtree('backtest/bars')
-        except Exception: pass
+        except: pass
         os.mkdir('backtest/bars')
 
         # download day bars and choose assets
