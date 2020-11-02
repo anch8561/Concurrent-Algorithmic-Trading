@@ -3,8 +3,7 @@ import algoClass
 import config as c
 import globalVariables as g
 
-import json
-from os import remove
+import json, os
 from pandas import DataFrame
 from unittest.mock import call, Mock, patch
 
@@ -92,22 +91,25 @@ def test_stop(testAlgo):
     testAlgo.save_data.assert_called_once()
 
 def test_save_data(testAlgo):
-    fileName = c.algoPath + testAlgo.name + '.data'
+    # setup
+    try: os.mkdir(c.algoPath)
+    except: pass
+    fileName = c.algoPath + testAlgo.name + '.json'
     
     # no file
-    try: remove(fileName)
+    try: os.remove(fileName)
     except: pass
-    testAlgo.equity = {'long': 0, 'short': 1}
+    testAlgo.equity = 12
     testAlgo.save_data()
     with open(fileName, 'r') as f:
         data = json.load(f)
     assert data['equity'] == testAlgo.equity
 
     # overwrite
-    data = {'equity': {'long': 0, 'short': 1}}
+    data = {'equity': 34}
     with open(fileName, 'w') as f:
         json.dump(data, f)
-    testAlgo.equity = {'long': 1, 'short': 0}
+    testAlgo.equity = 56
     testAlgo.save_data()
     with open(fileName, 'r') as f:
         data = json.load(f)
@@ -115,9 +117,11 @@ def test_save_data(testAlgo):
 
 def test_load_data(testAlgo):
     # setup
-    testAlgo.equity = {'long': 1, 'short': 0}
-    data = {'equity': {'long': 0, 'short': 1}}
-    fileName = c.algoPath + testAlgo.name + '.data'
+    try: os.mkdir(c.algoPath)
+    except: pass
+    testAlgo.equity = 78
+    data = {'equity': 90}
+    fileName = c.algoPath + testAlgo.name + '.json'
     with open(fileName, 'w') as f:
         json.dump(data, f)
 
