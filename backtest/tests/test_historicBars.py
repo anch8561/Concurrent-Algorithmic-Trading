@@ -1,24 +1,29 @@
 import backtest.historicBars as histBars
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pandas import DataFrame
 from unittest.mock import call, Mock, patch
 
 def test_get_historic_min_bars():
-    class Bar:
+    class Barset:
         def __init__(self, data: dict, index: list):
             self.df = DataFrame(data, index)
-    
-    class Polygon:
-        def __init__(self):
-            self.ii = -1
-            self.bars = [] # TODO: sets of 5000+ bars
-        def historic_agg_v2(self, *args):
-            self.ii += 1
-            return self.bars[self.ii]
 
     class alpaca:
-        polygon = Polygon()
+        class polygon:
+            def historic_agg_v2(self, symbol, multiplier, _from, to):
+                index = []
+                for ii in range(5000):
+                    index.append(datetime(
+                        _from.year,
+                        _from.month,
+                        _from.day) + timedelta(minutes=ii))
+                for ii in range(1000):
+                    index.append(datetime(
+                        to.year,
+                        to.month,
+                        to.day) + timedelta(minutes=ii))
+                return Barset({}, index)
 
     calendar = [
         {'open': datetime(2020, 10, 19, 9, 30),
@@ -27,36 +32,71 @@ def test_get_historic_min_bars():
         'close': datetime(2020, 10, 20, 16, 1)},
         {'open': datetime(2020, 10, 21, 9, 32),
         'close': datetime(2020, 10, 21, 16, 2)},
-        {'open': datetime(2020, 10, 26, 9, 33),
-        'close': datetime(2020, 10, 26, 16, 3)},
-        {'open': datetime(2020, 10, 27, 9, 34),
-        'close': datetime(2020, 10, 27, 16, 4)},
-        {'open': datetime(2020, 10, 28, 9, 35),
-        'close': datetime(2020, 10, 28, 16, 5)}]
+        {'open': datetime(2020, 10, 22, 9, 33),
+        'close': datetime(2020, 10, 22, 16, 3)},
+        {'open': datetime(2020, 10, 23, 9, 34),
+        'close': datetime(2020, 10, 23, 16, 4)},
+        {'open': datetime(2020, 10, 26, 9, 35),
+        'close': datetime(2020, 10, 26, 16, 5)},
+        {'open': datetime(2020, 10, 27, 9, 36),
+        'close': datetime(2020, 10, 27, 16, 6)},
+        {'open': datetime(2020, 10, 28, 9, 37),
+        'close': datetime(2020, 10, 28, 16, 7)},
+        {'open': datetime(2020, 10, 29, 9, 38),
+        'close': datetime(2020, 10, 29, 16, 8)},
+        {'open': datetime(2020, 10, 30, 9, 39),
+        'close': datetime(2020, 10, 30, 16, 9)},
+        {'open': datetime(2020, 10, 31, 9, 40),
+        'close': datetime(2020, 10, 31, 16, 10)},
+        {'open': datetime(2020, 11, 1, 9, 41),
+        'close': datetime(2020, 11, 1, 16, 11)}]
 
     dayBars = {
         'AAPL': DataFrame({}, [
-            datetime(2020, 10, 26),
-            datetime(2020, 10, 27),
-            datetime(2020, 10, 28)]),
+            datetime(2020, 10, 20),
+            datetime(2020, 10, 21),
+            datetime(2020, 10, 22),
+            datetime(2020, 10, 23),
+            datetime(2020, 10, 26)]),
         'MSFT': DataFrame({}, [
             datetime(2020, 10, 19),
             datetime(2020, 10, 20),
             datetime(2020, 10, 21)])}
 
     class timing:
-        get_calendar_index = Mock(side_effect=[4, 0])
-        def get_market_open(self, calendar, idx):
+        # pylint: disable=no-self-argument
+        # pylint: disable=unsubscriptable-object
+        def get_calendar_index(calendar, str):
+            for ii, date in enumerate(calendar):
+                if date['open'].strftime('%Y-%m-%d') == str:
+                    return ii
+        def get_calendar_date(calendar, idx):
+            return calendar[idx]['open'].replace(
+                hour = 0, minute = 0, second = 0, microsecond = 0)
+        def get_market_open(calendar, idx):
             return calendar[idx]['open']
-        def get_market_close(self, calendar, idx):
+        def get_market_close(calendar, idx):
             return calendar[idx]['close']
 
-    with patch('histBars.timing', timing), \
-    patch('histBars.DataFrame.to_csv'):
+    with patch('backtest.historicBars.timing', timing), \
+    patch('backtest.historicBars.DataFrame.to_csv') as to_csv:
         histBars.get_historic_min_bars(alpaca, calendar, dayBars)
-    timing.get_calendar_index.assert_has_calls([
-        call(calendar, '2020-10-26'),
-        call(calendar, '2020-10-19')])
+
+        calls = []
+        index = []
+        for jj in range(1, 6):
+            for ii in range(390):
+                index.append(calendar[jj]['open'] + timedelta(minutes=ii))
+        calls.append(call(DataFrame({}, index), 'backtest/bars/min_AAPL.csv'))
+        index = []
+        for jj in range(0, 3):
+            for ii in range(390):
+                index.append(calendar[jj]['open'] + timedelta(minutes=ii))
+        calls.append(call(DataFrame({}, index), 'backtest/bars/min_MSFT.csv'))
+        print(to_csv.mock_calls[0])
+        print(to_csv.call_args_list[0])
+        assert 0 # TODO: assert_frame_equal with mock calls
+
 
 def test_init_bar_gens(): pass
 
