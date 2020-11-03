@@ -21,8 +21,10 @@ def get_historic_min_bars(
         log.info(f'Downloading asset {ii+1} / {len(dayBars.keys())}\t{symbol}')
         minBars = DataFrame()
         fromDate = dayBars[symbol].index[0]
-        toDate = dayBars[symbol].index[-1]
         fromDateIdx = timing.get_calendar_index(calendar, fromDate.strftime('%Y-%m-%d'))
+        toDateStr = dayBars[symbol].index[-1].strftime('%Y-%m-%d')
+        toDateIdx = timing.get_calendar_index(calendar, toDateStr)
+        toDate = timing.get_market_close(calendar, toDateIdx)
         while fromDate < toDate:
             print(f'Downloading minutes from {fromDate.date()}')
             # download bars
@@ -57,7 +59,6 @@ def get_historic_min_bars(
             except Exception as e: log.debug(e) # no overlap
             minBars = minBars.append(newBars)
             fromDate = minBars.index[-1]
-            # FIX: may not get full final day
 
         # save bars
         minBars.to_csv(f'backtest/bars/min_{symbol}.csv')
