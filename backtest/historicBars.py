@@ -2,7 +2,7 @@ import backtest.timing as timing
 from tab import tab
 
 import alpaca_trade_api, os, pytz
-from datetime import datetime
+from datetime import datetime, timedelta
 from logging import getLogger
 from pandas import DataFrame, read_csv
 
@@ -20,16 +20,21 @@ def get_historic_min_bars(
     for ii, symbol in enumerate(dayBars.keys()):
         log.info(f'Downloading asset {ii+1} / {len(dayBars.keys())}\t{symbol}')
         minBars = DataFrame()
-        fromDate = dayBars[symbol].index[0]
-        fromDateIdx = timing.get_calendar_index(calendar, fromDate.strftime('%Y-%m-%d'))
+
+        fromDateStr = dayBars[symbol].index[0].strftime('%Y-%m-%d')
+        fromDateIdx = timing.get_calendar_index(calendar, fromDateStr)
+        fromDate = timing.get_market_open(calendar, fromDateIdx)
+
         toDateStr = dayBars[symbol].index[-1].strftime('%Y-%m-%d')
         toDateIdx = timing.get_calendar_index(calendar, toDateStr)
-        toDate = timing.get_market_close(calendar, toDateIdx)
+        toDate = timing.get_market_close(calendar, toDateIdx) # include toDate
+
         while fromDate < toDate:
             print(f'Downloading minutes from {fromDate.date()}')
             # download bars
             newBars = alpaca.polygon.historic_agg_v2(symbol, 1, 'minute', fromDate, toDate)
-            newBars = newBars.df[:5000] # remove extra toDate data
+            newBars = newBars.df[:5000] # remove extra toDate bars
+            newBars = newBars[:toDate] # remove overlap and extra days
 
             # drop extended hours
             extendedHours = []
@@ -39,26 +44,34 @@ def get_historic_min_bars(
                 marketClose = timing.get_market_close(calendar, fromDateIdx)
                 
                 # get extended hours
+                # TODO: use mask instead of loop
                 for timestamp in newBars.index:
-                    if timestamp.date() == fromDate.date():
-                        if timestamp < marketOpen or timestamp > marketClose:
+                    if timestamp.date() == fromDate.date(): # extended hours
+                        if (
+                            timestamp < marketOpen or
+                            timestamp >= marketClose
+                        ):
                             extendedHours.append(timestamp)
-                    elif timestamp.date() > fromDate.date():
+                    elif timestamp.date() > fromDate.date(): # next day
                         break
 
-                # get next market day
+                # get next day
                 fromDateIdx += 1
-                fromDate = timing.get_calendar_date(calendar, fromDateIdx)
+                fromDate = timing.get_market_open(calendar, fromDateIdx)
+                
             try: newBars = newBars.drop(extendedHours)
             except Exception as e:
                 if extendedHours == []: log.debug(e)
                 else: log.exception(e)
             
             # add new bars
-            try: minBars = minBars[:newBars.index[0]] # remove overlap
+            try: minBars = minBars[:newBars.index[0] - timedelta(minutes=1)] # remove overlap
             except Exception as e: log.debug(e) # no overlap
             minBars = minBars.append(newBars)
-            fromDate = minBars.index[-1]
+
+            # reset fromDate
+            fromDate = minBars.index[-1] + timedelta(minutes=1)
+            fromDateIdx = timing.get_calendar_index(calendar, fromDate.strftime('%Y-%m-%d'))
 
         # save bars
         minBars.to_csv(f'backtest/bars/min_{symbol}.csv')
