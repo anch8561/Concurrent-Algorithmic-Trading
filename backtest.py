@@ -67,7 +67,10 @@ def get_day_bars(indicators: dict):
 def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
     # returns: qty, fillPrice
     qty = algo.pendingOrders[symbol]['qty']
-    limit = algo.pendingOrders[symbol]['price']
+    if algo.longShort == 'short' and qty < 0: # short enter price is NOT limit price
+        limit = tick_algos.get_limit_price(symbol, 'sell')
+    else:
+        limit = algo.pendingOrders[symbol]['price']
     high = g.assets['min'][symbol].high[-1]
     low = g.assets['min'][symbol].low[-1]
     if qty > 0: # buy
@@ -82,7 +85,6 @@ def process_trades(allAlgos: list):
     for algo in allAlgos:
         algo.pendingOrders = algo.queuedOrders # copy reference
         algo.queuedOrders = {} # new reference
-        # FIX: short enter algo price is NOT limit price
         for symbol in algo.pendingOrders:
             fillQty, fillPrice = get_trade_fill(symbol, algo)
             process_algo_trade(symbol, algo, fillQty, fillPrice)
@@ -147,6 +149,7 @@ if __name__ == '__main__':
 
             # intraday loop
             while g.TTClose > timedelta(0):
+                log.info(g.now)
                 histBars.get_next_bars('min', g.now, barGens, indicators, g.assets)
                 process_trades(algos['all'])
                 state = tick_algos.tick_algos(algos, indicators, state)
