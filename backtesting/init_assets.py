@@ -1,7 +1,7 @@
-import backtest.config as c
-import backtest.historicBars as histBars
+import backtesting.config as c
+import backtesting.historicBars as histBars
 
-import alpaca_trade_api, os, shutil
+import alpaca_trade_api, os, shutil, sys
 from datetime import datetime
 from logging import getLogger
 from pandas import DataFrame
@@ -28,11 +28,14 @@ def init_assets(
     # get symbols
     if getAssets:
         # delete old barsets
-        try: shutil.rmtree('backtest/bars')
+        choice = input('Delete old barsets? [Y/n] ')
+        if choice.lower() not in ('yes', 'ye', 'y'): sys.exit()
+        try: shutil.rmtree(c.barPath)
         except: pass
-        os.mkdir('backtest/bars')
+        os.mkdir(c.barPath)
 
         # download day bars and choose assets
+        log.warning('Getting historic day bars')
         dayBars = {}
         alpacaAssets = alpaca.list_assets('active', 'us_equity')
         for ii, asset in enumerate(alpacaAssets):
@@ -50,7 +53,7 @@ def init_assets(
                     ):
                         # save day bars
                         dayBars[asset.symbol] = bars
-                        bars.to_csv(f'backtest/bars/day_{asset.symbol}.csv')
+                        bars.to_csv(c.barPath + f'day_{asset.symbol}.csv')
                 except Exception as e:
                     if len(bars.index): log.exception(e)
                     else:  log.debug(e)

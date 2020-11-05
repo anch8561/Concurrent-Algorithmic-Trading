@@ -1,8 +1,9 @@
 from datetime import timedelta
 
 # file paths
-algoPath = 'backtest/algos/' # path for algo data files
-logPath = 'backtest/logs/' # path for log files
+algoPath = 'backtesting/algos/' # path for algo data files
+barPath = 'backtesting/bars/' # path for historic barset files
+logPath = 'backtesting/logs/' # path for log files
 
 # init logs
 defaultLogLevel = 'warning' # default min log level sent to stderr

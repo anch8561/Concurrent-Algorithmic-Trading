@@ -1,3 +1,4 @@
+import backtesting.config as c
 import backtesting.timing as timing
 from tab import tab
 
@@ -74,7 +75,7 @@ def get_historic_min_bars(
             fromDateIdx = timing.get_calendar_index(calendar, fromDate.strftime('%Y-%m-%d'))
 
         # save bars
-        minBars.to_csv(f'backtest/bars/min_{symbol}.csv')
+        minBars.to_csv(c.barPath + f'min_{symbol}.csv')
 
 def init_bar_gens(barFreqs: list, symbols: list) -> dict:
     barGens = {'sec': {}, 'min': {}, 'day': {}}
@@ -82,7 +83,7 @@ def init_bar_gens(barFreqs: list, symbols: list) -> dict:
         for symbol in symbols:
             barGens[barFreq][symbol] = {
                 'buffer': None,
-                'generator': read_csv(f'backtest/bars/{barFreq}_{symbol}.csv',
+                'generator': read_csv(c.barPath + f'{barFreq}_{symbol}.csv',
                     header=0, index_col=0, chunksize=1, parse_dates=True)}
     return barGens
 

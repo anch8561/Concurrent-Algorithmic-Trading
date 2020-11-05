@@ -95,11 +95,13 @@ if __name__ == '__main__':
     try: os.mkdir('backtest')
     except: pass
 
-    # init logs
+    # init logs, indicators, and algos
     with patch('algos.c', c), patch('init_logs.c', c): # file paths
+        # init logs
         logFmtr = init_logs.init_log_formatter()
         init_logs.init_primary_logs(args.log, 'backtest', logFmtr)
         log = getLogger('backtest')
+        log.warning(f'Backtesting from {args.dates[0]} to {args.dates[1]}')
 
         # init indicators and algos
         indicators = init_indicators()
