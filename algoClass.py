@@ -225,7 +225,7 @@ class Algo:
             position = self.positions[symbol]['qty']
             if abs(position) < abs(qty): # position smaller than order
                 qty -= position # add to position
-                self.log.debug(tab(symbol, 6) + 'Have ' + tab(position, 6) + 'Ordering ' + qty)
+                self.log.debug(tab(symbol, 6) + 'Have ' + tab(position, 6) + f'Ordering {qty}')
             else: # position large enough
                 self.log.debug(tab(symbol, 6) + f'position of {position} is large enough')
                 return 0
