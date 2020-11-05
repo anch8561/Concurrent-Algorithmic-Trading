@@ -54,7 +54,7 @@ def parse_args(args):
         help = f'number of tickers to use (default: {c.numAssets}, -1 means all)')
     return parser.parse_args(args)
 
-def activate():
+def activate(self):
     # pylint: disable=undefined-variable
     self.buyPow = c.buyPow
     self.active = True
@@ -112,6 +112,9 @@ if __name__ == '__main__':
     calendar = alpaca.get_calendar()
     dateStr = args.dates[0]
     dateIdx = timing.get_calendar_index(calendar, dateStr)
+    if dateIdx == None:
+        log.error(f'Start date {dateStr} is not a market day')
+        sys.exit()
     state = 'night'
 
     # init assets and "streaming"
@@ -121,7 +124,7 @@ if __name__ == '__main__':
 
     # main loops
     with ExitStack() as stack:
-        stack.enter_context(patch('algoClass.activate', activate))
+        stack.enter_context(patch('algoClass.Algo.activate', activate))
         stack.enter_context(patch('algoClass.get_date', lambda: timing.get_assets_date(g)))
         stack.enter_context(patch('algoClass.get_time_str', lambda: timing.get_time_str(g)))
         stack.enter_context(patch('algoClass.c', c)) # algoPath, minTradeBuyPow, maxPosFrac

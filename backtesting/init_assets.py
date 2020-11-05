@@ -66,7 +66,7 @@ def init_assets(
     else:
         # get downloaded symbols
         symbols = []
-        fileNames = os.listdir('backtest/bars')
+        fileNames = os.listdir(c.barPath)
         for name in fileNames:
             if name[:3] == 'day':
                 symbols.append(name[4:-4])
