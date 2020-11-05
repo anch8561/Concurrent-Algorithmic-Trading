@@ -1,4 +1,4 @@
-import backtest.historicBars as histBars
+import backtesting.historicBars as histBars
 
 from datetime import datetime, timedelta
 from pandas import DataFrame
@@ -91,8 +91,8 @@ def test_get_historic_min_bars():
 
 
     ## TEST
-    with patch('backtest.historicBars.timing', timing), \
-    patch('backtest.historicBars.DataFrame.to_csv', to_csv):
+    with patch('backtesting.historicBars.timing', timing), \
+    patch('backtesting.historicBars.DataFrame.to_csv', to_csv):
         histBars.get_historic_min_bars(alpaca, calendar, dayBars)
     assert len(to_csv.dfs) == 2
 

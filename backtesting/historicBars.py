@@ -1,4 +1,4 @@
-import backtest.timing as timing
+import backtesting.timing as timing
 from tab import tab
 
 import alpaca_trade_api, os, pytz

@@ -1,12 +1,12 @@
-import backtest.historicBars as histBars
-import backtest.timing as timing
-import backtest.config as c
+import backtesting.historicBars as histBars
+import backtesting.timing as timing
+import backtesting.config as c
 import globalVariables as g
 import init_logs
 import tick_algos
 from algoClass import Algo
 from algos import init_algos
-from backtest.init_assets import init_assets
+from backtesting.init_assets import init_assets
 from credentials import dev
 from indicators import init_indicators
 from streaming import process_algo_trade
