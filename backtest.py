@@ -102,6 +102,7 @@ if __name__ == '__main__':
         # init logs
         logFmtr = init_logs.init_log_formatter()
         init_logs.init_primary_logs(args.log, 'backtest', logFmtr)
+        getLogger('main').setLevel(30) # warning
         log = getLogger('backtest')
         log.warning(f'Backtesting from {args.dates[0]} to {args.dates[1]}')
 
@@ -132,10 +133,7 @@ if __name__ == '__main__':
         stack.enter_context(patch('algoClass.c', c)) # algoPath, minTradeBuyPow, maxPosFrac
         stack.enter_context(patch('globalVariables.alpaca'))
         stack.enter_context(patch('globalVariables.lock'))
-        stack.enter_context(patch('init_logs.c', c)) # logPath
-        stack.enter_context(patch('streaming.log', log))
         stack.enter_context(patch('tick_algos.c', c)) # limitPriceFrac, marketCloseTransitionPeriod
-        stack.enter_context(patch('tick_algos.log', log))
         stack.enter_context(patch('tick_algos.streaming.compile_day_bars', get_day_bars))
         stack.enter_context(patch('tick_algos.process_queued_orders', process_trades))
 
