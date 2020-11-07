@@ -57,12 +57,10 @@ def typical_price(self, bars): # unused
     return (high + low + close) / 3
 
 def SMA(self, bars): # unused
-    prices = bars.close[-self.numBars:]
-    return ta.trend.sma_indicator(prices, self.numBars)[-1]
+    return ta.trend.sma_indicator(bars.close, self.numBars)[-1]
 
 def EMA(self, bars):
-    prices = bars.close[-self.numBars:]
-    return ta.trend.ema_indicator(prices, self.numBars)[-1]
+    return ta.trend.ema_indicator(bars.close, self.numBars)[-1]
 
 def KAMA(self, bars):
     # variable EMA from 2 to 30 bars (default)
