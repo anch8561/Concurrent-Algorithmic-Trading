@@ -139,7 +139,7 @@ if __name__ == '__main__':
 
         # multiday loop
         while dateStr <= args.dates[1]:
-            log.warning(dateStr)
+            log.warning('Date: ' + dateStr)
 
             # update time
             g.now = timing.get_market_open(calendar, dateIdx) - timedelta(minutes=1)
@@ -147,7 +147,7 @@ if __name__ == '__main__':
 
             # intraday loop
             while g.TTClose > timedelta(0):
-                log.info(g.now)
+                log.info(f'Time: {g.now}')
                 histBars.get_next_bars('min', g.now, barGens, indicators, g.assets)
                 process_trades(algos['all'])
                 state = tick_algos.tick_algos(algos, indicators, state)
