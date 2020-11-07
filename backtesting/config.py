@@ -6,7 +6,7 @@ barPath = 'backtesting/bars/' # path for historic barset files
 logPath = 'backtesting/logs/' # path for log files
 
 # init logs
-defaultLogLevel = 'warning' # default min log level sent to stderr
+defaultLogLevel = 'info' # default min log level sent to stderr
 
 # allocate buying power
 buyPow = 1e5
