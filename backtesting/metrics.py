@@ -1,6 +1,7 @@
 import config as c
 
 import matplotlib.pyplot as plt
+import ta
 from datetime import datetime, timedelta
 from pandas import DataFrame, read_csv
 from pytz import timezone
@@ -49,13 +50,15 @@ def plot_backtest(barFreq, algoName, symbol, dates):
     plotData.price[plotData.buy].plot(style='r^')
     plotData.price[plotData.sell].plot(style='gv')
 
-# plot_backtest('min', '5_10_min_crossover_long', 'AAP', ['2020-10-26', '2020-10-26'])
-# plt.show()
+    # exit
+    return plotData
 
-def plot_indicators():
-    pass
-    # import ta
-    # EMA_5 = ta.trend.ema_indicator(plotData.price, 5)
-    # EMA_10 = ta.trend.ema_indicator(plotData.price, 10)
-    # plt.plot(EMA_5, color='k', linestyle=':')
-    # plt.plot(EMA_10, color='k', linestyle='-')
+def plot_indicators(plotData):
+    EMA_5 = ta.trend.ema_indicator(plotData.price, 3)
+    EMA_10 = ta.trend.ema_indicator(plotData.price, 5)
+    plt.plot(EMA_5, color='k', linestyle=':')
+    plt.plot(EMA_10, color='k', linestyle='-')
+
+plotData = plot_backtest('min', '3_5_min_crossover_long', 'AAP', ['2020-10-26', '2020-10-26'])
+plot_indicators(plotData)
+plt.show()
