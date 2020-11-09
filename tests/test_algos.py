@@ -60,14 +60,14 @@ def test_crossover():
 
     # buy
     testAlgo.queue_order.reset_mock()
-    bars = {'ticked': [False]*2, '3_min_EMA': [1.2, 0.1], '5_min_EMA': [0.4, 0.3]}
+    bars = {'ticked': [False]*2, '3_min_EMA': [0.1, 1.2], '5_min_EMA': [0.3, 0.4]}
     g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b'])
     testAlgo.tick()
     testAlgo.queue_order.assert_called_once_with('AAPL', 'buy')
 
     # sell
     testAlgo.queue_order.reset_mock()
-    bars = {'ticked': [False]*2, '3_min_EMA': [0.1, 1.2], '5_min_EMA': [0.3, 0.4]}
+    bars = {'ticked': [False]*2, '3_min_EMA': [1.2, 0.1], '5_min_EMA': [0.4, 0.3]}
     g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b'])
     testAlgo.tick()
     testAlgo.queue_order.assert_called_once_with('AAPL', 'sell')

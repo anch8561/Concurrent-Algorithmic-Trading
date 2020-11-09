@@ -103,7 +103,7 @@ def test_get_historic_min_bars():
         for ii in range(390):
             index.append(calendar[dateIdx]['open'] + timedelta(minutes=ii))
     assert all(to_csv.dfs[0].index == index)
-    assert to_csv.paths[0] == 'backtest/bars/min_AAPL.csv'
+    assert to_csv.paths[0] == 'backtesting/bars/min_AAPL.csv'
 
     # expected MSFT index
     index = []
@@ -112,8 +112,8 @@ def test_get_historic_min_bars():
         for ii in range(390):
             index.append(calendar[dateIdx]['open'] + timedelta(minutes=ii))
     assert all(to_csv.dfs[1].index == index)
-    assert to_csv.paths[1] == 'backtest/bars/min_MSFT.csv'
+    assert to_csv.paths[1] == 'backtesting/bars/min_MSFT.csv'
 
 def test_init_bar_gens(): pass
 
-def get_next_bars(): pass
+def test_get_next_bars(): pass

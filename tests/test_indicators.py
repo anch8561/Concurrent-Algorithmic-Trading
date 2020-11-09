@@ -46,13 +46,13 @@ def test_typical_price(bars):
 def test_SMA(bars):
     testInd = Indicator(3, 'min', indicators.SMA)
     testVal = testInd.get(bars)
-    realVal = ta.trend.sma_indicator(bars.close[-3:], 3)[-1]
+    realVal = ta.trend.sma_indicator(bars.close, 3)[-1]
     assert testVal == realVal
 
 def test_EMA(bars):
     testInd = Indicator(3, 'min', indicators.EMA)
     testVal = testInd.get(bars)
-    realVal = ta.trend.ema_indicator(bars.close[-3:], 3)[-1]
+    realVal = ta.trend.ema_indicator(bars.close, 3)[-1]
     assert testVal == realVal
 
 def test_KAMA(bars):
