@@ -35,9 +35,9 @@ def crossover(self): # kwargs: fastNumBars, slowNumBars
     for symbol, bars in g.assets[self.barFreq].items():
         try:
             if not bars.ticked[-1]:
-                if bars[fastInd][-1] < bars[slowInd][-1]: # oversold
+                if bars[fastInd][-1] > bars[slowInd][-1]: # overbought
                     self.queue_order(symbol, 'buy')
-                elif bars[fastInd][-1] > bars[slowInd][-1]: # overbought
+                elif bars[fastInd][-1] < bars[slowInd][-1]: # oversold
                     self.queue_order(symbol, 'sell')
         except Exception as e:
             if (
