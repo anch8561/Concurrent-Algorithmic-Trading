@@ -65,8 +65,13 @@ def EMA(self, bars):
 def KAMA(self, bars):
     # variable EMA from 2 to 30 bars (default)
     # numBars is volatility window controlling EMA window
-    prices = bars.close[-30:]
-    return ta.momentum.kama(prices, self.numBars)[-1]
+    return ta.momentum.kama(bars.close, self.numBars)[-1]
+
+def bollinger_high(self, bars):
+    return ta.volatility.bollinger_hband(bars.close, self.numBars, self.numStdevs)
+
+def bollinger_low(self, bars):
+    return ta.volatility.bollinger_lband(bars.close, self.numBars, self.numStdevs)
 
 
 # init
