@@ -1,8 +1,9 @@
 import backtesting.historicBars as histBars
 
+import os, shutil
 from datetime import datetime, timedelta
 from pandas import DataFrame
-from pandas.testing import assert_index_equal
+from pandas.testing import assert_frame_equal
 from unittest.mock import call, Mock, patch
 
 def test_get_historic_min_bars():
@@ -114,6 +115,54 @@ def test_get_historic_min_bars():
     assert all(to_csv.dfs[1].index == index)
     assert to_csv.paths[1] == 'backtesting/bars/min_MSFT.csv'
 
-def test_init_bar_gens(): pass
+def test_init_bar_gens():
+    ## SETUP
+    # args
+    barFreqs = ['sec', 'day']
+    symbols = ['AAPL', 'MSFT']
+    
+    # dir
+    try: os.mkdir('backtesting/tests/bars')
+    except: pass
+
+    # day
+    index = [datetime(2001,2,3), datetime(2001,2,4)]
+    dayAAPL = DataFrame({'col1': [1,2], 'col2': [3,4]}, index)
+    dayAAPL.to_csv('backtesting/tests/bars/day_AAPL.csv')
+    dayMSFT = DataFrame({'col1': [2,3], 'col2': [4,5]}, index)
+    dayMSFT.to_csv('backtesting/tests/bars/day_MSFT.csv')
+
+    # sec
+    index = [datetime(2001,2,3,4,5,6), datetime(2001,2,3,4,5,7)]
+    secAAPL = DataFrame({'col1': [3,4], 'col2': [5,6]}, index)
+    secAAPL.to_csv('backtesting/tests/bars/sec_AAPL.csv')
+    secMSFT = DataFrame({'col1': [4,5], 'col2': [6,7]}, index)
+    secMSFT.to_csv('backtesting/tests/bars/sec_MSFT.csv')
+
+
+    ## TEST
+    with patch('backtesting.historicBars.c.barPath', 'backtesting/tests/bars/'):
+        barGens = histBars.init_bar_gens(barFreqs, symbols)
+
+    assert barGens['day']['AAPL']['buffer'] == None
+    test = next(barGens['day']['AAPL']['generator'])
+    assert_frame_equal(test, dayAAPL.iloc[:1])
+
+    assert barGens['day']['MSFT']['buffer'] == None
+    test = next(barGens['day']['MSFT']['generator'])
+    assert_frame_equal(test, dayMSFT.iloc[:1])
+
+    assert barGens['sec']['AAPL']['buffer'] == None
+    test = next(barGens['sec']['AAPL']['generator'])
+    assert_frame_equal(test, secAAPL.iloc[:1])
+
+    assert barGens['sec']['MSFT']['buffer'] == None
+    test = next(barGens['sec']['MSFT']['generator'])
+    assert_frame_equal(test, secMSFT.iloc[:1])
+
+
+    ## CLEANUP
+    del barGens
+    shutil.rmtree('backtesting/tests/bars')
 
 def test_get_next_bars(): pass
