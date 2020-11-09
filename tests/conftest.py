@@ -22,6 +22,13 @@ def reloadGlobalVariables():
     reload(g) # NOTE: reload does not update existing objects
     g.positions['AAPL'] = 0
 
+@ fixture(autouse=True, scope='session')
+def cleanup():
+    for ii in range(7):
+        longShort = 'short' if ii%2 else 'long'
+        try: os.remove(f'{ii}_min_print_{longShort}')
+        except: pass
+
 @fixture
 def testAlgo(reloadGlobalVariables):
     testAlgo = Algo('min', print, 'short', False)
