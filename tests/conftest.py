@@ -2,7 +2,7 @@ import globalVariables as g
 from algoClass import Algo
 from indicators import Indicator, momentum
 
-import logging
+import logging, os
 from datetime import datetime
 from importlib import reload
 from pandas import DataFrame
@@ -24,9 +24,14 @@ def reloadGlobalVariables():
 
 @ fixture(autouse=True, scope='session')
 def cleanup():
+    yield None
+    loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+    for logger in loggers:
+        for hdlr in logger.handlers[:]:
+            hdlr.close()
     for ii in range(7):
         longShort = 'short' if ii%2 else 'long'
-        try: os.remove(f'{ii}_min_print_{longShort}')
+        try: os.remove(f'logs/{ii}_min_print_{longShort}.log')
         except: pass
 
 @fixture
