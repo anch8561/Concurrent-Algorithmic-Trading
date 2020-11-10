@@ -14,9 +14,9 @@ def plot_backtest(barFreq, algoName, symbol, dates):
         header=0, index_col=0, parse_dates=True)
     fromDate = nyc.localize(datetime.strptime(dates[0], '%Y-%m-%d'))
     toDate = nyc.localize(datetime.strptime(dates[1], '%Y-%m-%d')) + timedelta(1)
-    plotData = bars.close.loc[fromDate:toDate].to_frame('price')
-    plotData['buy'] = False
-    plotData['sell'] = False
+    plotData = bars.loc[fromDate:toDate]
+    plotData['buy'] = False # SettingWithCopyWarning
+    plotData['sell'] = False # SettingWithCopyWarning
     
     # get trades
     time = fromDate - timedelta(1)
@@ -40,25 +40,43 @@ def plot_backtest(barFreq, algoName, symbol, dates):
                 line = next(f)
                 if symbol in line:
                     if 'enter' in line:
-                        plotData.buy.loc[time] = True
+                        plotData.loc[time, 'buy'] = True
                     elif 'exit' in line:
-                        plotData.sell.loc[time] = True
+                        plotData.loc[time, 'sell'] = True
                     
     
     # plot
-    plotData.price.plot(style='b')
-    plotData.price[plotData.buy].plot(style='r^')
-    plotData.price[plotData.sell].plot(style='gv')
+    numDays = (toDate - fromDate).days
+    figs = []
+    for ii in range(numDays):
+        # get date range
+        start = fromDate + timedelta(ii)
+        stop = fromDate + timedelta(ii+1)
+        data = plotData.loc[start:stop]
+
+        # format plot
+        fig, axs = plt.subplots(2, sharex=True)
+        figs.append(fig)
+        axs[0].set_title(f'{algoName}\n{symbol}\n{start.date()}')
+        axs[1].tick_params('x', labelrotation=45)
+
+        # plot price and trades
+        data.vwap.plot(style='b', ax=axs[0])
+        data.close[data.buy].plot(style='r^', ax=axs[0])
+        data.close[data.sell].plot(style='gv', ax=axs[0])
+
+        # plot volume
+        axs[1].bar(data.index, data.volume, 0.0005)
 
     # exit
-    return plotData
+    return figs, plotData
 
-def plot_indicators(plotData):
-    EMA_5 = ta.trend.ema_indicator(plotData.price, 3)
-    EMA_10 = ta.trend.ema_indicator(plotData.price, 5)
-    plt.plot(EMA_5, color='k', linestyle=':')
-    plt.plot(EMA_10, color='k', linestyle='-')
+def plot_indicators(figs, plotData):
+    EMA_5 = ta.trend.ema_indicator(plotData.close, 3)
+    EMA_10 = ta.trend.ema_indicator(plotData.close, 5)
+    figs[ii].axes[0].plot(EMA_5, color='k', linestyle=':')
+    figs[ii].axes[0].plot(EMA_10, color='k', linestyle='-')
 
-plotData = plot_backtest('min', '3_5_min_crossover_long', 'AAP', ['2020-10-26', '2020-10-26'])
-plot_indicators(plotData)
+fig, plotData = plot_backtest('min', '3_5_min_crossover_long', 'AAP', ['2020-10-26', '2020-10-26'])
+# plot_indicators(fig, plotData)
 plt.show()
