@@ -167,75 +167,100 @@ def test_init_bar_gens():
     shutil.rmtree('backtesting/tests/bars')
 
 def test_get_next_bars(indicators):
-    # setup
+    ## SETUP
+    # expected timestamp
+    timestamp = datetime(2001, 2, 3, 4, 5, 6)
+
+    # bar generators
     def barGen(ii):
         while True:
-            yield DataFrame({'open': ii, 'close': ii+1}, [datetime(1, 2, 3, 4, 5, ii)])
+            yield DataFrame({'open': ii, 'close': ii+1}, [datetime(2001, 2, 3, 4, 5, ii)])
             ii += 1
     
-    df = DataFrame(
-        {
-            'open': 0,
-            'close': 1,
-            'ticked': False,
-            '1_sec_momentum': None},
-        [datetime(2001, 2, 3, 4, 5, 6)])
-
-    timestamp = datetime(1, 2, 3, 4, 5, 6)
+    bar = DataFrame({'open': 1, 'close': 2}, [datetime(2001, 2, 3, 4, 5, 0)])
 
     barGens = {
         'sec': {
             'AAPL': {'buffer': None, 'generator': barGen(3)}, # behind
             'MSFT': {'buffer': None, 'generator': barGen(6)}, # typical
             'TSLA': {'buffer': None, 'generator': barGen(9)}, # ahead
-            'GOOG': {'buffer': df.copy(), 'generator': barGen(9)}, # buffer behind
-            'ZOOM': {'buffer': df.copy(), 'generator': barGen(9)}, # buffer typical
-            'POOP': {'buffer': df.copy(), 'generator': barGen(9)}}, # buffer ahead
+            'GOOG': {'buffer': bar.copy(), 'generator': barGen(0)}, # buffer behind
+            'ZOOM': {'buffer': bar.copy(), 'generator': barGen(0)}, # buffer typical
+            'POOP': {'buffer': bar.copy(), 'generator': barGen(0)}}, # buffer ahead
         'min': {
             'AAPL': {'buffer': None, 'generator': barGen(0)}}}
+    
     barGens['sec']['GOOG']['buffer'].index = [datetime(2001, 2, 3, 4, 5, 3)]
     barGens['sec']['ZOOM']['buffer'].index = [datetime(2001, 2, 3, 4, 5, 6)]
     barGens['sec']['POOP']['buffer'].index = [datetime(2001, 2, 3, 4, 5, 9)]
 
+    # assets
+    asset = DataFrame(
+        {'open': 1, 'close': 2, 'ticked': False, '1_sec_momentum': 1},
+        [datetime(2001, 2, 3, 4, 5, 0)])
+
     assets = {
-        'sec': {'AAPL': df.copy(), 'MSFT': df.copy(), 'TSLA': df.copy()},
-        'min': {'AAPL': df.copy()}}
+        'sec': {
+            'AAPL': asset.copy(), 'MSFT': asset.copy(), 'TSLA': asset.copy(),
+            'GOOG': asset.copy(), 'ZOOM': asset.copy(), 'POOP': asset.copy()},
+        'min': {'AAPL': asset.copy()}}
     
-    # test
+    # expected assets
+    generatorAsset = asset.append(DataFrame(
+        {
+            'open': 6,
+            'close': 7,
+            'ticked': False,
+            '1_sec_momentum': 7/6-1},
+        [datetime(2001, 2, 3, 4, 5, 6)]))
+    
+    bufferAsset = asset.append(DataFrame(
+        {
+            'open': 1,
+            'close': 2,
+            'ticked': False,
+            '1_sec_momentum': 1},
+        [datetime(2001, 2, 3, 4, 5, 6)]))
+    
+
+    ## TEST
     histBars.get_next_bars('sec', timestamp, barGens, indicators, assets)
 
-    AAPL = df.append(DataFrame(
-        {
-            'open': 6,
-            'close': 7,
-            'ticked': False,
-            '1_sec_momentum': 7/6-1},
-        [datetime(1, 2, 3, 4, 5, 6)]))
-    assert_frame_equal(assets['sec']['AAPL'], AAPL, False)
+    # behind
+    assert_frame_equal(assets['sec']['AAPL'], generatorAsset, False)
+    assert next(barGens['sec']['AAPL']['generator']).open[0] == 7
     assert barGens['sec']['AAPL']['buffer'] == None
 
-    MSFT = df.append(DataFrame(
-        {
-            'open': 6,
-            'close': 7,
-            'ticked': False,
-            '1_sec_momentum': 7/6-1},
-        [datetime(1, 2, 3, 4, 5, 6)]))
-    assert_frame_equal(assets['sec']['MSFT'], MSFT, False)
+    # typical
+    assert_frame_equal(assets['sec']['MSFT'], generatorAsset, False)
+    assert next(barGens['sec']['MSFT']['generator']).open[0] == 7
     assert barGens['sec']['MSFT']['buffer'] == None
 
-    assert_frame_equal(assets['sec']['TSLA'], df, False)
+    # ahead
+    assert_frame_equal(assets['sec']['TSLA'], asset, False)
+    assert next(barGens['sec']['TSLA']['generator']).open[0] == 10
     assert_frame_equal(
-        barGens['sec']['AAPL']['buffer'],
-        DataFrame({'open': 9, 'close': 10}, [datetime(1, 2, 3, 4, 5, 9)]))
+        barGens['sec']['TSLA']['buffer'],
+        DataFrame({'open': 9, 'close': 10}, [datetime(2001, 2, 3, 4, 5, 9)]))
 
+    # buffer behind
+    assert_frame_equal(assets['sec']['GOOG'], generatorAsset, False)
+    assert next(barGens['sec']['GOOG']['generator']).open[0] == 7
+    assert barGens['sec']['GOOG']['buffer'] == None
 
-    assert_frame_equal(assets['sec']['GOOG'], GOOG, False)
+    # buffer typical
+    assert_frame_equal(assets['sec']['ZOOM'], bufferAsset, False)
+    assert next(barGens['sec']['ZOOM']['generator']).open[0] == 0
+    assert barGens['sec']['ZOOM']['buffer'] == None
 
+    # buffer ahead
+    assert_frame_equal(assets['sec']['POOP'], asset, False)
+    assert next(barGens['sec']['POOP']['generator']).open[0] == 0
+    assert_frame_equal(
+        barGens['sec']['POOP']['buffer'],
+        DataFrame({'open': 1, 'close': 2}, [datetime(2001, 2, 3, 4, 5, 9)]))
 
-    assert_frame_equal(assets['sec']['ZOOM'], ZOOM, False)
-
-
-    assert_frame_equal(assets['sec']['POOP'], POOP, False)
-
-    assert_frame_equal(assets['min']['AAPL'], df, False)
+    # other barFreq
+    assert_frame_equal(assets['min']['AAPL'], asset, False)
+    assert next(barGens['min']['AAPL']['generator']).open[0] == 0
+    assert barGens['min']['AAPL']['buffer'] == None
