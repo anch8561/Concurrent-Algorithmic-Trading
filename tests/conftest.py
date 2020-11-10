@@ -33,6 +33,8 @@ def cleanup():
         longShort = 'short' if ii%2 else 'long'
         try: os.remove(f'logs/{ii}_min_print_{longShort}.log')
         except: pass
+    try: os.remove(f'logs/min_print_short.log')
+    except: pass
 
 @fixture
 def testAlgo(reloadGlobalVariables):
