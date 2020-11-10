@@ -4,6 +4,7 @@ import os, shutil
 from datetime import datetime, timedelta
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
+from tests.conftest import indicators
 from unittest.mock import call, Mock, patch
 
 def test_get_historic_min_bars():
@@ -165,4 +166,76 @@ def test_init_bar_gens():
     del barGens
     shutil.rmtree('backtesting/tests/bars')
 
-def test_get_next_bars(): pass
+def test_get_next_bars(indicators):
+    # setup
+    def barGen(ii):
+        while True:
+            yield DataFrame({'open': ii, 'close': ii+1}, [datetime(1, 2, 3, 4, 5, ii)])
+            ii += 1
+    
+    df = DataFrame(
+        {
+            'open': 0,
+            'close': 1,
+            'ticked': False,
+            '1_sec_momentum': None},
+        [datetime(2001, 2, 3, 4, 5, 6)])
+
+    timestamp = datetime(1, 2, 3, 4, 5, 6)
+
+    barGens = {
+        'sec': {
+            'AAPL': {'buffer': None, 'generator': barGen(3)}, # behind
+            'MSFT': {'buffer': None, 'generator': barGen(6)}, # typical
+            'TSLA': {'buffer': None, 'generator': barGen(9)}, # ahead
+            'GOOG': {'buffer': df.copy(), 'generator': barGen(9)}, # buffer behind
+            'ZOOM': {'buffer': df.copy(), 'generator': barGen(9)}, # buffer typical
+            'POOP': {'buffer': df.copy(), 'generator': barGen(9)}}, # buffer ahead
+        'min': {
+            'AAPL': {'buffer': None, 'generator': barGen(0)}}}
+    barGens['sec']['GOOG']['buffer'].index = [datetime(2001, 2, 3, 4, 5, 3)]
+    barGens['sec']['ZOOM']['buffer'].index = [datetime(2001, 2, 3, 4, 5, 6)]
+    barGens['sec']['POOP']['buffer'].index = [datetime(2001, 2, 3, 4, 5, 9)]
+
+    assets = {
+        'sec': {'AAPL': df.copy(), 'MSFT': df.copy(), 'TSLA': df.copy()},
+        'min': {'AAPL': df.copy()}}
+    
+    # test
+    histBars.get_next_bars('sec', timestamp, barGens, indicators, assets)
+
+    AAPL = df.append(DataFrame(
+        {
+            'open': 6,
+            'close': 7,
+            'ticked': False,
+            '1_sec_momentum': 7/6-1},
+        [datetime(1, 2, 3, 4, 5, 6)]))
+    assert_frame_equal(assets['sec']['AAPL'], AAPL, False)
+    assert barGens['sec']['AAPL']['buffer'] == None
+
+    MSFT = df.append(DataFrame(
+        {
+            'open': 6,
+            'close': 7,
+            'ticked': False,
+            '1_sec_momentum': 7/6-1},
+        [datetime(1, 2, 3, 4, 5, 6)]))
+    assert_frame_equal(assets['sec']['MSFT'], MSFT, False)
+    assert barGens['sec']['MSFT']['buffer'] == None
+
+    assert_frame_equal(assets['sec']['TSLA'], df, False)
+    assert_frame_equal(
+        barGens['sec']['AAPL']['buffer'],
+        DataFrame({'open': 9, 'close': 10}, [datetime(1, 2, 3, 4, 5, 9)]))
+
+
+    assert_frame_equal(assets['sec']['GOOG'], GOOG, False)
+
+
+    assert_frame_equal(assets['sec']['ZOOM'], ZOOM, False)
+
+
+    assert_frame_equal(assets['sec']['POOP'], POOP, False)
+
+    assert_frame_equal(assets['min']['AAPL'], df, False)
