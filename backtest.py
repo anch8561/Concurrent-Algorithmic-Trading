@@ -94,7 +94,7 @@ if __name__ == '__main__':
     args = parse_args(sys.argv[1:])
 
     # create backtest dir if needed
-    try: os.mkdir('backtest')
+    try: os.mkdir('backtesting')
     except: pass
 
     # init logs, indicators, and algos
