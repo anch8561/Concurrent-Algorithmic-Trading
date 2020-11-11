@@ -21,7 +21,7 @@ def init_log_formatter():
 
     fmtr = logging.Formatter(
         fmt = f'\n%(asctime)s %(name)s\n%(levelname)s: %(message)s',
-        datefmt = '%m-%d-%Y %H:%M:%S.%f')
+        datefmt = '%Y-%m-%d %H:%M:%S.%f')
     fmtr.formatTime = formatDatetime
     return fmtr
 
