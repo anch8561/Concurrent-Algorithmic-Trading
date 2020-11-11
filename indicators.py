@@ -32,15 +32,9 @@ class Indicator: # NOTE: kwargs unused
 
 # functions
 def momentum(self, bars):
-    openPrice = bars.open[-self.numBars]
-    closePrice = bars.close[-1]
+    openPrice = bars.vwap[-self.numBars]
+    closePrice = bars.vwap[-1]
     return (closePrice - openPrice) / openPrice
-
-def volume(self, bars): # unused
-    volume = 0
-    for i_bar in range(-1, -self.numBars-1, -1):
-        volume += bars.volume[i_bar]
-    return volume
 
 def volume_stdevs(self, bars):
     volumes = bars.volume[-self.numBars:]
@@ -49,23 +43,16 @@ def volume_stdevs(self, bars):
     volume = volumes[-1]
     return  (volume - mean) / stdev
 
-def typical_price(self, bars): # unused
-    data = bars[-self.numBars:]
-    high = data.high.max()
-    low = data.low.min()
-    close = data.close[-1]
-    return (high + low + close) / 3
-
 def SMA(self, bars): # unused
-    return ta.trend.sma_indicator(bars.close, self.numBars)[-1]
+    return ta.trend.sma_indicator(bars.vwap, self.numBars)[-1]
 
 def EMA(self, bars):
-    return ta.trend.ema_indicator(bars.close, self.numBars)[-1]
+    return ta.trend.ema_indicator(bars.vwap, self.numBars)[-1]
 
 def KAMA(self, bars):
     # variable EMA from 2 to 30 bars (default)
     # numBars is volatility window controlling EMA window
-    return ta.momentum.kama(bars.close, self.numBars)[-1]
+    return ta.momentum.kama(bars.vwap, self.numBars)[-1]
 
 def bollinger_high(self, bars):
     return ta.volatility.bollinger_hband(bars.close, self.numBars, self.numStdevs)
