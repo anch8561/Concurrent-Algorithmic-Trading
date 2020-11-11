@@ -24,8 +24,9 @@ minTradeBuyPow = 100
 # get trade qty
 maxPositionFrac = 0.02
 
-# get limit price
+# price fractions
 limitPriceFrac = 0
+stopLossFrac = 0
 
 # tick algos
 marketCloseTransitionPeriod = timedelta(minutes=10)
