@@ -34,7 +34,7 @@ class Algo:
         self.active = True # whether algo might have open positions
         self.buyPow = 0 # updated continuously
         self.equity = 0 # updated daily
-        self.positions = {} # {symbol: {qty, buyPow}}
+        self.positions = {} # {symbol: {qty, basis}}
         self.pendingOrders = {} # {symbol: {qty, price}}
         self.queuedOrders = {} # {symbol: {qty, price}}
         self.history = {} # {date: {time: event, equity}}
@@ -299,6 +299,18 @@ class Algo:
         side = 'sell' if self.longShort == 'long' else 'buy'
         self.queue_order(symbol, side)
 
+    def stop_loss(self):
+        for symbol, position in self.positions.items():
+            if position['qty'] > 0: # long
+                stopLoss = position['basis'] * (1 - c.stopLossFrac)
+                if get_price(symbol) < stopLoss:
+                    self.queue_order(symbol, 'sell')
+            if position['qty'] < 0: # short
+                stopLoss = position['basis'] * (1 + c.stopLossFrac)
+                if get_price(symbol) < stopLoss:
+                    self.queue_order(symbol, 'buy')
+
     def tick(self):
+        self.stop_loss()
         try: self.func(self)
         except Exception as e: self.log.exception(e)
