@@ -9,7 +9,7 @@ log = getLogger('indicators')
 # TODO: confirm indices have correct timestamps
 
 # class
-class Indicator: # NOTE: kwargs unused
+class Indicator:
     def __init__(self, numBars, barFreq, func, **kwargs):
         self.numBars = numBars # int
         self.barFreq = barFreq # 'sec', 'min', or 'day'
@@ -32,6 +32,11 @@ class Indicator: # NOTE: kwargs unused
 
 # functions
 def momentum(self, bars):
+    openPrice = bars.open[-self.numBars]
+    closePrice = bars.close[-1]
+    return (closePrice - openPrice) / openPrice
+
+def vwap_mom(self, bars): # unused
     openPrice = bars.vwap[-self.numBars]
     closePrice = bars.vwap[-1]
     return (closePrice - openPrice) / openPrice
