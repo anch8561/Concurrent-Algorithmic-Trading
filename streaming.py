@@ -27,6 +27,7 @@ def process_bar(barFreq, data, indicators):
             'low': data.low,
             'close': data.close,
             'volume': data.volume,
+            'vwap': data.vwap,
             'ticked': False
         }, index=[data.start])
         bars = g.assets[barFreq][data.symbol].append(newBar)
