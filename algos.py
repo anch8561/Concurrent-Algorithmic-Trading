@@ -35,9 +35,9 @@ def crossover(self): # kwargs: fastNumBars, slowNumBars
     for symbol, bars in g.assets[self.barFreq].items():
         try:
             if not bars.ticked[-1]:
-                if bars[fastInd][-1] > bars[slowInd][-1]: # overbought
+                if bars[fastInd][-1] > bars[slowInd][-1]: # trend up
                     self.queue_order(symbol, 'buy')
-                elif bars[fastInd][-1] < bars[slowInd][-1]: # oversold
+                elif bars[fastInd][-1] < bars[slowInd][-1]: # trend down
                     self.queue_order(symbol, 'sell')
         except Exception as e:
             if (
@@ -47,6 +47,35 @@ def crossover(self): # kwargs: fastNumBars, slowNumBars
                 self.log.debug(f'{symbol}\tMissing indicator (None)')
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
+
+def mom_xo(self): # kwargs: fastNumBars, slowNumBars, momNumBars
+    fastInd = str(self.fastNumBars) + '_' + self.barFreq + '_EMA'
+    slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_EMA'
+    momInd = str(1) + '_' + self.barFreq + '_momentum'
+
+    for symbol, bars in g.assets[self.barFreq].items():
+        try:
+            if not bars.ticked[-1]:
+                if (
+                    bars[fastInd][-1] > bars[slowInd][-1] and # trend up
+                    all(bars[momInd][-self.momNumBars:] >= 0) # momentum up
+                ):
+                    self.queue_order(symbol, 'buy')
+                elif (
+                    bars[fastInd][-1] < bars[slowInd][-1] and # trend down
+                    all(bars[momInd][-self.momNumBars:] <= 0) # momentum down
+                ):
+                    self.queue_order(symbol, 'sell')
+        except Exception as e:
+            if (
+                bars[fastInd][-1] == None or
+                bars[slowInd][-1] == None or
+                any(bars[momInd][-self.momNumBars:] == None)
+            ):
+                self.log.debug(f'{symbol}\tMissing indicator (None)')
+            else:
+                self.log.exception(f'{symbol}\t{e}\n{bars[-self.momNumBars:]}')
+
 
 def init_day_algos(loadData: bool) -> list:
     algos = []
@@ -63,6 +92,15 @@ def init_day_algos(loadData: bool) -> list:
                 if slowNumBars > fastNumBars:
                     algos.append(Algo('min', crossover, longShort, loadData,
                         fastNumBars = fastNumBars, slowNumBars = slowNumBars))
+        
+        # combo momentum and crossover
+        for slowNumBars in (5, 10, 20):
+            for fastNumBars in (3, 5, 10):
+                if slowNumBars > fastNumBars:
+                    for momNumBars in (2, 3, 4, 5):
+                        algos.append(Algo('min', mom_xo, longShort, loadData,
+                            fastNumBars = fastNumBars, slowNumBars = slowNumBars, momNumBars = momNumBars))
+        
     return algos
 
 # night
