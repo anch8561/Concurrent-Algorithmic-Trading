@@ -57,7 +57,7 @@ def plot_backtest(barFreq, symbol, dates, algoName):
             except: break
 
             if algoName in line:
-                time = nyc.localize(datetime.strptime(line[:19], '%Y-%m-%d %H:%M:%S'))
+                time = nyc.localize(datetime.strptime(line[21:40], '%Y-%m-%d %H:%M:%S'))
                 if (
                     time > fromDate and
                     time < toDate

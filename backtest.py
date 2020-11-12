@@ -11,12 +11,11 @@ from credentials import dev
 from indicators import init_indicators
 from streaming import process_algo_trade
 
-import alpaca_trade_api, os, sys
+import alpaca_trade_api, logging, os, shutil, sys
 import pandas as pd
 from argparse import ArgumentParser, RawTextHelpFormatter
 from contextlib import ExitStack
 from datetime import datetime, timedelta
-from logging import getLogger
 from pytz import timezone
 from unittest.mock import patch
 
@@ -53,6 +52,28 @@ def parse_args(args):
         type = int,
         help = f'number of tickers to use (default: {c.numAssets}, -1 means all)')
     return parser.parse_args(args)
+
+def init_log_formatter():
+    def formatDatetime(record, datefmt=None) -> logging.Formatter:
+        # pylint: disable=undefined-variable
+        ct = datetime.fromtimestamp(record.created, g.nyc)
+
+        if datefmt:
+            s = ct.strftime(datefmt)
+        else:
+            t = ct.strftime(self.default_time_format)
+            s = self.default_msec_format % (t, record.msecs)
+        
+        try: s += f" [{str(list(g.assets['min'].values())[0].index[-1])[:-6]}]"
+        except: pass
+
+        return s
+
+    fmtr = logging.Formatter(
+        fmt = f'\n%(asctime)s %(name)s\n%(levelname)s: %(message)s',
+        datefmt = '%Y-%m-%d %H:%M:%S')
+    fmtr.formatTime = formatDatetime
+    return fmtr
 
 def activate(self):
     # pylint: disable=undefined-variable
@@ -97,13 +118,19 @@ if __name__ == '__main__':
     try: os.mkdir('backtesting')
     except: pass
 
+    # delete old logs
+    choice = input('Delete old logs? [Y/n] ')
+    if choice.lower() not in ('yes', 'ye', 'y'): sys.exit()
+    try: shutil.rmtree(c.logPath)
+    except: pass
+
     # init logs, indicators, and algos
     with patch('algos.c', c), patch('init_logs.c', c): # file paths
         # init logs
-        logFmtr = init_logs.init_log_formatter()
+        logFmtr = init_log_formatter()
         init_logs.init_primary_logs(args.log, 'backtest', logFmtr)
-        getLogger('main').setLevel(30) # warning
-        log = getLogger('backtest')
+        logging.getLogger('main').setLevel(30) # warning
+        log = logging.getLogger('backtest')
         log.warning(f'Backtesting from {args.dates[0]} to {args.dates[1]}')
 
         # init indicators and algos
@@ -130,7 +157,7 @@ if __name__ == '__main__':
         stack.enter_context(patch('algoClass.Algo.activate', activate))
         stack.enter_context(patch('algoClass.get_date', lambda: timing.get_assets_date(g)))
         stack.enter_context(patch('algoClass.get_time_str', lambda: timing.get_time_str(g)))
-        stack.enter_context(patch('algoClass.c', c)) # algoPath, minTradeBuyPow, maxPosFrac
+        stack.enter_context(patch('algoClass.c', c)) # algoPath, minTradeBuyPow, maxPosFrac, stopLossFrac
         stack.enter_context(patch('globalVariables.alpaca'))
         stack.enter_context(patch('globalVariables.lock'))
         stack.enter_context(patch('tick_algos.c', c)) # limitPriceFrac, marketCloseTransitionPeriod
@@ -139,7 +166,7 @@ if __name__ == '__main__':
 
         # multiday loop
         while dateStr <= args.dates[1]:
-            log.warning('Date: ' + dateStr)
+            log.warning('New Day')
 
             # update time
             g.now = timing.get_market_open(calendar, dateIdx) - timedelta(minutes=1)
@@ -147,7 +174,7 @@ if __name__ == '__main__':
 
             # intraday loop
             while g.TTClose > timedelta(0):
-                log.info(f'Time: {g.now}')
+                log.info(f'New Bars')
                 histBars.get_next_bars('min', g.now, barGens, indicators, g.assets)
                 process_trades(algos['all'])
                 state = tick_algos.tick_algos(algos, indicators, state)
