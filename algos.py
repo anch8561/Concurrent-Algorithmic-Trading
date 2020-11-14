@@ -10,7 +10,7 @@ from os import mkdir
 
 # day
 def momentum(self): # kwargs: numUpBars, numDownBars
-    indicator = str(1) + '_' + self.barFreq + '_momentum'
+    indicator = str(2) + '_' + self.barFreq + '_momentum'
     
     for symbol, bars in g.assets[self.barFreq].items():
         try:
@@ -51,7 +51,7 @@ def crossover(self): # kwargs: fastNumBars, slowNumBars
 def mom_xo(self): # kwargs: fastNumBars, slowNumBars, momNumBars
     fastInd = str(self.fastNumBars) + '_' + self.barFreq + '_EMA'
     slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_EMA'
-    momInd = str(1) + '_' + self.barFreq + '_momentum'
+    momInd = str(2) + '_' + self.barFreq + '_momentum'
 
     for symbol, bars in g.assets[self.barFreq].items():
         try:

@@ -32,11 +32,7 @@ class Indicator:
 
 # functions
 def momentum(self, bars):
-    openPrice = bars.open[-self.numBars]
-    closePrice = bars.close[-1]
-    return (closePrice - openPrice) / openPrice
-
-def vwap_mom(self, bars): # unused
+    # needs at least 2 bars
     openPrice = bars.vwap[-self.numBars]
     closePrice = bars.vwap[-1]
     return (closePrice - openPrice) / openPrice
@@ -83,7 +79,7 @@ def init_indicators():
     barFreq = 'min'
 
     # momentum
-    numBars = 1
+    numBars = 2
     indicators[barFreq] += [
         Indicator(numBars, barFreq, momentum)]
 
