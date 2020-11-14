@@ -48,7 +48,7 @@ def crossover(self): # kwargs: fastNumBars, slowNumBars
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
-def mom_xo(self): # kwargs: fastNumBars, slowNumBars, momNumBars
+def mom_xo(self): # kwargs: momNumBars, fastNumBars, slowNumBars
     fastInd = str(self.fastNumBars) + '_' + self.barFreq + '_EMA'
     slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_EMA'
     momInd = str(2) + '_' + self.barFreq + '_momentum'
@@ -94,12 +94,12 @@ def init_day_algos(loadData: bool) -> list:
                         fastNumBars = fastNumBars, slowNumBars = slowNumBars))
         
         # combo momentum and crossover
-        for slowNumBars in (5, 10, 20):
-            for fastNumBars in (3, 5, 10):
-                if slowNumBars > fastNumBars:
-                    for momNumBars in (2, 3, 4, 5):
+        for momNumBars in (2, 3, 4, 5):
+            for slowNumBars in (5, 10, 20):
+                for fastNumBars in (3, 5, 10):
+                    if slowNumBars > fastNumBars:
                         algos.append(Algo('min', mom_xo, longShort, loadData,
-                            fastNumBars = fastNumBars, slowNumBars = slowNumBars, momNumBars = momNumBars))
+                            momNumBars = momNumBars, fastNumBars = fastNumBars, slowNumBars = slowNumBars))
         
     return algos
 
