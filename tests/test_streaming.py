@@ -71,6 +71,8 @@ def test_process_algo_trade(testAlgo):
     assert testAlgo.positions['AAPL'] == {'qty': -6, 'basis': 8.00}
     assert testAlgo.buyPow == 1021.50
 
+    # TODO: enter same side zero
+
     # enter opposite side fill
     testAlgo.longShort = 'long'
     testAlgo.pendingOrders['AAPL'] = {'qty': 5, 'price': 10.10}
@@ -88,6 +90,8 @@ def test_process_algo_trade(testAlgo):
     streaming.process_algo_trade('AAPL', testAlgo, -3, 10.00)
     assert testAlgo.positions['AAPL'] == {'qty': 8, 'basis': 8.50}
     assert testAlgo.buyPow == 1000.50
+
+    # TODO: enter opposite side zero
 
     # exit same side fill
     testAlgo.longShort = 'short'
@@ -107,6 +111,8 @@ def test_process_algo_trade(testAlgo):
     assert testAlgo.positions['AAPL'] == {'qty': -5, 'basis': 6.00}
     assert testAlgo.buyPow == 1006.00
 
+    # TODO: exit same side zero
+
     # exit opposite side fill
     testAlgo.longShort = 'long'
     testAlgo.pendingOrders['AAPL'] = {'qty': -5, 'price': 9.90}
@@ -124,6 +130,8 @@ def test_process_algo_trade(testAlgo):
     streaming.process_algo_trade('AAPL', testAlgo, 3, 10.00)
     assert testAlgo.positions['AAPL'] == {'qty': 3, 'basis': 6.00}
     assert testAlgo.buyPow == 1050.00
+
+    # TODO: exit opposite side zero
 
 def test_process_trade():
     ## SETUP
