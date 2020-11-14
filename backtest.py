@@ -10,6 +10,7 @@ from backtesting.init_assets import init_assets
 from credentials import dev
 from indicators import init_indicators
 from streaming import process_algo_trade
+from tab import tab
 
 import alpaca_trade_api, logging, os, shutil, sys
 import pandas as pd
@@ -64,7 +65,7 @@ def init_log_formatter():
             t = ct.strftime(self.default_time_format)
             s = self.default_msec_format % (t, record.msecs)
         
-        try: s += f" [{str(list(g.assets['min'].values())[0].index[-1])[:-6]}]"
+        try: s += f' [{str(g.now)[:-6]}]'
         except: pass
 
         return s
@@ -108,6 +109,10 @@ def process_trades(allAlgos: list):
         algo.queuedOrders = {} # new reference
         for symbol in algo.pendingOrders:
             fillQty, fillPrice = get_trade_fill(symbol, algo)
+
+            algoQty = algo.pendingOrders[symbol]['qty']
+            algo.log.debug(f'Filled {tab(fillQty, 6)}/ {tab(algoQty, 6)}{symbol}')
+
             process_algo_trade(symbol, algo, fillQty, fillPrice)
 
 if __name__ == '__main__':
@@ -174,7 +179,7 @@ if __name__ == '__main__':
 
             # intraday loop
             while g.TTClose > timedelta(0):
-                log.info(f'New Bars')
+                log.info(f'New Minute')
                 histBars.get_next_bars('min', g.now, barGens, indicators, g.assets)
                 process_trades(algos['all'])
                 state = tick_algos.tick_algos(algos, indicators, state)

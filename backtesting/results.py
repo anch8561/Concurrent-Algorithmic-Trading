@@ -16,6 +16,7 @@ def get_dates(dates):
     toDate = nyc.localize(datetime.strptime(dates[1], '%Y-%m-%d')) + timedelta(1)
     return fromDate, toDate
 
+
 def get_metrics(dates):
     # suppress SettingWithCopyWarning
     pd.set_option('mode.chained_assignment', None)
@@ -38,6 +39,7 @@ def get_metrics(dates):
     pd.set_option("display.max_rows", None, "display.max_columns", None)
     return metrics
 
+
 def plot_backtest(barFreq, symbol, dates, algoName):
     # NOTE: assumes only 1 backtest in logs
 
@@ -46,11 +48,10 @@ def plot_backtest(barFreq, symbol, dates, algoName):
         header=0, index_col=0, parse_dates=True)
     fromDate, toDate = get_dates(dates)
     data = bars.loc[fromDate:toDate]
-    data['buy'] = False # SettingWithCopyWarning
-    data['sell'] = False # SettingWithCopyWarning
+    data.index = data.index.tz_convert(nyc)
+    data['trades'] = 0 # SettingWithCopyWarning
     
     # get trades
-    time = fromDate - timedelta(1)
     with open(c.logPath + algoName + '.log') as f:
         while True:
             try: line = next(f)
@@ -58,18 +59,15 @@ def plot_backtest(barFreq, symbol, dates, algoName):
 
             if algoName in line:
                 time = nyc.localize(datetime.strptime(line[21:40], '%Y-%m-%d %H:%M:%S'))
-                if (
-                    time > fromDate and
-                    time < toDate
-                ):
+                if fromDate < time and time < toDate:
                     line = next(f)
-                    if symbol in line:
-                        if 'enter' in line:
-                            data.loc[time, 'buy'] = True
-                        elif 'exit' in line:
-                            data.loc[time, 'sell'] = True
-                    
-    
+                    if 'Filled' in line and symbol in line:
+                        fillQty = int(line[14:20])
+                        algoQty = int(line[22:28])
+                        data.loc[time, 'trades'] = 1 if algoQty > 0 else -1
+                        if fillQty: data.loc[time, 'trades'] *= 2
+    data = data.sort_index() # sort new timestamps
+
     # plot
     numDays = (toDate - fromDate).days
     figs = []
@@ -85,17 +83,32 @@ def plot_backtest(barFreq, symbol, dates, algoName):
         axs[0].set_title(f'{algoName}\n{symbol}\n{start.date()}')
         axs[1].tick_params('x', labelrotation=45)
 
-        # plot price and trades
+        # plot vwap
         dayData.vwap.plot(ax=axs[0])
-        dayData.close.plot(ax=axs[0])
-        dayData.close[dayData.buy].plot(style='r^', ax=axs[0])
-        dayData.close[dayData.sell].plot(style='gv', ax=axs[0])
+
+        # plot ohlc
+        hl_height = dayData.high - dayData.low
+        oc_height = abs(dayData.open - dayData.close)
+        oc_bottom = dayData[['open', 'close']].min(axis=1)
+        up = dayData.open < dayData.close
+        down = dayData.open > dayData.close
+        axs[0].bar(dayData.index[up],   hl_height[up],   0.0001, dayData.low[up],   color='g')
+        axs[0].bar(dayData.index[down], hl_height[down], 0.0001, dayData.low[down], color='r')
+        axs[0].bar(dayData.index[up],   oc_height[up],   0.0005, oc_bottom[up],     color='g')
+        axs[0].bar(dayData.index[down], oc_height[down], 0.0005, oc_bottom[down],   color='r')
+
+        # plot trades
+        dayData.close[dayData.trades == 2].plot(style='r^', markersize=9, markeredgecolor='k', ax=axs[0])
+        dayData.close[dayData.trades == 1].plot(style='k^', markersize=9, ax=axs[0])
+        dayData.close[dayData.trades == -1].plot(style='kv', markersize=9, ax=axs[0])
+        dayData.close[dayData.trades == -2].plot(style='gv', markersize=9, markeredgecolor='k', ax=axs[0])
 
         # plot volume
         axs[1].bar(dayData.index, dayData.volume, 0.0005)
 
     # exit
     return figs, data
+
 
 def plot_indicators(figs: list, data: pd.DataFrame, indicatorSpecs: list):
     # figs: pyplot figures
@@ -125,7 +138,7 @@ def plot_indicators(figs: list, data: pd.DataFrame, indicatorSpecs: list):
                 dayData.iloc[jj, kk] = indicator.get(dayData[:jj+1])
 
         # plot indicators
-        labels = ['vwap', 'close', 'buy', 'sell']
+        labels = ['vwap', 'filled buy', 'cancel buy', 'cancel sell', 'filled sell']
         for indicator in indicators:
             figs[ii].axes[0].plot(dayData[indicator.name], linestyle=':')
             labels.append(indicator.name)
