@@ -90,11 +90,12 @@ def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
     # returns: qty, fillPrice
     qty = algo.pendingOrders[symbol]['qty']
     if algo.longShort == 'short' and qty < 0: # short enter price is NOT limit price
-        limit = tick_algos.get_limit_price(symbol, 'sell')
+        limit = tick_algos.get_limit_price(symbol, 'sell') # FIX: use prev bar
     else:
         limit = algo.pendingOrders[symbol]['price']
     high = g.assets['min'][symbol].high[-1]
     low = g.assets['min'][symbol].low[-1]
+    # NOTE: could be prev bar if current bar missing
     if qty > 0: # buy
         if low <= limit:
             return qty, min(high, limit)
@@ -111,7 +112,7 @@ def process_trades(allAlgos: list):
             fillQty, fillPrice = get_trade_fill(symbol, algo)
 
             algoQty = algo.pendingOrders[symbol]['qty']
-            algo.log.debug(f'Filled {tab(fillQty, 6)}/ {tab(algoQty, 6)}{symbol}')
+            algo.log.debug(f'Filled {tab(fillQty, 6)}/ {tab(algoQty, 6)}{symbol} @ {fillPrice}')
 
             process_algo_trade(symbol, algo, fillQty, fillPrice)
 
@@ -171,19 +172,22 @@ if __name__ == '__main__':
 
         # multiday loop
         while dateStr <= args.dates[1]:
-            log.warning('New Day')
-
-            # update time
-            g.now = timing.get_market_open(calendar, dateIdx) - timedelta(minutes=1)
+            # start 1 min after open
+            g.now = timing.get_market_open(calendar, dateIdx)
+            histBars.get_next_bars('min', g.now, barGens, indicators, g.assets)
             g.now, g.TTOpen, g.TTClose = timing.update_time(g.now, calendar, dateIdx)
 
             # intraday loop
             while g.TTClose > timedelta(0):
-                log.info(f'New Minute')
-                histBars.get_next_bars('min', g.now, barGens, indicators, g.assets)
-                process_trades(algos['all'])
+                # tick algos
                 state = tick_algos.tick_algos(algos, indicators, state)
+
+                # update time
                 g.now, g.TTOpen, g.TTClose = timing.update_time(g.now, calendar, dateIdx)
+
+                # get next bars
+                barTimestamp = g.now - timedelta(minutes=1)
+                histBars.get_next_bars('min', barTimestamp, barGens, indicators, g.assets)
 
             # update date
             dateIdx += 1

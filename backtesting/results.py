@@ -1,6 +1,7 @@
 import backtesting.config as c
 from algos import init_algos
 from indicators import Indicator
+from tick_algos import get_limit_price
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -49,10 +50,11 @@ def plot_backtest(barFreq, symbol, dates, algoName):
     fromDate, toDate = get_dates(dates)
     data = bars.loc[fromDate:toDate]
     data.index = data.index.tz_convert(nyc)
-    data['trades'] = 0 # SettingWithCopyWarning
+    data['trades'] = 0
+    data['tradePrice'] = 0
     
     # get trades
-    with open(c.logPath + algoName + '.log') as f:
+    with open(c.logPath + algoName + '.log') as f, patch('tick_algos.c', c):
         while True:
             try: line = next(f)
             except: break
@@ -64,8 +66,28 @@ def plot_backtest(barFreq, symbol, dates, algoName):
                     if 'Filled' in line and symbol in line:
                         fillQty = int(line[14:20])
                         algoQty = int(line[22:28])
-                        data.loc[time, 'trades'] = 1 if algoQty > 0 else -1
-                        if fillQty: data.loc[time, 'trades'] *= 2
+
+                        if algoQty > 0:
+                            data.loc[time, 'trades'] = 1
+                        else:
+                            data.loc[time, 'trades'] = -1
+                        
+                        if fillQty:
+                            data.loc[time, 'trades'] *= 2
+
+                            fillPrice = float(line.split('@ ')[1])
+                            data.loc[time, 'tradePrice'] = fillPrice
+                        else: # limit price
+                            # NOTE: update if tick_algos.get_limit_price changes
+                            if time in data.index:
+                                if algoQty > 0:
+                                    prevTime = time - timedelta(minutes=1)
+                                    data.loc[time, 'tradePrice'] = data.close[prevTime] * (1 + c.limitPriceFrac)
+                                else:
+                                    prevTime = time - timedelta(minutes=1)
+                                    data.loc[time, 'tradePrice'] = data.close[prevTime] * (1 - c.limitPriceFrac)
+                            else:
+                                print(time + ' Trade w/out bar')
     data = data.sort_index() # sort new timestamps
 
     # plot
@@ -98,10 +120,10 @@ def plot_backtest(barFreq, symbol, dates, algoName):
         axs[0].bar(dayData.index[down], oc_height[down], 0.0005, oc_bottom[down],   color='r')
 
         # plot trades
-        dayData.close[dayData.trades == 2].plot(style='r^', markersize=9, markeredgecolor='k', ax=axs[0])
-        dayData.close[dayData.trades == 1].plot(style='k^', markersize=9, ax=axs[0])
-        dayData.close[dayData.trades == -1].plot(style='kv', markersize=9, ax=axs[0])
-        dayData.close[dayData.trades == -2].plot(style='gv', markersize=9, markeredgecolor='k', ax=axs[0])
+        dayData.tradePrice[dayData.trades == 2].plot(style='r^', markersize=9, markeredgecolor='k', ax=axs[0])
+        dayData.tradePrice[dayData.trades == 1].plot(style='k^', markersize=9, ax=axs[0])
+        dayData.tradePrice[dayData.trades == -1].plot(style='kv', markersize=9, ax=axs[0])
+        dayData.tradePrice[dayData.trades == -2].plot(style='gv', markersize=9, markeredgecolor='k', ax=axs[0])
 
         # plot volume
         axs[1].bar(dayData.index, dayData.volume, 0.0005)
@@ -110,18 +132,14 @@ def plot_backtest(barFreq, symbol, dates, algoName):
     return figs, data
 
 
-def plot_indicators(figs: list, data: pd.DataFrame, indicatorSpecs: list):
+def plot_indicators(figs: list, data: pd.DataFrame, indicators: list):
     # figs: pyplot figures
     # data: barset
-    # indicatorData: [{args: [numBars, barFreq, func], kwargs: {}}]
+    # indicators: guess
 
-    # init indicators
-    indicators = []
-    for ii in range(len(indicatorSpecs)):
-        args = indicatorSpecs[ii]['args']
-        kwargs = indicatorSpecs[ii]['kwargs']
-        indicators.append(Indicator(*args, *kwargs))
-        data[indicators[-1].name] = None
+    # add indicator columns
+    for indicator in indicators:
+        data[indicator.name] = None
 
     # plot
     fromDate = data.index[0].replace(hour=0, minute=0)
@@ -138,7 +156,7 @@ def plot_indicators(figs: list, data: pd.DataFrame, indicatorSpecs: list):
                 dayData.iloc[jj, kk] = indicator.get(dayData[:jj+1])
 
         # plot indicators
-        labels = ['vwap', 'filled buy', 'cancel buy', 'cancel sell', 'filled sell']
+        labels = ['vwap', 'filled buy', 'unfilled buy', 'unfilled sell', 'filled sell']
         for indicator in indicators:
             figs[ii].axes[0].plot(dayData[indicator.name], linestyle=':')
             labels.append(indicator.name)
