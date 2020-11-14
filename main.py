@@ -38,12 +38,10 @@ for algo in algos['all']: algo.buyPow = 5000 # FIX: no performance data
 
 # init assets and streaming
 init_assets(args.numAssets, algos['all'], indicators)
-Thread(target=stream, args=(g.conn, algos['all'], indicators)).start()
+Thread(target=stream, args=[g.conn, algos['all'], indicators]).start()
 # NOTE: begin using g.lock
 # TODO: update global positions (careful of add_asset)
-
-# FIX: not getting new bars after first few
-# TODO: use algo.barFreq to get price?
+# TODO: use barFreq to get price
 
 # start algos
 log.warning('Starting active algos')

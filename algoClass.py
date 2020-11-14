@@ -57,14 +57,15 @@ class Algo:
     def deactivate(self):
         # exit all positions then stop
         # NOTE: may take multiple attempts
-        noPositions = True
-        for symbol, position in self.positions.items():
-            if position['qty']:
-                noPositions = False
-                self.exit_position(symbol)
-        if noPositions:
-            self.stop()
-            self.active = False
+        if self.active:
+            noPositions = True
+            for symbol, position in self.positions.items():
+                if position['qty']:
+                    noPositions = False
+                    self.exit_position(symbol)
+            if noPositions:
+                self.stop()
+                self.active = False
 
     def start(self):
         if not self.active:
