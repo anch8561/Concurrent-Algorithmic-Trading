@@ -303,11 +303,11 @@ class Algo:
         for symbol, position in self.positions.items():
             if position['qty'] > 0: # long
                 stopLoss = position['basis'] * (1 - c.stopLossFrac)
-                if get_price(symbol) < stopLoss:
+                if g.assets['min'][symbol].vwap[-1] < stopLoss:
                     self.queue_order(symbol, 'sell')
             if position['qty'] < 0: # short
                 stopLoss = position['basis'] * (1 + c.stopLossFrac)
-                if get_price(symbol) < stopLoss:
+                if g.assets['min'][symbol].vwap[-1] < stopLoss:
                     self.queue_order(symbol, 'buy')
 
     def tick(self):
