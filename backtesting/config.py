@@ -26,7 +26,7 @@ maxPositionFrac = 0.02
 
 # price fractions
 limitPriceFrac = 0
-stopLossFrac = 0
+stopLossFrac = 0.001
 
 # tick algos
 marketCloseTransitionPeriod = timedelta(minutes=10)
