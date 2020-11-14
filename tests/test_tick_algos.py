@@ -159,7 +159,7 @@ def test_process_queued_orders(alpaca, allAlgos):
                     allAlgos[1],
                     allAlgos[2],
                     allAlgos[3]]})]
-        submit_order.assert_has_calls(calls)
+        submit_order.assert_has_calls(calls, True)
         alpaca.get_last_trade.assert_called_once_with('TSLA')
         process_trade.assert_called_once()
         for algo in allAlgos:

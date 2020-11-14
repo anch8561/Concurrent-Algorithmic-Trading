@@ -64,9 +64,9 @@ def allAlgos(algos):
 
 @fixture
 def indicators():
-    secInd = Indicator(1, 'sec', momentum)
-    minInd = Indicator(1, 'min', momentum)
-    dayInd = Indicator(1, 'day', momentum)
+    secInd = Indicator(2, 'sec', momentum)
+    minInd = Indicator(2, 'min', momentum)
+    dayInd = Indicator(2, 'day', momentum)
     return {
         'sec': [secInd],
         'min': [minInd],
@@ -80,6 +80,7 @@ def bars(indicators):
         'high':  [454.54, 456.78, 444.44, 600.02],
         'low':   [121.21, 123.45, 111.11, 500.03],
         'close': [343.43, 234.56, 333.33, 575.04],
+        'vwap':  [123.12, 234.23, 345.34, 567.56],
         'volume': [9999, 8888, 7777, 5555],
         'ticked': [True, True, True, False]}
     index = [
@@ -89,7 +90,7 @@ def bars(indicators):
         g.nyc.localize(datetime(2020, 2, 13, 16, 22, 13, 456789))]
     bars = DataFrame(data, index)
 
-    indicator = Indicator(1, 'min', momentum)
+    indicator = Indicator(2, 'min', momentum)
     bars[indicator.name] = None
     jj = bars.columns.get_loc(indicator.name)
     for ii in range(len(bars.index)):

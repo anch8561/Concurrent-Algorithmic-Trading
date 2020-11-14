@@ -13,28 +13,28 @@ def test_momentum():
 
     # already ticked
     testAlgo.queue_order.reset_mock()
-    bars = {'ticked': [False, False, True], '1_min_momentum': [0.1, 0.2, 0.3]}
+    bars = {'ticked': [False, False, True], '2_min_momentum': [0.1, 0.2, 0.3]}
     g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.queue_order.assert_not_called()
 
     # no condition
     testAlgo.queue_order.reset_mock()
-    bars = {'ticked': [False]*3, '1_min_momentum': [0.1, -0.2, 0.3]}
+    bars = {'ticked': [False]*3, '2_min_momentum': [0.1, -0.2, 0.3]}
     g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.queue_order.assert_not_called()
 
     # buy
     testAlgo.queue_order.reset_mock()
-    bars = {'ticked': [False]*3, '1_min_momentum': [0.1, 0.2, 0.3]}
+    bars = {'ticked': [False]*3, '2_min_momentum': [0.1, 0.2, 0.3]}
     g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.queue_order.assert_called_once_with('AAPL', 'buy')
 
     # sell
     testAlgo.queue_order.reset_mock()
-    bars = {'ticked': [False]*3, '1_min_momentum': [0.1, -0.2, -0.3]}
+    bars = {'ticked': [False]*3, '2_min_momentum': [0.1, -0.2, -0.3]}
     g.assets['min']['AAPL'] = DataFrame(bars, ['a', 'b', 'c'])
     testAlgo.tick()
     testAlgo.queue_order.assert_called_once_with('AAPL', 'sell')

@@ -11,7 +11,7 @@ from unittest.mock import patch, call
 def test_process_bar(bars, indicators):
     # setup
     g.assets['min']['AAPL'] = bars.iloc[:-1]
-    data = bars.iloc[-1].copy().drop('1_min_momentum')
+    data = bars.iloc[-1].copy().drop('2_min_momentum')
     data['start'] = bars.index[-1]
     data['symbol'] = 'AAPL'
 
@@ -29,7 +29,8 @@ def test_compile_day_bars(bars, indicators):
 
     # old day bars
     dayBars = dict.fromkeys(['open', 'high', 'low', 'close',
-        'volume', 'ticked', '1_day_momentum'])
+        'volume', 'ticked', '2_day_momentum'])
+    dayBars['vwap'] = 837.59
     yesterday = g.nyc.localize(datetime(2020, 2, 12))
     g.assets['day']['AAPL'] = DataFrame(dayBars, [yesterday])
 
@@ -40,9 +41,10 @@ def test_compile_day_bars(bars, indicators):
         'high': 600.02,
         'low': 111.11,
         'close': 575.04,
-        'volume': 8888 + 7777 + 5555,
+        'volume': 22220,
+        'vwap': 356.451,
         'ticked': False,
-        '1_day_momentum': (575.04 - 345.67) / 345.67}
+        '2_day_momentum': (356.451 - 837.59) / 837.59}
     expected = g.assets['day']['AAPL'].append(
         DataFrame(newBar, [date]))
     
@@ -71,7 +73,14 @@ def test_process_algo_trade(testAlgo):
     assert testAlgo.positions['AAPL'] == {'qty': -6, 'basis': 8.00}
     assert testAlgo.buyPow == 1021.50
 
-    # TODO: enter same side zero
+    # enter same side zero
+    testAlgo.longShort = 'short'
+    testAlgo.pendingOrders['AAPL'] = {'qty': -5, 'price': 10.30}
+    testAlgo.positions['AAPL'] = {'qty': -3, 'basis': 6.00}
+    testAlgo.buyPow = 1000.00
+    streaming.process_algo_trade('AAPL', testAlgo, 0, 0)
+    assert testAlgo.positions['AAPL'] == {'qty': -3, 'basis': 6.00}
+    assert testAlgo.buyPow == 1051.50
 
     # enter opposite side fill
     testAlgo.longShort = 'long'
@@ -91,7 +100,14 @@ def test_process_algo_trade(testAlgo):
     assert testAlgo.positions['AAPL'] == {'qty': 8, 'basis': 8.50}
     assert testAlgo.buyPow == 1000.50
 
-    # TODO: enter opposite side zero
+    # enter opposite side zero
+    testAlgo.longShort = 'long'
+    testAlgo.pendingOrders['AAPL'] = {'qty': 5, 'price': 10.10}
+    testAlgo.positions['AAPL'] = {'qty': 3, 'basis': 6.00}
+    testAlgo.buyPow = 1000.00
+    streaming.process_algo_trade('AAPL', testAlgo, 0, 0)
+    assert testAlgo.positions['AAPL'] == {'qty': 3, 'basis': 6.00}
+    assert testAlgo.buyPow == 1050.50
 
     # exit same side fill
     testAlgo.longShort = 'short'
@@ -111,7 +127,14 @@ def test_process_algo_trade(testAlgo):
     assert testAlgo.positions['AAPL'] == {'qty': -5, 'basis': 6.00}
     assert testAlgo.buyPow == 1006.00
 
-    # TODO: exit same side zero
+    # exit same side zero
+    testAlgo.longShort = 'short'
+    testAlgo.pendingOrders['AAPL'] = {'qty': 5, 'price': 9.90}
+    testAlgo.positions['AAPL'] = {'qty': -8, 'basis': 6.00}
+    testAlgo.buyPow = 1000.00
+    streaming.process_algo_trade('AAPL', testAlgo, 0, 0)
+    assert testAlgo.positions['AAPL'] == {'qty': -8, 'basis': 6.00}
+    assert testAlgo.buyPow == 1000.00
 
     # exit opposite side fill
     testAlgo.longShort = 'long'
@@ -131,7 +154,14 @@ def test_process_algo_trade(testAlgo):
     assert testAlgo.positions['AAPL'] == {'qty': 3, 'basis': 6.00}
     assert testAlgo.buyPow == 1050.00
 
-    # TODO: exit opposite side zero
+    # exit opposite side zero
+    testAlgo.longShort = 'long'
+    testAlgo.pendingOrders['AAPL'] = {'qty': -5, 'price': 9.90}
+    testAlgo.positions['AAPL'] = {'qty': 8, 'basis': 6.00}
+    testAlgo.buyPow = 1000.00
+    streaming.process_algo_trade('AAPL', testAlgo, 0, 0)
+    assert testAlgo.positions['AAPL'] == {'qty': 8, 'basis': 6.00}
+    assert testAlgo.buyPow == 1000.00
 
 def test_process_trade():
     ## SETUP

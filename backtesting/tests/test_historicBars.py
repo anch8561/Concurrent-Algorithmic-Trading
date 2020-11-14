@@ -174,10 +174,10 @@ def test_get_next_bars(indicators):
     # bar generators
     def barGen(ii):
         while True:
-            yield DataFrame({'open': ii, 'close': ii+1}, [datetime(2001, 2, 3, 4, 5, ii)])
+            yield DataFrame({'vwap': ii}, [datetime(2001, 2, 3, 4, 5, ii)])
             ii += 1
     
-    bar = DataFrame({'open': 1, 'close': 2}, [datetime(2001, 2, 3, 4, 5, 0)])
+    bar = DataFrame({'vwap': 4}, [datetime(2001, 2, 3, 4, 5, 0)])
 
     barGens = {
         'sec': {
@@ -196,7 +196,7 @@ def test_get_next_bars(indicators):
 
     # assets
     asset = DataFrame(
-        {'open': 1, 'close': 2, 'ticked': False, '1_sec_momentum': 1},
+        {'vwap': 5, 'ticked': False, '2_sec_momentum': None},
         [datetime(2001, 2, 3, 4, 5, 0)])
 
     assets = {
@@ -207,19 +207,11 @@ def test_get_next_bars(indicators):
     
     # expected assets
     generatorAsset = asset.append(DataFrame(
-        {
-            'open': 6,
-            'close': 7,
-            'ticked': False,
-            '1_sec_momentum': 7/6-1},
+        {'vwap': 6, 'ticked': False, '2_sec_momentum': 6/5-1},
         [datetime(2001, 2, 3, 4, 5, 6)]))
     
     bufferAsset = asset.append(DataFrame(
-        {
-            'open': 1,
-            'close': 2,
-            'ticked': False,
-            '1_sec_momentum': 1},
+        {'vwap': 4, 'ticked': False, '2_sec_momentum': 4/5-1},
         [datetime(2001, 2, 3, 4, 5, 6)]))
     
 
@@ -228,39 +220,39 @@ def test_get_next_bars(indicators):
 
     # behind
     assert_frame_equal(assets['sec']['AAPL'], generatorAsset, False)
-    assert next(barGens['sec']['AAPL']['generator']).open[0] == 7
+    assert next(barGens['sec']['AAPL']['generator']).vwap[0] == 7
     assert barGens['sec']['AAPL']['buffer'] == None
 
     # typical
     assert_frame_equal(assets['sec']['MSFT'], generatorAsset, False)
-    assert next(barGens['sec']['MSFT']['generator']).open[0] == 7
+    assert next(barGens['sec']['MSFT']['generator']).vwap[0] == 7
     assert barGens['sec']['MSFT']['buffer'] == None
 
     # ahead
     assert_frame_equal(assets['sec']['TSLA'], asset, False)
-    assert next(barGens['sec']['TSLA']['generator']).open[0] == 10
+    assert next(barGens['sec']['TSLA']['generator']).vwap[0] == 10
     assert_frame_equal(
         barGens['sec']['TSLA']['buffer'],
-        DataFrame({'open': 9, 'close': 10}, [datetime(2001, 2, 3, 4, 5, 9)]))
+        DataFrame({'vwap': 9}, [datetime(2001, 2, 3, 4, 5, 9)]))
 
     # buffer behind
     assert_frame_equal(assets['sec']['GOOG'], generatorAsset, False)
-    assert next(barGens['sec']['GOOG']['generator']).open[0] == 7
+    assert next(barGens['sec']['GOOG']['generator']).vwap[0] == 7
     assert barGens['sec']['GOOG']['buffer'] == None
 
     # buffer typical
     assert_frame_equal(assets['sec']['ZOOM'], bufferAsset, False)
-    assert next(barGens['sec']['ZOOM']['generator']).open[0] == 0
+    assert next(barGens['sec']['ZOOM']['generator']).vwap[0] == 0
     assert barGens['sec']['ZOOM']['buffer'] == None
 
     # buffer ahead
     assert_frame_equal(assets['sec']['POOP'], asset, False)
-    assert next(barGens['sec']['POOP']['generator']).open[0] == 0
+    assert next(barGens['sec']['POOP']['generator']).vwap[0] == 0
     assert_frame_equal(
         barGens['sec']['POOP']['buffer'],
-        DataFrame({'open': 1, 'close': 2}, [datetime(2001, 2, 3, 4, 5, 9)]))
+        DataFrame({'vwap': 4}, [datetime(2001, 2, 3, 4, 5, 9)]))
 
     # other barFreq
     assert_frame_equal(assets['min']['AAPL'], asset, False)
-    assert next(barGens['min']['AAPL']['generator']).open[0] == 0
+    assert next(barGens['min']['AAPL']['generator']).vwap[0] == 0
     assert barGens['min']['AAPL']['buffer'] == None

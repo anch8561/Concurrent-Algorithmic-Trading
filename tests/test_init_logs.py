@@ -25,7 +25,7 @@ def test_init_log_formatter():
     record.created = ct.timestamp()
     
     # test
-    expected = '\n07-26-2020 13:02:14.536232 test\nDEBUG: debug message'
+    expected = '\n2020-07-26 13:02:14.536232 test\nDEBUG: debug message'
     assert fmtr.format(record) == expected
 
 

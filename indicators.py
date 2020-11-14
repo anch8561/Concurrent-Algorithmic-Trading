@@ -35,7 +35,7 @@ def momentum(self, bars):
     # needs at least 2 bars
     openPrice = bars.vwap[-self.numBars]
     closePrice = bars.vwap[-1]
-    return (closePrice - openPrice) / openPrice
+    return closePrice / openPrice - 1
 
 def volume_stdevs(self, bars):
     volumes = bars.volume[-self.numBars:]

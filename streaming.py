@@ -61,6 +61,7 @@ def compile_day_bars(indicators):
             newDayBar['low'] = minBars.low.min()
             newDayBar['close'] = minBars.close[-1]
             newDayBar['volume'] = minBars.volume.sum()
+            newDayBar['vwap'] = round((minBars.vwap * minBars.volume).sum() / newDayBar['volume'], 3)
             newDayBar['ticked'] = False
         except Exception as e: log.exception(e)
 
@@ -108,10 +109,10 @@ def process_algo_trade(symbol, algo, fillQty, fillPrice):
     try: # update buying power and basis
         basis = algo.positions[symbol]['basis']
         if ( # enter
-            fillQty > 0 and
+            algoQty > 0 and
             algo.longShort == 'long'
         ) or (
-            fillQty < 0 and
+            algoQty < 0 and
             algo.longShort == 'short'
         ):
             # buying power
@@ -120,7 +121,7 @@ def process_algo_trade(symbol, algo, fillQty, fillPrice):
             # basis
             algo.positions[symbol]['basis'] = \
                 (abs(oldQty) * basis + abs(fillQty) * fillPrice) / abs(oldQty + fillQty)
-
+            
         else: # exit
             # buying power
             algo.buyPow += abs(fillQty) * basis + fillQty * (basis - fillPrice)
