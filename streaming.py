@@ -119,8 +119,9 @@ def process_algo_trade(symbol, algo, fillQty, fillPrice):
             algo.buyPow += abs(algoQty) * algoPrice - abs(fillQty) * fillPrice
 
             # basis
-            algo.positions[symbol]['basis'] = \
-                (abs(oldQty) * basis + abs(fillQty) * fillPrice) / abs(oldQty + fillQty)
+            if oldQty + fillQty: # avoid division by zero
+                algo.positions[symbol]['basis'] = \
+                    (abs(oldQty) * basis + abs(fillQty) * fillPrice) / abs(oldQty + fillQty)
             
         else: # exit
             # buying power
