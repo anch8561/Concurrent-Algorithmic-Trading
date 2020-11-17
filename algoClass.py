@@ -169,7 +169,7 @@ class Algo:
                                 (stopEquity - startEquity) / startEquity
                         except Exception as e:
                             if startEquity != 0: self.log.exception(e)
-                        startEquity = {}
+                        startEquity = 0
         except Exception as e: self.log.exception(e)
         
         metrics = {'mean': None, 'stdev': None}
@@ -305,10 +305,12 @@ class Algo:
             if position['qty'] > 0: # long
                 stopLoss = position['basis'] * (1 - c.stopLossFrac)
                 if g.assets['min'][symbol].vwap[-1] < stopLoss:
+                    self.log.debug(tab(symbol, 6) + 'stop loss')
                     self.queue_order(symbol, 'sell')
             if position['qty'] < 0: # short
                 stopLoss = position['basis'] * (1 + c.stopLossFrac)
-                if g.assets['min'][symbol].vwap[-1] < stopLoss:
+                if g.assets['min'][symbol].vwap[-1] > stopLoss:
+                    self.log.debug(tab(symbol, 6) + 'stop loss')
                     self.queue_order(symbol, 'buy')
 
     def tick(self):
