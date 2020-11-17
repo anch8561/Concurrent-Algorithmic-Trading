@@ -50,10 +50,10 @@ def SMA(self, bars): # unused
 def EMA(self, bars):
     return ta.trend.ema_indicator(bars.vwap, self.numBars)[-1]
 
-def KAMA(self, bars):
+def KAMA(self, bars): # kwargs: fastNumBars, slowNumBars
     # variable EMA from 2 to 30 bars (default)
     # numBars is volatility window controlling EMA window
-    return ta.momentum.kama(bars.vwap, self.numBars)[-1]
+    return ta.momentum.kama(bars.vwap, self.numBars, self.fastNumBars, self.slowNumBars)[-1]
 
 def bollinger_high(self, bars):
     return ta.volatility.bollinger_hband(bars.close, self.numBars, self.numStdevs)
