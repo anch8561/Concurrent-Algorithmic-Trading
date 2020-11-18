@@ -5,7 +5,7 @@ from tick_algos import get_limit_price
 
 import matplotlib.pyplot as plt
 import pandas as pd
-import ta
+import importlib, ta
 from datetime import datetime, timedelta
 from logging import getLogger
 from pytz import timezone
@@ -44,6 +44,7 @@ def get_combined_metrics(algos: list, dates: list) -> dict:
                                 if startEquity != 0: log.exception(e)
                             startEquity = 0
                     df.loc[date, algo.name] = growth
+                elif date > dates[1]: break
     except Exception as e: log.exception(e)
     
     df['combined'] = df.sum(1, min_count=len(algos))
@@ -55,11 +56,15 @@ def get_combined_metrics(algos: list, dates: list) -> dict:
     
     return metrics
 
-def get_metrics(dates, deltaNeutral=True):
-    # get metrics
-    metrics = pd.DataFrame(columns=['name', 'mean', 'stdev', 'min', 'max'])
+def get_results(dates, backtestName, deltaNeutral=True):
+    # init algos
+    c.algoPath = c.resultsPath + backtestName + '/algos/'
+    c.logPath = c.resultsPath + backtestName + '/logs/'
     with patch('algos.c', c), patch('algoClass.c', c):
         algos = init_algos(True, None)
+    
+    # get metrics
+    metrics = pd.DataFrame(columns=['name', 'mean', 'stdev', 'min', 'max'])
     if deltaNeutral:
         for algo1 in algos['all']:
             if algo1.name[-4:] == 'long':
@@ -80,24 +85,75 @@ def get_metrics(dates, deltaNeutral=True):
     pd.set_option("display.max_rows", None, "display.max_columns", None)
     return metrics
 
+def save_results(dates, backtestName):
+    startDate = datetime.strptime(dates[0], '%Y-%m-%d')
+    stopDate = datetime.strptime(dates[1], '%Y-%m-%d')
 
-def plot_backtest(barFreq, symbol, dates, algoName):
-    # NOTE: assumes only 1 backtest in logs
+    with open(c.resultsPath + backtestName + '/results.txt', 'w', ) as f:
+        metrics = get_results(dates, backtestName)
+
+        f.write(dates[0] + ' - ' + dates[1] + '\n')
+        f.write(str(metrics) + '\n\n')
+
+        detail = None
+        if stopDate - startDate > timedelta(1000): detail = 'year'
+        elif stopDate - startDate > timedelta(100): detail = 'month'
+        elif stopDate - startDate > timedelta(20): detail = 'week'
+        while startDate < stopDate:
+            if detail == 'year':
+                dates[0] = startDate.strftime('%Y-%m-%d') # start on startDate
+                dates[1] = startDate.replace(month=12, day=31) # end on Dec 31
+            elif detail == 'month':
+                dates[0] = startDate.strftime('%Y-%m-%d') # start on startDate
+                nextMonth = startDate.replace(day=28) + timedelta(4)
+                dates[1] = nextMonth - timedelta(nextMonth.day) # end on last day of month
+            elif detail == 'week':
+                dates[0] = startDate.strftime('%Y-%m-%d') # start on startDate
+                dates[1] = startDate + timedelta(4) - timedelta(startDate.weekday()) # end on friday
+
+            if dates[1] > stopDate: dates[1] = stopDate # end on stopDate
+            dates[1] = dates[1].strftime('%Y-%m-%d')
+
+            results = get_results(dates, backtestName)
+
+            f.write(dates[0] + ' - ' + dates[1] + '\n')
+            f.write(str(results) + '\n\n')
+
+            if detail == 'year':
+                startDate = startDate.replace(year=startDate.year+1, month=1, day=1) # start on Jan 1
+            elif detail == 'month':
+                startDate = nextMonth - timedelta(nextMonth.day - 1) # start on first of month
+            elif detail == 'week':
+                startDate += timedelta(7) - timedelta(startDate.weekday()) # start on monday
+
+def plot_backtest(backtestName: str, barFreq: str, symbol: str, dates: list, algoName: str) -> tuple:
+    # backtestName: final directory containing backtest (algos and logs folders)
+    # barFreq: for plotting price data
+    # dates: start and stop date
+
+    # FIX: "ValueError: year 72991 is out of range" on some symbols
 
     # suppress SettingWithCopyWarning
     pd.set_option('mode.chained_assignment', None)
+
+    # import backtest config
+    path = c.resultsPath + backtestName + '/'
+    c2 = importlib.import_module(path.replace('/', '.') + 'config')
+    c.barPath = path + 'bars/'
+    c.logPath = path + 'logs/'
 
     # get price data
     bars = pd.read_csv(c.barPath + f'{barFreq}_{symbol}.csv',
         header=0, index_col=0, parse_dates=True)
     fromDate, toDate = get_dates(dates)
     data = bars.loc[fromDate:toDate]
-    data.index = pd.DatetimeIndex(data.index).tz_convert(nyc)
+    data.index = pd.DatetimeIndex(data.index).tz_convert(nyc) # pylint: disable=no-member
     data['trades'] = 0
     data['tradePrice'] = 0
+    data['tradeQty'] = 0
     
     # get trades
-    with open(c.logPath + algoName + '.log') as f, patch('tick_algos.c', c):
+    with open(c.logPath + algoName + '.log') as f, patch('tick_algos.c', c2):
         while True:
             try: line = next(f)
             except: break
@@ -120,6 +176,9 @@ def plot_backtest(barFreq, symbol, dates, algoName):
 
                             fillPrice = float(line.split('@ ')[1])
                             data.loc[time, 'tradePrice'] = fillPrice
+
+                            data.loc[time, 'tradeQty'] = fillQty
+
                         else: # limit price
                             # NOTE: update if tick_algos.get_limit_price changes
                             if time in data.index:
@@ -145,7 +204,6 @@ def plot_backtest(barFreq, symbol, dates, algoName):
         # format plot
         fig, axs = plt.subplots(2, sharex=True)
         figs.append(fig)
-        axs[0].set_title(f'{algoName}\n{symbol}\n{start.date()}')
         axs[1].tick_params('x', labelrotation=45)
 
         # plot vwap
@@ -172,6 +230,14 @@ def plot_backtest(barFreq, symbol, dates, algoName):
         try: dayData.tradePrice[dayData.trades == -2].plot(style='gv', markersize=9, markeredgecolor='k', ax=axs[0])
         except: pass
 
+        # profit
+        try: profit = -100 / c.buyPow / c.maxPositionFrac * \
+            (dayData.tradePrice[dayData.trades.abs() == 2] * dayData.tradeQty[dayData.trades.abs() == 2]).sum()
+        except: profit = None
+        
+        # title
+        axs[0].set_title(f'{algoName}\n{symbol} {start.date()} {profit:.3}%')
+
         # plot volume
         axs[1].bar(dayData.index, dayData.volume, 0.0005)
 
@@ -179,7 +245,6 @@ def plot_backtest(barFreq, symbol, dates, algoName):
     noTradesData = bars.loc[fromDate:toDate]
     noTradesData.index = pd.DatetimeIndex(noTradesData.index).tz_convert(nyc)
     return figs, data, noTradesData
-
 
 def plot_indicators(figs: list, data: pd.DataFrame, indicators: list):
     # figs: pyplot figures

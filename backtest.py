@@ -1,6 +1,7 @@
-import backtesting.historicBars as histBars
-import backtesting.timing as timing
 import backtesting.config as c
+import backtesting.historicBars as histBars
+import backtesting.resutls as results
+import backtesting.timing as timing
 import globalVariables as g
 import init_logs
 import tick_algos
@@ -23,7 +24,7 @@ from unittest.mock import patch
 def parse_args(args):
     parser = ArgumentParser(formatter_class=RawTextHelpFormatter)
     parser.add_argument(
-        '--dates',
+        'dates',
         default = ['2004-01-02', '2019-12-31'],
         nargs = 2,
         help = '2 dates since 2004-01-01 (default: 2004-01-02 2019-12-31, must be market days)')
@@ -47,6 +48,10 @@ def parse_args(args):
             'rally:      weeks with gains over 5%%\n' + \
             'crash:      weeks with drops over 5%%\n' + \
             'black swan: days with deltas over 5%%\n') # estimates subject to change
+    parser.add_argument(
+        '--name',
+        default = datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),
+        help = 'name of folder where backtest is saved (default: current timestamp)')
     parser.add_argument(
         '--numAssets',
         default = c.numAssets,
@@ -120,15 +125,15 @@ if __name__ == '__main__':
     # parse arguments
     args = parse_args(sys.argv[1:])
 
-    # create backtest dir if needed
-    try: os.mkdir('backtesting')
+    # create backtest dir
+    path = c.resultsPath + args.name + '/'
+    c.algoPath = path + 'algos/'
+    c.logPath = path + 'logs/'
+    try: os.mkdir(c.resultsPath)
     except: pass
-
-    # delete old logs
-    choice = input('Delete old logs? [Y/n] ')
-    if choice.lower() not in ('yes', 'ye', 'y'): sys.exit()
-    try: shutil.rmtree(c.logPath)
+    try: os.mkdir(path)
     except: pass
+    shutil.copyfile('backtesting/config.py', path + 'config.py')
 
     # init logs, indicators, and algos
     with patch('algos.c', c), patch('init_logs.c', c): # file paths
@@ -156,6 +161,7 @@ if __name__ == '__main__':
     # init assets and "streaming"
     g.assets = init_assets(alpaca, calendar, algos['all'], indicators,
         args.getAssets, args.numAssets, args.dates)
+    shutil.copytree('backtesting/bars', path + 'bars')
     barGens = histBars.init_bar_gens(['min', 'day'], g.assets['day'])
 
     # main loops
@@ -196,3 +202,6 @@ if __name__ == '__main__':
             # clear min bars
             for bars in g.assets['min'].values():
                 bars = bars[0:0]
+    
+    # results
+    results.save_results(args.dates, args.name)
