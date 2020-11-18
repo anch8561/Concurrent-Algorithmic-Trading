@@ -71,7 +71,7 @@ class Algo:
         if not self.active:
             self.log.exception(f'cannot start while inactive')
         else:
-            self.log.info('starting')
+            self.log.debug('starting')
             self.update_equity()
             self.update_history('start')
             self.save_data()
@@ -80,7 +80,7 @@ class Algo:
         if not self.active:
             self.log.exception(f'cannot stop while inactive')
         else:
-            self.log.info('stopping')
+            self.log.debug('stopping')
             self.update_equity()
             self.update_history('stop')
             self.save_data()
@@ -180,7 +180,7 @@ class Algo:
             if len(growth): self.log.exception(e)
             else:
                 self.log.debug(e)
-                self.log.info('No performance data')
+                self.log.warning('No performance data')
         
         try: # get stdev
             metrics['stdev'] = stats.stdev(growth)
