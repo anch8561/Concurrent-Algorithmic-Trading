@@ -35,7 +35,7 @@ maxIndustryFrac = 0.05 # unused
 maxPositionFrac = 0.1
 
 # price fractions
-limitPriceFrac = 0.001
+limitPriceFrac = 0
 stopLossFrac = 0.001
 
 # tick algos
