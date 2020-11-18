@@ -50,7 +50,7 @@ for algo in algos['all']:
 
 # main loop
 log.warning('Entering main loop')
-state = 'night'
+state = 'overnight'
 marketIsOpen = True
 try:
     while True:

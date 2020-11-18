@@ -46,8 +46,8 @@ def allocate_buying_power(algos):
 
     try: # get weight region lengths
         n_all = len(algos['all'])
-        n_day = len(algos['day'])
-        n_night = len(algos['night'])
+        n_day = len(algos['intraday'])
+        n_night = len(algos['overnight'])
     except Exception as e: log.exception(e)
 
     try: # set objective function and initial guess

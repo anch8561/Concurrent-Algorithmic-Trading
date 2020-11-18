@@ -8,7 +8,7 @@ from os import mkdir
 
 # NOTE: kwargs must be in correct order to generate correct name
 
-# day
+# intraday
 def momentum(self): # kwargs: numUpBars, numDownBars
     indicator = str(2) + '_' + self.barFreq + '_momentum'
     
@@ -28,9 +28,10 @@ def momentum(self): # kwargs: numUpBars, numDownBars
 
 # TODO: momentumMACD
 
-def crossover(self): # kwargs: fastNumBars, slowNumBars, threshold
+def crossover(self): # kwargs: fastNumBars, slowNumBars, stdevNumBars, numStdevs
     fastInd = str(self.fastNumBars) + '_' + self.barFreq + '_EMA'
     slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_EMA'
+    slowInd = str(self.stdevNumBars) + '_' + self.barFreq + '_stdevs'
 
     for symbol, bars in g.assets[self.barFreq].items():
         try:
@@ -48,43 +49,21 @@ def crossover(self): # kwargs: fastNumBars, slowNumBars, threshold
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
-def mom_xo(self): # kwargs: momNumBars, fastNumBars, slowNumBars
-    fastInd = str(self.fastNumBars) + '_' + self.barFreq + '_EMA'
-    slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_EMA'
-    momInd = str(2) + '_' + self.barFreq + '_momentum'
+def bol(self): # kwargs: numBars, numStdevs
+    pass
 
-    for symbol, bars in g.assets[self.barFreq].items():
-        try:
-            if not bars.ticked[-1]:
-                if (
-                    bars[fastInd][-1] > bars[slowInd][-1] and # trend up
-                    all(bars[momInd][-self.momNumBars:] >= 0) # momentum up
-                ):
-                    self.queue_order(symbol, 'buy')
-                elif (
-                    bars[fastInd][-1] < bars[slowInd][-1] and # trend down
-                    all(bars[momInd][-self.momNumBars:] <= 0) # momentum down
-                ):
-                    self.queue_order(symbol, 'sell')
-        except Exception as e:
-            if (
-                bars[fastInd][-1] == None or
-                bars[slowInd][-1] == None or
-                any(bars[momInd][-self.momNumBars:] == None)
-            ):
-                self.log.debug(f'{symbol}\tMissing indicator (None)')
-            else:
-                self.log.exception(f'{symbol}\t{e}\n{bars[-self.momNumBars:]}')
+def bol_kama(self): # kwargs: numBars, numStdevs
+    pass
 
 
-def init_day_algos(loadData: bool) -> list:
+def init_intraday_algos(loadData: bool) -> list:
     algos = []
     for longShort in ('long', 'short'):
-        # # momentum
-        # for numUpBars in (2, 3, 4):
-        #     for numDownBars in (2, 3, 4):
-        #         algos.append(Algo('min', momentum, longShort, loadData,
-        #             numUpBars=numUpBars, numDownBars=numDownBars))
+        # momentum
+        for numUpBars in (2, 3, 4):
+            for numDownBars in (2, 3, 4):
+                algos.append(Algo('min', momentum, longShort, loadData,
+                    numUpBars=numUpBars, numDownBars=numDownBars))
         
         # moving average crossover
         for slowNumBars in (5, 10, 20):
@@ -93,20 +72,9 @@ def init_day_algos(loadData: bool) -> list:
                     for threshold in (0.001, 0.0005, 0.0002):
                         algos.append(Algo('min', crossover, longShort, loadData,
                             fastNumBars=fastNumBars, slowNumBars=slowNumBars, threshold=threshold))
-        
-        # combo momentum and crossover
-        # for momNumBars in (1, 2, 3):
-        #     for slowNumBars in (5, 10, 20):
-        #         for fastNumBars in (3, 5, 10):
-        #             if slowNumBars > fastNumBars:
-        #                 algos.append(Algo('min', mom_xo, longShort, loadData,
-        #                     momNumBars=momNumBars, fastNumBars=fastNumBars, slowNumBars=slowNumBars))
-    # algos.append(Algo('min', mom_xo, 'long', loadData,
-    #     momNumBars = 3, fastNumBars = 3, slowNumBars = 10))
-        
     return algos
 
-# night
+# overnight
 def momentum_volume(self): # kwargs: numBars
     # sort symbols
     # TODO: move to global resource
@@ -139,7 +107,7 @@ def momentum_volume(self): # kwargs: numBars
             if metrics[symbol] >= 0: break
             self.queue_order(symbol, 'sell')
 
-def init_night_algos(loadData: bool) -> list:
+def init_overnight_algos(loadData: bool) -> list:
     algos = []
     for longShort in ('long', 'short'):
         for numBars in (3, 5, 10):
@@ -157,14 +125,14 @@ def init_algos(loadData: bool, logFmtr: Formatter) -> dict:
     except: pass
 
     # create algos
-    dayAlgos = init_day_algos(loadData)
-    nightAlgos = init_night_algos(loadData)
+    intradayAlgos = init_intraday_algos(loadData)
+    overnightAlgos = init_overnight_algos(loadData)
 
     # populate dictionary
     algos = {
-        'day': dayAlgos,
-        'night': nightAlgos,
-        'all': dayAlgos + nightAlgos}
+        'intraday': intradayAlgos,
+        'overnight': overnightAlgos,
+        'all': intradayAlgos + overnightAlgos}
     
     # init logs
     init_algo_logs(algos['all'], logFmtr)

@@ -220,7 +220,7 @@ def process_queued_orders(allAlgos):
 def tick_algos(algos, indicators, state):
     # algos: dict of lists of algos; {day, night, all}
     # indicators: dict of lists of indicators; {sec, min, day, all}
-    # state: str; 'day' or 'night'
+    # state: str; 'intraday' or 'overnight'
     # returns: state
 
     # TODO: allow night algos to wait for best price
@@ -233,20 +233,20 @@ def tick_algos(algos, indicators, state):
     # tick algos
     try:
         if (
-            state == 'day' and
+            state == 'intraday' and
             not closingSoon
         ) or (
-            state == 'night' and
+            state == 'overnight' and
             closingSoon
         ):
             log.info(f'Ticking {state} algos')
             for algo in algos[state]: algo.tick() # TODO: parallel
         
         elif (
-            state == 'day' and
+            state == 'intraday' and
             closingSoon
         ) or (
-            state == 'night' and
+            state == 'overnight' and
             not closingSoon
         ):
             log.warning(f'Deactivating {state} algos')
@@ -258,10 +258,10 @@ def tick_algos(algos, indicators, state):
                 # TODO: partial handoff in case algo can't deactivate
             else:
                 log.info(f'All {state} algos are deactivated')
-                state = 'night' if state == 'day' else 'day' # swap state
+                state = 'overnight' if state == 'intraday' else 'intraday' # swap state
                 log.warning(f'Activating {state} algos')
                 for algo in algos[state]: algo.activate()
-                if state == 'night':
+                if state == 'overnight':
                     streaming.compile_day_bars(indicators)
 
         process_queued_orders(algos['all'])

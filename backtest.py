@@ -156,7 +156,7 @@ if __name__ == '__main__':
     if dateIdx == None:
         log.error(f'Start date {dateStr} is not a market day')
         sys.exit()
-    state = 'night'
+    state = 'overnight'
 
     # init assets and "streaming"
     g.assets = init_assets(alpaca, calendar, algos['all'], indicators,
