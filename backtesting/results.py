@@ -236,7 +236,7 @@ def plot_backtest(backtestName: str, barFreq: str, symbol: str, dates: list, alg
         except: profit = None
         
         # title
-        axs[0].set_title(f'{algoName}\n{symbol} {start.date()} {profit:.3}%')
+        axs[0].set_title(f'{algoName}\n{symbol}  |  {start.date()}  |  {profit:.3}%')
 
         # plot volume
         axs[1].bar(dayData.index, dayData.volume, 0.0005)
