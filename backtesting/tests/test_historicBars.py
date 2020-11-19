@@ -196,7 +196,7 @@ def test_get_next_bars(indicators):
 
     # assets
     asset = DataFrame(
-        {'vwap': 5, 'ticked': False, '2_sec_momentum': None},
+        {'vwap': 5, 'ticked': False, '2_sec_mom': None},
         [datetime(2001, 2, 3, 4, 5, 0)])
 
     assets = {
@@ -207,11 +207,11 @@ def test_get_next_bars(indicators):
     
     # expected assets
     generatorAsset = asset.append(DataFrame(
-        {'vwap': 6, 'ticked': False, '2_sec_momentum': 6/5-1},
+        {'vwap': 6, 'ticked': False, '2_sec_mom': 6/5-1},
         [datetime(2001, 2, 3, 4, 5, 6)]))
     
     bufferAsset = asset.append(DataFrame(
-        {'vwap': 4, 'ticked': False, '2_sec_momentum': 4/5-1},
+        {'vwap': 4, 'ticked': False, '2_sec_mom': 4/5-1},
         [datetime(2001, 2, 3, 4, 5, 6)]))
     
 

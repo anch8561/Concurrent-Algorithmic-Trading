@@ -1,7 +1,6 @@
 import globalVariables as g
 
 import statistics as stats
-import ta
 from logging import getLogger
 
 log = getLogger('indicators')
@@ -14,11 +13,11 @@ class Indicator:
         self.numBars = numBars # int
         self.barFreq = barFreq # 'sec', 'min', or 'day'
         self.func = func
-        self.name = str(numBars) + '_' + barFreq + '_'
+        self.name = str(numBars) + '_'
         for key, val in kwargs.items(): # e.g. moving average function
             self.__setattr__(key, val)
             self.name += str(val) + '_'
-        self.name += func.__name__
+        self.name += barFreq + '_' + func.__name__
     
     def get(self, bars):
         # bars: DataFrame
@@ -47,70 +46,41 @@ def vol_stdevs(self, bars):
     volume = volumes[-1]
     return  (volume - mean) / stdev
 
-def SMA(self, bars): # unused
-    return ta.trend.sma_indicator(bars.vwap, self.numBars)[-1]
-
 def EMA(self, bars):
-    return ta.trend.ema_indicator(bars.vwap, self.numBars)[-1]
+    if bars[self.name][-2] == None:
+        return bars.vwap[-1]
+    prev = bars[self.name][-2]
+    new = bars.vwap[-1]
+    SC = 2/(1+self.numBars) # smoothing constant
+    return prev + SC * (new - prev)
 
 def KAMA(self, bars): # kwargs: fastNumBars, slowNumBars
-    # variable EMA from 2 to 30 bars (default)
-    # numBars is volatility window controlling EMA window
-    return ta.momentum.kama(bars.vwap, self.numBars, self.fastNumBars, self.slowNumBars)[-1]
-
-def bollinger_high(self, bars):
-    return ta.volatility.bollinger_hband(bars.vwap, self.numBars, self.numStdevs)
-
-def bollinger_low(self, bars):
-    return ta.volatility.bollinger_lband(bars.vwap, self.numBars, self.numStdevs)
+    # numBars is volatility window controlling EMA constant
+    if bars[self.name][-2] == None:
+        return bars.vwap[-1]
+    prev = bars[self.name][-2]
+    new = bars.vwap[-1]
+    fastSC = 2/(1+self.fastNumBars) # smoothing constants
+    slowSC = 2/(1+self.slowNumBars)
+    change = abs(new - bars.vwap[-self.numBars])
+    volatility = bars.vwap[-self.numBars:].diff().abs().sum()
+    ER = change / volatility # efficiency ratio
+    SC = (ER * (fastSC - slowSC) + slowSC)**2
+    return prev + SC * (new - prev)
 
 
 # init
-def init_indicators():
+def init_indicators(allAlgos: list):
     indicators = {
         'sec': [],
         'min': [],
         'day': [],
         'all': []}
 
+    for algo in allAlgos:
+        for indicator in algo.indicators:
+            if indicator not in indicators[algo.barFreq]:
+                indicators[algo.barFreq].append(indicator)
 
-    ## SECOND
-    barFreq = 'sec'
-
-
-    ## MINUTE
-    barFreq = 'min'
-
-    # momentum
-    numBars = 2
-    indicators[barFreq] += [
-        Indicator(numBars, barFreq, mom)]
-
-    for numBars in (10, 20, 30):
-        indicators[barFreq] += [
-            Indicator(numBars, barFreq, stdev)]
-
-    # EMA
-    for numBars in (3, 5, 10, 20):
-        indicators[barFreq] += [
-            Indicator(numBars, barFreq, EMA)]
-
-
-    ## DAY
-    barFreq = 'day'
-
-    # momentum
-    for numBars in (3, 5, 10):
-        indicators[barFreq] += [
-            Indicator(numBars, barFreq, mom)]
-
-    # volume stdevs
-    for numBars in (3, 5, 10):
-        indicators[barFreq] += [
-            Indicator(numBars, barFreq, vol_stdevs)]
-
-
-    ## ALL
-    for barFreq in g.assets:
-        indicators['all'] += indicators[barFreq]
     return indicators
+

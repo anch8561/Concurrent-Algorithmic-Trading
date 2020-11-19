@@ -11,9 +11,10 @@ from logging import getLogger
 from types import FunctionType
 
 class Algo:
-    def __init__(self, barFreq: str, func: FunctionType, longShort: str, loadData: bool, **kwargs):
+    def __init__(self, barFreq: str, func: FunctionType, indicators: list, longShort: str, loadData: bool, **kwargs):
         self.barFreq = barFreq # 'sec', 'min', or 'day'; size of market data aggregates used
         self.func = func # function to determine when to buy and sell
+        self.indicators = indicators # list of indicators used by func
         self.longShort = longShort # 'long' or 'short'; algo equity type
 
         # kwargs, name, and log

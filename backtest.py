@@ -144,12 +144,16 @@ if __name__ == '__main__':
         log = logging.getLogger('backtest')
         log.warning(f'Backtesting from {args.dates[0]} to {args.dates[1]}')
 
-        # init indicators and algos
-        indicators = init_indicators()
+        # init algos
         algos = init_algos(False, logFmtr)
 
-    # init alpaca and timing
+        # init indicators
+        indicators = init_indicators(algos['all'])
+
+    # init alpaca
     alpaca = alpaca_trade_api.REST(*dev.paper)
+
+    # init timing
     calendar = alpaca.get_calendar()
     dateStr = args.dates[0]
     dateIdx = timing.get_calendar_index(calendar, dateStr)
@@ -158,10 +162,12 @@ if __name__ == '__main__':
         sys.exit()
     state = 'overnight'
 
-    # init assets and "streaming"
+    # init assets
     g.assets = init_assets(alpaca, calendar, algos['all'], indicators,
         args.getAssets, args.numAssets, args.dates)
     shutil.copytree('backtesting/bars', path + 'bars')
+
+    # init "streaming"
     barGens = histBars.init_bar_gens(['min', 'day'], g.assets['day'])
 
     # main loops

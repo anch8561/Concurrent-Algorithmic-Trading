@@ -56,7 +56,7 @@ def get_combined_metrics(algos: list, dates: list) -> dict:
     
     return metrics
 
-def get_results(dates, backtestName, deltaNeutral=True):
+def get_results_summary(dates, backtestName, deltaNeutral=True):
     # init algos
     c.algoPath = c.resultsPath + backtestName + '/algos/'
     c.logPath = c.resultsPath + backtestName + '/logs/'
@@ -85,12 +85,12 @@ def get_results(dates, backtestName, deltaNeutral=True):
     pd.set_option("display.max_rows", None, "display.max_columns", None)
     return metrics
 
-def save_results(dates, backtestName):
+def save_results_summary(dates, backtestName):
     startDate = datetime.strptime(dates[0], '%Y-%m-%d')
     stopDate = datetime.strptime(dates[1], '%Y-%m-%d')
 
     with open(c.resultsPath + backtestName + '/results.txt', 'w', ) as f:
-        metrics = get_results(dates, backtestName)
+        metrics = get_results_summary(dates, backtestName)
 
         f.write(dates[0] + ' - ' + dates[1] + '\n')
         f.write(str(metrics) + '\n\n')
@@ -115,7 +115,7 @@ def save_results(dates, backtestName):
                 if dates[1] > stopDate: dates[1] = stopDate # end on stopDate
                 dates[1] = dates[1].strftime('%Y-%m-%d')
 
-                results = get_results(dates, backtestName)
+                results = get_results_summary(dates, backtestName)
 
                 f.write(dates[0] + ' - ' + dates[1] + '\n')
                 f.write(str(results) + '\n\n')

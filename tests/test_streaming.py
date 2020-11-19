@@ -11,7 +11,7 @@ from unittest.mock import patch, call
 def test_process_bar(bars, indicators):
     # setup
     g.assets['min']['AAPL'] = bars.iloc[:-1]
-    data = bars.iloc[-1].copy().drop('2_min_momentum')
+    data = bars.iloc[-1].copy().drop('2_min_mom')
     data['start'] = bars.index[-1]
     data['symbol'] = 'AAPL'
 
@@ -29,24 +29,23 @@ def test_compile_day_bars(bars, indicators):
 
     # old day bars
     dayBars = dict.fromkeys(['open', 'high', 'low', 'close',
-        'volume', 'ticked', '2_day_momentum'])
+        'volume', 'ticked', '2_day_mom'])
     dayBars['vwap'] = 837.59
     yesterday = g.nyc.localize(datetime(2020, 2, 12))
     g.assets['day']['AAPL'] = DataFrame(dayBars, [yesterday])
 
     # expected day bars
-    date = g.nyc.localize(datetime(2020, 2, 13))
     newBar = {
-        'open': 345.67,
-        'high': 600.02,
-        'low': 111.11,
-        'close': 575.04,
-        'volume': 22220,
-        'vwap': 356.451,
-        'ticked': False,
-        '2_day_momentum': (356.451 - 837.59) / 837.59}
-    expected = g.assets['day']['AAPL'].append(
-        DataFrame(newBar, [date]))
+        'open': bars.open[1], # 1st bar before market open
+        'high': bars.high[1:].max(),
+        'low': bars.low[1:].min(),
+        'close': bars.close[-1],
+        'volume': bars.volume[1:].sum(),
+        'ticked': False}
+    newBar['vwap'] = (bars.volume[1:] * bars.vwap[1:]).sum() / newBar['volume']
+    newBar['2_day_mom'] = newBar['vwap'] / dayBars['vwap'] - 1
+    date = g.nyc.localize(datetime(2020, 2, 13))
+    expected = g.assets['day']['AAPL'].append(DataFrame(newBar, [date]))
     
     # test
     marketOpen = g.nyc.localize(datetime(2020, 2, 13, 16, 20))
@@ -170,7 +169,7 @@ def test_process_trade():
     algos = []
     orders = [-9, 3, -7, -5]
     for qty in orders:
-        algo = Algo('min', print, 'short', False)
+        algo = Algo('min', print, [], 'short', False)
         algo.pendingOrders['AAPL'] = {'qty': qty}
         algos.append(algo)
 

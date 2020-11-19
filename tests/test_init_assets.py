@@ -85,7 +85,6 @@ def test_init_assets(alpaca, allAlgos, indicators):
 def test_add_asset(alpaca, allAlgos, indicators):
     ## SETUP
     g.alpaca = alpaca
-    allAlgos = [Algo('min', print, 'short', False)]
     class timing:
         get_market_open = Mock(return_value='a')
         get_market_date = Mock()
@@ -102,14 +101,14 @@ def test_add_asset(alpaca, allAlgos, indicators):
         assert algo.positions == {'AAPL': {'qty': 0, 'basis': 0}}
     
     # sec asset
-    columns = ['open', 'high', 'low', 'close', 'volume', 'ticked', '2_sec_momentum']
+    columns = ['open', 'high', 'low', 'close', 'volume', 'ticked', '2_sec_mom']
     data = dict.fromkeys(columns)
     data['ticked'] = True
     expectedAsset = DataFrame(data, ['a'])
     assert g.assets['sec']['AAPL'].equals(expectedAsset)
 
     # min asset
-    columns = ['open', 'high', 'low', 'close', 'volume', 'ticked', '2_min_momentum']
+    columns = ['open', 'high', 'low', 'close', 'volume', 'ticked', '2_min_mom']
     data = dict.fromkeys(columns)
     data['ticked'] = True
     expectedAsset = DataFrame(data, ['a'])
@@ -118,5 +117,5 @@ def test_add_asset(alpaca, allAlgos, indicators):
     # day asset
     bars = g.alpaca.polygon.historic_agg_v2().df
     bars['ticked'] = True
-    bars['2_day_momentum'] = 123
+    bars['2_day_mom'] = 123
     assert_frame_equal(g.assets['day']['AAPL'], bars, False)

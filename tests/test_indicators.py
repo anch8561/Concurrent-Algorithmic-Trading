@@ -3,7 +3,6 @@ import indicators
 Indicator = indicators.Indicator
 
 import statistics as stats
-import ta
 from unittest.mock import Mock, call
 
 def test_Indicator():
@@ -22,31 +21,42 @@ def test_Indicator_get():
     testInd.func.assert_called_once_with(testInd, None)
     assert val == 123
 
-def test_momentum(bars):
-    testInd = Indicator(3, 'min', indicators.momentum)
+def test_mom(bars):
+    testInd = Indicator(3, 'min', indicators.mom)
     val = testInd.get(bars)
-    assert val == 567.56 / 234.23 - 1
+    assert val == 567.56 / 456.45 - 1
 
-def test_volume_stdevs(bars):
-    testInd = Indicator(3, 'min', indicators.volume_stdevs)
+def test_vol_stdevs(bars):
+    testInd = Indicator(3, 'min', indicators.vol_stdevs)
     val = testInd.get(bars)
     expected = -1.091089451179962
     assert val - expected < 1e-6
 
-def test_SMA(bars):
-    testInd = Indicator(3, 'min', indicators.SMA)
-    testVal = testInd.get(bars)
-    realVal = ta.trend.sma_indicator(bars.vwap, 3)[-1]
-    assert testVal == realVal
-
 def test_EMA(bars):
+    # 1st bar
     testInd = Indicator(3, 'min', indicators.EMA)
-    testVal = testInd.get(bars)
-    realVal = ta.trend.ema_indicator(bars.vwap, 3)[-1]
-    assert testVal == realVal
+    bars[testInd.name] = None
+    val = testInd.get(bars)
+    assert val == 567.56
+
+    # typical
+    bars[testInd.name] = 444.33
+    val = testInd.get(bars)
+    assert val == 444.33 + (567.56 - 444.33) / 2
+
 
 def test_KAMA(bars):
-    testInd = Indicator(3, 'min', indicators.KAMA)
-    testVal = testInd.get(bars)
-    realVal = ta.momentum.kama(bars.vwap, 3)[-1]
-    assert testVal == realVal
+    # 1st bar
+    testInd = Indicator(3, 'min', indicators.KAMA, fastNumBars=4, slowNumBars=5)
+    bars[testInd.name] = None
+    val = testInd.get(bars)
+    assert val == 567.56
+
+    # typical
+    bars[testInd.name] = 444.33
+    fastSC = 2/5
+    slowSC = 2/6
+    ER = 1/3
+    SC = (ER * (fastSC - slowSC) + slowSC)**2
+    val = testInd.get(bars)
+    assert val == 444.33 + SC * (567.56 - 444.33)

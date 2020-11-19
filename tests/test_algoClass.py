@@ -9,9 +9,10 @@ from unittest.mock import call, Mock, patch
 
 def test_Algo():
     # pylint: disable=no-member
-    testAlgo = algoClass.Algo('min', print, 'short', False, a=1, b=2)
+    testAlgo = algoClass.Algo('min', print, ['indicator'], 'short', False, a=1, b=2)
     assert testAlgo.barFreq == 'min'
     assert testAlgo.func == print
+    assert testAlgo.indicators == ['indicator']
     assert testAlgo.longShort == 'short'
     assert testAlgo.a == 1
     assert testAlgo.b == 2

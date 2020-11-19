@@ -38,21 +38,21 @@ def cleanup():
 
 @fixture
 def testAlgo(reloadGlobalVariables):
-    testAlgo = Algo('min', print, 'short', False)
+    testAlgo = Algo('min', print, [], 'short', False)
     testAlgo.positions['AAPL'] = {'qty': 0, 'basis': 0}
     return testAlgo
 
 @fixture
 def algos(reloadGlobalVariables):
     intradayAlgos = [
-        Algo('min', print, 'long', False, n=0),
-        Algo('min', print, 'short', False, n=1),
-        Algo('min', print, 'long', False, n=2),
-        Algo('min', print, 'short', False, n=3)]
+        Algo('min', print, [], 'long', False, n=0),
+        Algo('min', print, [], 'short', False, n=1),
+        Algo('min', print, [], 'long', False, n=2),
+        Algo('min', print, [], 'short', False, n=3)]
     overnightAlgos = [
-        Algo('min', print, 'long', False, n=4),
-        Algo('min', print, 'short', False, n=5),
-        Algo('min', print, 'long', False, n=6)]
+        Algo('min', print, [], 'long', False, n=4),
+        Algo('min', print, [], 'short', False, n=5),
+        Algo('min', print, [], 'long', False, n=6)]
     return {
         'intraday': intradayAlgos,
         'overnight': overnightAlgos,
@@ -80,7 +80,7 @@ def bars(indicators):
         'high':  [454.54, 456.78, 444.44, 600.02],
         'low':   [121.21, 123.45, 111.11, 500.03],
         'close': [343.43, 234.56, 333.33, 575.04],
-        'vwap':  [123.12, 234.23, 345.34, 567.56],
+        'vwap':  [123.12, 456.45, 345.34, 567.56],
         'volume': [9999, 8888, 7777, 5555],
         'ticked': [True, True, True, False]}
     index = [

@@ -25,19 +25,25 @@ logFmtr = init_log_formatter()
 init_primary_logs(args.log, args.env, logFmtr)
 log = getLogger('main')
 
-# init alpaca and timing
+# init alpaca
 init_alpaca(args.env)
+
+# init timing
 init_timing()
 
-# init indicators and algos
-indicators = init_indicators()
+# init algos
 algos = init_algos(True, logFmtr)
 if args.reset: reset(algos['all'])
 allocate_buying_power(algos) # TODO: subtract positions
 for algo in algos['all']: algo.buyPow = 5000 # FIX: no performance data
 
-# init assets and streaming
+# init indicators
+indicators = init_indicators(algos['all'])
+
+# init assets
 init_assets(args.numAssets, algos['all'], indicators)
+
+# init streaming
 Thread(target=stream, args=[g.conn, algos['all'], indicators]).start()
 # NOTE: begin using g.lock
 # TODO: update global positions (careful of add_asset)
