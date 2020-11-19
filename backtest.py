@@ -191,6 +191,9 @@ if __name__ == '__main__':
 
             # intraday loop
             while g.TTClose > timedelta(0):
+                # print hourly progress
+                if g.now.minute == 0: log.info(f'Progress update')
+
                 # tick algos
                 state = tick_algos.tick_algos(algos, indicators, state)
 
@@ -210,4 +213,4 @@ if __name__ == '__main__':
                 bars = bars[0:0]
     
     # results
-    results.save_results(args.dates, args.name)
+    results.save_results_summary(args.dates, args.name)
