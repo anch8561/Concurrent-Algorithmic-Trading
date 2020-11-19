@@ -12,7 +12,7 @@ from os import mkdir
 
 # intraday
 def mom(self): # kwargs: numUpBars, numDownBars
-    indicator = str(2) + '_' + self.barFreq + '_mom'
+    indicator = '2_' + self.barFreq + '_mom'
     
     for symbol, bars in g.assets[self.barFreq].items():
         try:
@@ -52,10 +52,9 @@ def xo(self): # kwargs: fastNumBars, slowNumBars, stdevNumBars, numStdevs
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
-def KAMA_trend(self): # kwargs: volNumBars, fastNumBars, slowNumBars
-    fastInd = str(self.effNumBars) + '_' + str(self.slowNumBars) + '_' + \
-        str(self.fastNumBars) + '_' + self.barFreq + '_KAMA'
-    slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_EMA'
+def KAMA_trend(self): # kwargs: numBars
+    fastInd = '10_2_' + str(self.numBars) + '_' + self.barFreq + '_KAMA'
+    slowInd = str(self.numBars) + '_' + self.barFreq + '_EMA'
 
     for symbol, bars in g.assets[self.barFreq].items():
         try:
@@ -117,7 +116,7 @@ def init_intraday_algos(loadData: bool) -> list:
             indicators = [
                 Indicator(10, 'min', ind.KAMA, fastNumBars=2, slowNumBars=numBars),
                 Indicator(numBars, 'min', ind.EMA)]
-            algos.append(Algo('min', KAMA_trend, indicators, longShort, loadData))
+            algos.append(Algo('min', KAMA_trend, indicators, longShort, loadData, numBars=numBars))
         
         # KAMA spread
         # for slowNumBars in (5, 10, 20):
