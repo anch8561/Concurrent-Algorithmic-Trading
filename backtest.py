@@ -1,6 +1,6 @@
 import backtesting.config as c
 import backtesting.historicBars as histBars
-import backtesting.resutls as results
+import backtesting.results as results
 import backtesting.timing as timing
 import globalVariables as g
 import init_logs
@@ -51,7 +51,7 @@ def parse_args(args):
     parser.add_argument(
         '--name',
         default = datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),
-        help = 'name of folder where backtest is saved (default: current timestamp)')
+        help = 'name of folder where backtest will be saved (default: current timestamp)')
     parser.add_argument(
         '--numAssets',
         default = c.numAssets,
