@@ -28,7 +28,7 @@ def get_combined_metrics(algos: list, dates: list) -> dict:
         # FIX: night algos start and stop on different days
         df = pd.DataFrame()
         for algo in algos:
-            history = sorted(algo.history, reverse=True)
+            history = sorted(algo.history)
             for date in history:
                 if dates[0] <= date and date <= dates[1]:
                     growth = 0
@@ -99,32 +99,33 @@ def save_results(dates, backtestName):
         if stopDate - startDate > timedelta(1000): detail = 'year'
         elif stopDate - startDate > timedelta(100): detail = 'month'
         elif stopDate - startDate > timedelta(20): detail = 'week'
-        while startDate < stopDate:
-            if detail == 'year':
-                dates[0] = startDate.strftime('%Y-%m-%d') # start on startDate
-                dates[1] = startDate.replace(month=12, day=31) # end on Dec 31
-            elif detail == 'month':
-                dates[0] = startDate.strftime('%Y-%m-%d') # start on startDate
-                nextMonth = startDate.replace(day=28) + timedelta(4)
-                dates[1] = nextMonth - timedelta(nextMonth.day) # end on last day of month
-            elif detail == 'week':
-                dates[0] = startDate.strftime('%Y-%m-%d') # start on startDate
-                dates[1] = startDate + timedelta(4) - timedelta(startDate.weekday()) # end on friday
+        if detail:
+            while startDate < stopDate:
+                if detail == 'year':
+                    dates[0] = startDate.strftime('%Y-%m-%d') # start on startDate
+                    dates[1] = startDate.replace(month=12, day=31) # end on Dec 31
+                elif detail == 'month':
+                    dates[0] = startDate.strftime('%Y-%m-%d') # start on startDate
+                    nextMonth = startDate.replace(day=28) + timedelta(4)
+                    dates[1] = nextMonth - timedelta(nextMonth.day) # end on last day of month
+                elif detail == 'week':
+                    dates[0] = startDate.strftime('%Y-%m-%d') # start on startDate
+                    dates[1] = startDate + timedelta(4) - timedelta(startDate.weekday()) # end on friday
 
-            if dates[1] > stopDate: dates[1] = stopDate # end on stopDate
-            dates[1] = dates[1].strftime('%Y-%m-%d')
+                if dates[1] > stopDate: dates[1] = stopDate # end on stopDate
+                dates[1] = dates[1].strftime('%Y-%m-%d')
 
-            results = get_results(dates, backtestName)
+                results = get_results(dates, backtestName)
 
-            f.write(dates[0] + ' - ' + dates[1] + '\n')
-            f.write(str(results) + '\n\n')
+                f.write(dates[0] + ' - ' + dates[1] + '\n')
+                f.write(str(results) + '\n\n')
 
-            if detail == 'year':
-                startDate = startDate.replace(year=startDate.year+1, month=1, day=1) # start on Jan 1
-            elif detail == 'month':
-                startDate = nextMonth - timedelta(nextMonth.day - 1) # start on first of month
-            elif detail == 'week':
-                startDate += timedelta(7) - timedelta(startDate.weekday()) # start on monday
+                if detail == 'year':
+                    startDate = startDate.replace(year=startDate.year+1, month=1, day=1) # start on Jan 1
+                elif detail == 'month':
+                    startDate = nextMonth - timedelta(nextMonth.day - 1) # start on first of month
+                elif detail == 'week':
+                    startDate += timedelta(7) - timedelta(startDate.weekday()) # start on monday
 
 def plot_backtest(backtestName: str, barFreq: str, symbol: str, dates: list, algoName: str) -> tuple:
     # backtestName: final directory containing backtest (algos and logs folders)
@@ -243,7 +244,7 @@ def plot_backtest(backtestName: str, barFreq: str, symbol: str, dates: list, alg
 
     # exit
     noTradesData = bars.loc[fromDate:toDate]
-    noTradesData.index = pd.DatetimeIndex(noTradesData.index).tz_convert(nyc)
+    noTradesData.index = pd.DatetimeIndex(noTradesData.index).tz_convert(nyc) # pylint: disable=no-member
     return figs, data, noTradesData
 
 def plot_indicators(figs: list, data: pd.DataFrame, indicators: list):
