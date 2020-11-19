@@ -1,6 +1,6 @@
 import globalVariables as g
 from algoClass import Algo
-from indicators import Indicator, momentum
+from indicators import Indicator, mom
 
 import logging, os
 from datetime import datetime
@@ -64,9 +64,9 @@ def allAlgos(algos):
 
 @fixture
 def indicators():
-    secInd = Indicator(2, 'sec', momentum)
-    minInd = Indicator(2, 'min', momentum)
-    dayInd = Indicator(2, 'day', momentum)
+    secInd = Indicator(2, 'sec', mom)
+    minInd = Indicator(2, 'min', mom)
+    dayInd = Indicator(2, 'day', mom)
     return {
         'sec': [secInd],
         'min': [minInd],
@@ -90,7 +90,7 @@ def bars(indicators):
         g.nyc.localize(datetime(2020, 2, 13, 16, 22, 13, 456789))]
     bars = DataFrame(data, index)
 
-    indicator = Indicator(2, 'min', momentum)
+    indicator = Indicator(2, 'min', mom)
     bars[indicator.name] = None
     jj = bars.columns.get_loc(indicator.name)
     for ii in range(len(bars.index)):

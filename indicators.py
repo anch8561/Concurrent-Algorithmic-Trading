@@ -31,13 +31,16 @@ class Indicator:
 
 
 # functions
-def momentum(self, bars):
+def mom(self, bars):
     # needs at least 2 bars
     openPrice = bars.vwap[-self.numBars]
     closePrice = bars.vwap[-1]
     return closePrice / openPrice - 1
 
-def volume_stdevs(self, bars):
+def stdev(self, bars):
+    return bars.vwap[-self.numBars:].std()
+
+def vol_stdevs(self, bars):
     volumes = bars.volume[-self.numBars:]
     mean = stats.mean(volumes)
     stdev = stats.stdev(volumes, mean)
@@ -56,10 +59,10 @@ def KAMA(self, bars): # kwargs: fastNumBars, slowNumBars
     return ta.momentum.kama(bars.vwap, self.numBars, self.fastNumBars, self.slowNumBars)[-1]
 
 def bollinger_high(self, bars):
-    return ta.volatility.bollinger_hband(bars.close, self.numBars, self.numStdevs)
+    return ta.volatility.bollinger_hband(bars.vwap, self.numBars, self.numStdevs)
 
 def bollinger_low(self, bars):
-    return ta.volatility.bollinger_lband(bars.close, self.numBars, self.numStdevs)
+    return ta.volatility.bollinger_lband(bars.vwap, self.numBars, self.numStdevs)
 
 
 # init
@@ -81,7 +84,11 @@ def init_indicators():
     # momentum
     numBars = 2
     indicators[barFreq] += [
-        Indicator(numBars, barFreq, momentum)]
+        Indicator(numBars, barFreq, mom)]
+
+    for numBars in (10, 20, 30):
+        indicators[barFreq] += [
+            Indicator(numBars, barFreq, stdev)]
 
     # EMA
     for numBars in (3, 5, 10, 20):
@@ -95,12 +102,12 @@ def init_indicators():
     # momentum
     for numBars in (3, 5, 10):
         indicators[barFreq] += [
-            Indicator(numBars, barFreq, momentum)]
+            Indicator(numBars, barFreq, mom)]
 
     # volume stdevs
     for numBars in (3, 5, 10):
         indicators[barFreq] += [
-            Indicator(numBars, barFreq, volume_stdevs)]
+            Indicator(numBars, barFreq, vol_stdevs)]
 
 
     ## ALL

@@ -9,8 +9,8 @@ from os import mkdir
 # NOTE: kwargs must be in correct order to generate correct name
 
 # intraday
-def momentum(self): # kwargs: numUpBars, numDownBars
-    indicator = str(2) + '_' + self.barFreq + '_momentum'
+def mom(self): # kwargs: numUpBars, numDownBars
+    indicator = str(2) + '_' + self.barFreq + '_mom'
     
     for symbol, bars in g.assets[self.barFreq].items():
         try:
@@ -26,19 +26,19 @@ def momentum(self): # kwargs: numUpBars, numDownBars
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars.iloc[-numBars:]}')
 
-# TODO: momentumMACD
+# TODO: mom_MACD
 
-def crossover(self): # kwargs: fastNumBars, slowNumBars, stdevNumBars, numStdevs
+def xo(self): # kwargs: fastNumBars, slowNumBars, stdevNumBars, numStdevs
     fastInd = str(self.fastNumBars) + '_' + self.barFreq + '_EMA'
     slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_EMA'
-    slowInd = str(self.stdevNumBars) + '_' + self.barFreq + '_stdevs'
+    stdevInd = str(self.stdevNumBars) + '_' + self.barFreq + '_stdev'
 
     for symbol, bars in g.assets[self.barFreq].items():
         try:
             if not bars.ticked[-1]:
-                if bars[fastInd][-1] - bars[slowInd][-1] > self.threshold: # trend up
+                if bars[fastInd][-1] - bars[slowInd][-1] > self.numStdevs * bars[stdevInd][-1]: # trend up
                     self.queue_order(symbol, 'buy')
-                elif bars[fastInd][-1] - bars[slowInd][-1] < self.threshold: # trend down
+                elif bars[fastInd][-1] - bars[slowInd][-1] < self.numStdevs * bars[stdevInd][-1]: # trend down
                     self.queue_order(symbol, 'sell')
         except Exception as e:
             if (
@@ -59,23 +59,19 @@ def bol_kama(self): # kwargs: numBars, numStdevs
 def init_intraday_algos(loadData: bool) -> list:
     algos = []
     for longShort in ('long', 'short'):
-        # momentum
-        for numUpBars in (2, 3, 4):
-            for numDownBars in (2, 3, 4):
-                algos.append(Algo('min', momentum, longShort, loadData,
-                    numUpBars=numUpBars, numDownBars=numDownBars))
-        
         # moving average crossover
         for slowNumBars in (5, 10, 20):
             for fastNumBars in (3, 5, 10):
                 if slowNumBars > fastNumBars:
-                    for threshold in (0.001, 0.0005, 0.0002):
-                        algos.append(Algo('min', crossover, longShort, loadData,
-                            fastNumBars=fastNumBars, slowNumBars=slowNumBars, threshold=threshold))
+                    for stdevNumBars in (10, 20, 30):
+                        for numStdevs in (0.5, 1, 1.5):
+                            algos.append(Algo('min', xo, longShort, loadData,
+                                fastNumBars=fastNumBars, slowNumBars=slowNumBars,
+                                stdevNumBars=stdevNumBars, numStdevs=numStdevs))
     return algos
 
 # overnight
-def momentum_volume(self): # kwargs: numBars
+def mom_vol(self): # kwargs: numBars
     # sort symbols
     # TODO: move to global resource
     indicatorPrefix = str(self.numBars) + '_' + self.barFreq
@@ -83,12 +79,12 @@ def momentum_volume(self): # kwargs: numBars
     for symbol, bars in g.assets[self.barFreq].items():
         try:
             metrics[symbol] = \
-                bars[indicatorPrefix + '_momentum'][-1] * \
-                bars[indicatorPrefix + '_volume_stdevs'][-1]
+                bars[indicatorPrefix + '_mom'][-1] * \
+                bars[indicatorPrefix + '_vol_stdevs'][-1]
         except Exception as e:
             if (
-                bars[indicatorPrefix + '_momentum'][-1] == None or
-                bars[indicatorPrefix + '_volume_stdevs'][-1] == None
+                bars[indicatorPrefix + '_mom'][-1] == None or
+                bars[indicatorPrefix + '_vol_stdevs'][-1] == None
             ):
                 self.log.debug(f'{symbol}\tMissing indicator (None)')
             else:
@@ -109,9 +105,9 @@ def momentum_volume(self): # kwargs: numBars
 
 def init_overnight_algos(loadData: bool) -> list:
     algos = []
-    for longShort in ('long', 'short'):
-        for numBars in (3, 5, 10):
-            algos.append(Algo('day', momentum_volume, longShort, loadData, numBars=numBars))
+    # for longShort in ('long', 'short'):
+    #     for numBars in (3, 5, 10):
+    #         algos.append(Algo('day', mom_vol, longShort, loadData, numBars=numBars))
     return algos
 
 
