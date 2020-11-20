@@ -236,8 +236,10 @@ def plot_backtest(backtestName: str, barFreq: str, symbol: str, dates: list, alg
             (dayData.tradePrice[dayData.trades.abs() == 2] * dayData.tradeQty[dayData.trades.abs() == 2]).sum()
         except: profit = None
         
-        # title
+        # title and grid
         axs[0].set_title(f'{algoName}\n{symbol}  |  {start.date()}  |  {profit:.3}%')
+        axs[0].grid(True)
+        axs[1].grid(True)
 
         # plot volume
         axs[1].bar(dayData.index, dayData.volume, 0.0005)
@@ -247,7 +249,7 @@ def plot_backtest(backtestName: str, barFreq: str, symbol: str, dates: list, alg
     noTradesData.index = pd.DatetimeIndex(noTradesData.index).tz_convert(nyc) # pylint: disable=no-member
     return figs, data, noTradesData
 
-def plot_indicators(figs: list, data: pd.DataFrame, indicators: list):
+def plot_indicators(figs: list, data: pd.DataFrame, indicators: list, subplot: int = 0):
     # figs: pyplot figures
     # data: barset
     # indicators: guess
@@ -271,8 +273,13 @@ def plot_indicators(figs: list, data: pd.DataFrame, indicators: list):
                 dayData.iloc[jj, kk] = indicator.get(dayData[:jj+1])
 
         # plot indicators
-        labels = ['vwap', 'filled buy', 'unfilled buy', 'unfilled sell', 'filled sell']
+        if subplot:
+            figs[ii].axes[1].clear()
+            figs[ii].axes[1].grid(True)
+            labels = []
+        else:
+            labels = ['vwap', 'filled buy', 'unfilled buy', 'unfilled sell', 'filled sell']
         for indicator in indicators:
-            figs[ii].axes[0].plot(dayData[indicator.name], linestyle=':')
+            figs[ii].axes[subplot].plot(dayData[indicator.name], linestyle=':')
             labels.append(indicator.name)
-        figs[ii].axes[0].legend(labels)
+        figs[ii].axes[subplot].legend(labels)
