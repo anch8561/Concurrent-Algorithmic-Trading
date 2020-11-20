@@ -6,14 +6,14 @@ import statistics as stats
 from unittest.mock import Mock, call
 
 def test_Indicator():
-    testInd = Indicator(3, 'min', print)
+    testInd = Indicator('min', print, numBars=3)
     # NOTE: skipping unused kwargs
     assert testInd.name == '3_min_print'
     assert testInd.func == print
 
 def test_Indicator_get():
     # setup
-    testInd = Indicator(3, 'min', print)
+    testInd = Indicator('min', print, numBars=3)
     testInd.func = Mock(return_value=123)
 
     # test
@@ -22,19 +22,19 @@ def test_Indicator_get():
     assert val == 123
 
 def test_mom(bars):
-    testInd = Indicator(3, 'min', indicators.mom)
+    testInd = Indicator('min', indicators.mom, numBars=3)
     val = testInd.get(bars)
     assert val == 567.56 / 456.45 - 1
 
 def test_vol_stdevs(bars):
-    testInd = Indicator(3, 'min', indicators.vol_stdevs)
+    testInd = Indicator('min', indicators.vol_stdevs, numBars=3)
     val = testInd.get(bars)
     expected = -1.091089451179962
     assert val - expected < 1e-6
 
 def test_EMA(bars):
     # 1st bar
-    testInd = Indicator(3, 'min', indicators.EMA)
+    testInd = Indicator('min', indicators.EMA, numBars=3)
     bars[testInd.name] = None
     val = testInd.get(bars)
     assert val == 567.56
@@ -47,7 +47,7 @@ def test_EMA(bars):
 
 def test_KAMA(bars):
     # 1st bar
-    testInd = Indicator(3, 'min', indicators.KAMA, fastNumBars=4, slowNumBars=5)
+    testInd = Indicator('min', indicators.KAMA, effNumBars=3, fastNumBars=4, slowNumBars=5)
     bars[testInd.name] = None
     val = testInd.get(bars)
     assert val == 567.56
