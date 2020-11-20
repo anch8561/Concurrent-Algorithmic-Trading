@@ -52,20 +52,21 @@ def xo(self): # kwargs: fastNumBars, slowNumBars, stdevNumBars, numStdevs
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
-def KAMA_trend(self): # kwargs: numBars
+def KAMA_trend(self): # kwargs: numBars, stdevNumBars, numStdevs
     fastInd = '10_2_' + str(self.numBars) + '_' + self.barFreq + '_KAMA'
     slowInd = str(self.numBars) + '_' + self.barFreq + '_EMA'
+    stdevInd = str(self.stdevNumBars) + '_' + self.barFreq + '_stdev'
 
     for symbol, bars in g.assets[self.barFreq].items():
         try:
             if not bars.ticked[-1]:
                 if ( # trend up
-                    bars[fastInd][-1] > bars[slowInd][-1] and
+                    bars[fastInd][-1] - bars[slowInd][-1] > self.numStdevs * bars[stdevInd][-1] and
                     bars[slowInd][-1] > bars[slowInd][-2] # filter KAMA slower than slowEMA
                 ):
                     self.queue_order(symbol, 'buy')
                 elif ( # trend down
-                    bars[fastInd][-1] < bars[slowInd][-1] and
+                    bars[fastInd][-1] - bars[slowInd][-1] < -self.numStdevs * bars[stdevInd][-1] and
                     bars[slowInd][-1] < bars[slowInd][-2] # filter KAMA slower than slowEMA
                 ):
                     self.queue_order(symbol, 'sell')
@@ -112,11 +113,15 @@ def init_intraday_algos(loadData: bool) -> list:
     algos = []
     for longShort in ('long', 'short'):
         # KAMA trend
-        for numBars in (10, 20, 30, 40, 50):
-            indicators = [
-                Indicator(10, 'min', ind.KAMA, fastNumBars=2, slowNumBars=numBars),
-                Indicator(numBars, 'min', ind.EMA)]
-            algos.append(Algo('min', KAMA_trend, indicators, longShort, loadData, numBars=numBars))
+        for numBars in (20, 30, 40, 50):
+            for stdevNumBars in (10, 20, 30):
+                for numStdevs in (0.5, 1.0):
+                    indicators = [
+                        Indicator('min', ind.KAMA, effNumBars=10, fastNumBars=2, slowNumBars=numBars),
+                        Indicator('min', ind.EMA, numBars=numBars),
+                        Indicator('min', ind.stdev, stdevNumBars=stdevNumBars)]
+                    algos.append(Algo('min', KAMA_trend, indicators, longShort, loadData,
+                        numBars=numBars, stdevNumBars=stdevNumBars, numStdevs=numStdevs))
         
         # KAMA spread
         # for slowNumBars in (5, 10, 20):
