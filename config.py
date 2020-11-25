@@ -16,7 +16,7 @@ minLongShortFrac = 0.3 # min fraction of total buying power to allocate long
 maxLongShortFrac = 0.7 # max fraction of total buying power to allocate long
 
 # init assets
-numAssets = 10 # default number of symbols to stream (-1 means all)
+numAssets = 200 # default number of symbols to stream (-1 means all)
 minSharePrice = 20
 minDayCashFlow = 1e8
 minDaySpread = 0.01
@@ -32,7 +32,7 @@ minTradeBuyPow = 100
 # get trade qty
 maxSectorFrac = 0.1 # unused
 maxIndustryFrac = 0.05 # unused
-maxPositionFrac = 0.1
+maxPositionFrac = 0.02
 
 # price fractions
 limitPriceFrac = 0
