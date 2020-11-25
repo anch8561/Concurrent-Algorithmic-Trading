@@ -1,8 +1,8 @@
 from datetime import timedelta
 
 # file paths
-barPath = 'backtesting/bars/' # path for historic barset files
 resultsPath = 'backtesting/backtests/' # path for backtest results
+savedBarPath = 'backtesting/bars/' # path for previously downloaded barsets
 
 # init logs
 defaultLogLevel = 'info' # default min log level sent to stderr

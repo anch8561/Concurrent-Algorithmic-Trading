@@ -25,15 +25,11 @@ def init_assets(
     # dates:
     # returns: assets dict; {barFreq: symbols: bars}
 
-    # get symbols
-    if getAssets:
-        # delete old barsets
-        choice = input('Delete old barsets? [Y/n] ')
-        if choice.lower() not in ('yes', 'ye', 'y'): sys.exit()
-        try: shutil.rmtree(c.barPath)
-        except: pass
-        os.mkdir(c.barPath)
+    # create barPath
+    os.mkdir(c.barPath)
 
+    # get symbols
+    if getAssets: # download barsets
         # download day bars and choose assets
         log.warning('Getting historic day bars')
         dayBars = {}
@@ -63,13 +59,13 @@ def init_assets(
         # download min bars
         histBars.get_historic_min_bars(alpaca, calendar, dayBars)
         
-    else:
-        # get downloaded symbols
+    else: # get downloaded symbols
         symbols = []
-        fileNames = os.listdir(c.barPath)
+        fileNames = os.listdir(c.savedBarPath)
         for name in fileNames:
             if name[:3] == 'day':
                 symbols.append(name[4:-4])
+                shutil.copyfile(c.savedBarPath + name, c.barPath + name)
                 if len(symbols) == numAssets: break
 
     # add symbols to assets and positions
