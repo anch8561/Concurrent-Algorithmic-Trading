@@ -139,6 +139,8 @@ if __name__ == '__main__':
     except: pass
     try: os.mkdir(path)
     except: pass
+    shutil.copyfile('backtesting/algoClass.py', path + 'algoClass.py')
+    shutil.copyfile('backtesting/algos.py', path + 'algos.py')
     shutil.copyfile('backtesting/config.py', path + 'config.py')
 
     # init logs, indicators, and algos
