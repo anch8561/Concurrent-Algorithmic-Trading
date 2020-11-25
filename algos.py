@@ -12,7 +12,7 @@ from os import mkdir
 
 # intraday
 def mom(self): # kwargs: numUpBars, numDownBars
-    indicator = '2_' + self.barFreq + '_mom'
+    indicator = '2_mom'
     
     for symbol, bars in g.assets[self.barFreq].items():
         try:
@@ -31,9 +31,9 @@ def mom(self): # kwargs: numUpBars, numDownBars
 # TODO: mom_MACD
 
 def xo(self): # kwargs: fastNumBars, slowNumBars, stdevNumBars, numStdevs
-    fastInd = str(self.fastNumBars) + '_' + self.barFreq + '_EMA'
-    slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_EMA'
-    stdevInd = str(self.stdevNumBars) + '_' + self.barFreq + '_stdev'
+    fastInd = str(self.fastNumBars) + '_EMA'
+    slowInd = str(self.slowNumBars) + '_EMA'
+    stdevInd = str(self.stdevNumBars) + '_stdev'
 
     for symbol, bars in g.assets[self.barFreq].items():
         try:
@@ -52,24 +52,36 @@ def xo(self): # kwargs: fastNumBars, slowNumBars, stdevNumBars, numStdevs
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
-def KAMA_trend(self): # kwargs: numBars, stdevNumBars, numStdevs
-    fastInd = '10_2_' + str(self.numBars) + '_' + self.barFreq + '_KAMA'
-    slowInd = str(self.numBars) + '_' + self.barFreq + '_EMA'
-    stdevInd = str(self.stdevNumBars) + '_' + self.barFreq + '_stdev'
+def KAMA_trend(self): # kwargs: numBars
+    fastInd = '10_2_' + str(self.numBars) + '_KAMA'
+    slowInd = str(self.numBars) + '_EMA'
 
     for symbol, bars in g.assets[self.barFreq].items():
         try:
             if not bars.ticked[-1]:
-                if ( # trend up
-                    bars[fastInd][-1] - bars[slowInd][-1] > self.numStdevs * bars[stdevInd][-1] and
-                    bars[slowInd][-1] > bars[slowInd][-2] # filter KAMA slower than slowEMA
-                ):
-                    self.queue_order(symbol, 'buy')
-                elif ( # trend down
-                    bars[fastInd][-1] - bars[slowInd][-1] < -self.numStdevs * bars[stdevInd][-1] and
-                    bars[slowInd][-1] < bars[slowInd][-2] # filter KAMA slower than slowEMA
-                ):
-                    self.queue_order(symbol, 'sell')
+                if self.longShort == 'long':
+                    if ( # trend up
+                        bars[fastInd][-1] - bars[slowInd][-1] > 0.001 * bars.vwap[-1] and
+                        bars[slowInd][-1] > bars[slowInd][-2] # filter KAMA slower than slowEMA
+                    ):
+                        self.queue_order(symbol, 'buy')
+                    elif ( # trend down
+                        bars[fastInd][-1] < bars[slowInd][-1] and
+                        bars[slowInd][-1] < bars[slowInd][-2] # filter KAMA slower than slowEMA
+                    ):
+                        self.queue_order(symbol, 'sell')
+
+                elif self.longShort == 'short':
+                    if ( # trend down
+                        bars[fastInd][-1] - bars[slowInd][-1] < 0.001 * bars.vwap[-1]  and
+                        bars[slowInd][-1] < bars[slowInd][-2] # filter KAMA slower than slowEMA
+                    ):
+                        self.queue_order(symbol, 'sell')
+                    elif ( # trend up
+                        bars[fastInd][-1] > bars[slowInd][-1] and
+                        bars[slowInd][-1] > bars[slowInd][-2] # filter KAMA slower than slowEMA
+                    ):
+                        self.queue_order(symbol, 'buy')
         except Exception as e:
             if (
                 bars[fastInd][-1] == None or
@@ -79,11 +91,52 @@ def KAMA_trend(self): # kwargs: numBars, stdevNumBars, numStdevs
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
+def KAMA_trend_stdev(self): # kwargs: numBars, numStdevs
+    fastInd = '10_1_' + str(self.numBars) + '_KAMA'
+    slowInd = str(self.numBars) + '_EMA'
+    stdevInd = '20_10_1_5_KAMA_moving_stdev'
+
+    for symbol, bars in g.assets[self.barFreq].items():
+        try:
+            if not bars.ticked[-1]:
+                if self.longShort == 'long':
+                    if ( # trend up
+                        bars[fastInd][-1] - bars[slowInd][-1] > self.numStdevs * bars[stdevInd][-1] and
+                        bars[slowInd][-1] > bars[slowInd][-2] # filter KAMA slower than slowEMA
+                    ):
+                        self.queue_order(symbol, 'buy')
+                    elif ( # trend down
+                        bars[fastInd][-1] < bars[slowInd][-1] and
+                        bars[slowInd][-1] < bars[slowInd][-2] # filter KAMA slower than slowEMA
+                    ):
+                        self.queue_order(symbol, 'sell')
+
+                elif self.longShort == 'short':
+                    if ( # trend down
+                        bars[fastInd][-1] - bars[slowInd][-1] < -self.numStdevs * bars[stdevInd][-1] and
+                        bars[slowInd][-1] < bars[slowInd][-2] # filter KAMA slower than slowEMA
+                    ):
+                        self.queue_order(symbol, 'sell')
+                    elif ( # trend up
+                        bars[fastInd][-1] > bars[slowInd][-1] and
+                        bars[slowInd][-1] > bars[slowInd][-2] # filter KAMA slower than slowEMA
+                    ):
+                        self.queue_order(symbol, 'buy')
+        except Exception as e:
+            if (
+                bars[fastInd][-1] == None or
+                bars[slowInd][-1] == None or
+                bars[stdevInd][-1] == None
+            ):
+                self.log.debug(f'{symbol}\tMissing indicator (None)')
+            else:
+                self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
+
 
 def KAMA_spread(self): # kwargs: effNumBars, fastNumBars, slowNumBars
-    fastInd = str(self.effNumBars) + '_' + str(self.fastNumBars) + '_' + \
-        str(self.slowNumBars) + '_' + self.barFreq + '_KAMA'
-    slowInd = str(self.slowNumBars) + '_' + self.barFreq + '_EMA'
+    fastInd = str(self.effNumBars) + '_' + str(self.fastNumBars) + '_' + str(self.slowNumBars) + '_KAMA'
+    slowInd = str(self.slowNumBars) + '_EMA'
+    stdevInd = '20_10_1_5_KAMA_moving_stdev'
 
     for symbol, bars in g.assets[self.barFreq].items():
         try:
@@ -95,33 +148,85 @@ def KAMA_spread(self): # kwargs: effNumBars, fastNumBars, slowNumBars
         except Exception as e:
             if (
                 bars[fastInd][-1] == None or
-                bars[slowInd][-1] == None
+                bars[slowInd][-1] == None or
+                bars[stdevInd][-1] == None
             ):
                 self.log.debug(f'{symbol}\tMissing indicator (None)')
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
 
-def bol(self): # kwargs: numBars, numStdevs
-    pass
+def stdev_spread(self): # kwargs: numBars, numStdevsEnter, numStdevsExit
+    MAInd = f'10_2_30_KAMA'
+    stdevInd = f'{self.numBars}_stdev'
+    # TODO: close instead of vwap?
+    # TODO: do not enter after stop loss
 
-def bol_kama(self): # kwargs: numBars, numStdevs
-    pass
-
+    for symbol, bars in g.assets[self.barFreq].items():
+        try:
+            if not bars.ticked[-1]:
+                if self.longShort == 'long':
+                    if bars.vwap[-1] < bars[MAInd][-1] - self.numStdevsEnter * bars[stdevInd][-1]:
+                        self.queue_order(symbol, 'buy')
+                    elif bars.vwap[-1] > bars[MAInd][-1] + self.numStdevsExit * bars[stdevInd][-1]:
+                        self.queue_order(symbol, 'sell')
+                elif self.longShort == 'short':
+                    if bars.vwap[-1] < bars[MAInd][-1] - self.numStdevsExit * bars[stdevInd][-1]:
+                        self.queue_order(symbol, 'buy')
+                    elif bars.vwap[-1] > bars[MAInd][-1] + self.numStdevsEnter * bars[stdevInd][-1]:
+                        self.queue_order(symbol, 'sell')
+        except Exception as e:
+            if (
+                bars[MAInd][-1] == None or
+                bars[stdevInd][-1] == None
+            ):
+                self.log.debug(f'{symbol}\tMissing indicator (None)')
+            else:
+                self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
 def init_intraday_algos(loadData: bool) -> list:
     algos = []
     for longShort in ('long', 'short'):
         # KAMA trend
-        for numBars in (20, 30, 40, 50):
-            for stdevNumBars in (10, 20, 30):
-                for numStdevs in (0.5, 1.0):
-                    indicators = [
-                        Indicator('min', ind.KAMA, effNumBars=10, fastNumBars=2, slowNumBars=numBars),
-                        Indicator('min', ind.EMA, numBars=numBars),
-                        Indicator('min', ind.stdev, stdevNumBars=stdevNumBars)]
-                    algos.append(Algo('min', KAMA_trend, indicators, longShort, loadData,
-                        numBars=numBars, stdevNumBars=stdevNumBars, numStdevs=numStdevs))
+        # MAInd = Indicator(ind.KAMA, effNumBars=10, fastNumBars=1, slowNumBars=5)
+        # for numBars in [20]:
+        #     for numStdevs in [0.8]:
+        #         indicators = [
+        #             MAInd, # this must tick before moving_stdev
+        #             Indicator(ind.KAMA, effNumBars=10, fastNumBars=1, slowNumBars=numBars),
+        #             Indicator(ind.EMA, numBars=numBars),
+        #             Indicator(ind.moving_stdev, numBars=20, MAInd=MAInd)]
+        #         algos.append(Algo('min', KAMA_trend, indicators, longShort, loadData,
+        #             numBars=numBars, numStdevs=numStdevs))
+
+        # stdev spread
+        for numBars in [10, 20, 30]:
+            for numStdevsEnter in [1.0, 1.5, 2.0]:
+                for numStdevsExit in [1.0, 1.5, 2.0]:
+                    if numStdevsExit <= numStdevsEnter:
+                        indicators = [
+                            Indicator(ind.KAMA, effNumBars=10, fastNumBars=2, slowNumBars=30),
+                            Indicator(ind.stdev, numBars=numBars)]
+                        algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
+                            numBars=numBars, numStdevsEnter=numStdevsEnter, numStdevsExit=numStdevsExit))
+        # for numBars in [10, 20]:
+        #     for numStdevsEnter in [1.0, 1.5]:
+        #         for numStdevsExit in [1.0, 1.5]:
+        #             if numStdevsExit <= numStdevsEnter:
+        #                 indicators = [
+        #                     Indicator(ind.KAMA, effNumBars=10, fastNumBars=2, slowNumBars=30),
+        #                     Indicator(ind.stdev, numBars=numBars)]
+        #                 algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
+        #                     numBars=numBars, numStdevsEnter=numStdevsEnter, numStdevsExit=numStdevsExit))
+        # for numBars in [30]:
+        #     for numStdevsEnter in [1.0, 1.5, 2.0]:
+        #         for numStdevsExit in [1.0, 1.5, 2.0]:
+        #             if numStdevsExit <= numStdevsEnter:
+        #                 indicators = [
+        #                     Indicator(ind.KAMA, effNumBars=10, fastNumBars=2, slowNumBars=30),
+        #                     Indicator(ind.stdev, numBars=numBars)]
+        #                 algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
+        #                     numBars=numBars, numStdevsEnter=numStdevsEnter, numStdevsExit=numStdevsExit))
         
         # KAMA spread
         # for slowNumBars in (5, 10, 20):
@@ -137,17 +242,17 @@ def init_intraday_algos(loadData: bool) -> list:
 def mom_vol(self): # kwargs: numBars
     # sort symbols
     # TODO: move to global resource
-    indicatorPrefix = str(self.numBars) + '_' + self.barFreq
+    indPrefix = str(self.numBars)
     metrics = {}
     for symbol, bars in g.assets[self.barFreq].items():
         try:
             metrics[symbol] = \
-                bars[indicatorPrefix + '_mom'][-1] * \
-                bars[indicatorPrefix + '_vol_stdevs'][-1]
+                bars[indPrefix + '_mom'][-1] * \
+                bars[indPrefix + '_vol_stdevs'][-1]
         except Exception as e:
             if (
-                bars[indicatorPrefix + '_mom'][-1] == None or
-                bars[indicatorPrefix + '_vol_stdevs'][-1] == None
+                bars[indPrefix + '_mom'][-1] == None or
+                bars[indPrefix + '_vol_stdevs'][-1] == None
             ):
                 self.log.debug(f'{symbol}\tMissing indicator (None)')
             else:
