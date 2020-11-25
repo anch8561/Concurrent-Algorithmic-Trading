@@ -9,15 +9,16 @@ log = getLogger('indicators')
 
 # class
 class Indicator:
-    def __init__(self, barFreq, func, name=None, **kwargs):
-        self.barFreq = barFreq # 'sec', 'min', or 'day'
+    def __init__(self, func, **kwargs):
         self.func = func
         self.name = ''
         for key, val in kwargs.items(): # e.g. moving average function
             self.__setattr__(key, val)
-            self.name += str(val) + '_'
-        self.name += barFreq + '_' + func.__name__
-        if name: self.name = name
+            if type(val) == Indicator:
+                self.name += val.name + '_'
+            else:
+                self.name += str(val) + '_'
+        self.name += func.__name__
     
     def get(self, bars):
         # bars: DataFrame
@@ -25,14 +26,17 @@ class Indicator:
         except Exception as e:
             try: # may have numBars kwarg
                 if len(bars.index) > self.numBars: # bars[0] values may be None
-                    log.exception(f'{self.name}\n{e}\n{bars}')
+                    log.exception(f'{self.name}\n{e}\n{bars[-self.numBars:]}')
             except:
                 if len(bars.index) > 1: # bars[0] values may be None
-                    log.exception(f'{self.name}\n{e}\n{bars}')
+                    log.exception(f'{self.name}\n{e}\n{bars.tail()}')
             return None
 
 
 # plotting
+def val(self, bars): # val
+    return bars[self.val][-1]
+
 def diff(self, bars): # kwargs: ind1, ind2
     try:
         val1 = self.ind1.get(bars)
@@ -46,8 +50,10 @@ def diff(self, bars): # kwargs: ind1, ind2
         return val1 - val2
     except: return None
 
-def neg(self, bars): # kwargs: ind
-    return -self.ind.get(bars)
+def mult(self, bars): # kwargs: mult, ind
+    val = self.ind.get(bars)
+    if val == None: return None
+    return self.mult * val
 
 
 # functions
@@ -61,14 +67,8 @@ def stdev(self, bars): # kwargs: numBars
     return bars.vwap[-self.numBars:].std()
 
 def moving_stdev(self, bars): # kwargs: numBars, MAInd
-    # NOTE: must add MA column
-
-    # get EMA
-    val = self.MAInd.get(bars)
-    ii = bars.columns.get_loc(self.MAInd.name)
-    bars.iloc[-1, ii] = val
-
-    # get stdev
+    if any(bars[self.MAInd.name][-self.numBars:].isnull()):
+        return None
     vec = bars.vwap[-self.numBars:] - bars[self.MAInd.name][-self.numBars:]
     return vec.abs().sum() / (self.numBars - 1)**0.5
 
@@ -81,9 +81,9 @@ def vol_stdevs(self, bars): # kwargs: numBars
 
 def EMA(self, bars): # kwargs: numBars
     # 1st val
-    if bars[self.name][-2] == None:
+    if len(bars.index) == 2:
         return bars.vwap[-1]
-    
+
     # prices
     prev = bars[self.name][-2]
     new = bars.vwap[-1]
@@ -91,16 +91,12 @@ def EMA(self, bars): # kwargs: numBars
     # smoothing constant
     SC = 2/(1+self.numBars)
 
-    # typical val
+    # exit
     return prev + SC * (new - prev)
 
 def KAMA(self, bars): # kwargs: effNumBars, fastNumBars, slowNumBars
     # numBars is volatility window controlling EMA constant
     try:
-        # 1st val
-        if bars[self.name][-2] == None:
-            return bars.vwap[-1]
-        
         # prices
         prev = bars[self.name][-2]
         new = bars.vwap[-1]
@@ -115,13 +111,20 @@ def KAMA(self, bars): # kwargs: effNumBars, fastNumBars, slowNumBars
         slowSC = 2/(1+self.slowNumBars)
         SC = (ER * (fastSC - slowSC) + slowSC)**2
 
-        # typical val
+        # 1st val (1st bar is empty)
+        if len(bars.index) == self.effNumBars + 1:
+            prev = bars.vwap[1]
+            for new in bars.vwap[2:-1]:
+                prev = prev + SC * (new - prev)
+            new = bars.vwap[-1]
+        
+        # exit
         return prev + SC * (new - prev)
 
     except Exception as e:
         numBars = max(self.effNumBars, self.fastNumBars, self.slowNumBars)
         if len(bars.index) > numBars:
-            log.exception(f'{self.name}\n{e}\n{bars}')
+            log.exception(f'{self.name}\n{e}\n{bars[-numBars:]}')
         return None
 
 
