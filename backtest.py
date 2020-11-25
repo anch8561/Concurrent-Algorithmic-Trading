@@ -50,8 +50,8 @@ def parse_args(args):
             'black swan: days with deltas over 5%%\n') # estimates subject to change
     parser.add_argument(
         '--name',
-        default = datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),
-        help = 'name of folder where backtest will be saved (default: current timestamp)')
+        default = '',
+        help = 'backtest will be saved in a folder named <timestamp + name> (e.g. 2001-02-03_12:34:56_myBacktest)')
     parser.add_argument(
         '--numAssets',
         default = c.numAssets,
@@ -124,10 +124,16 @@ def process_trades(allAlgos: list):
 if __name__ == '__main__':
     # parse arguments
     args = parse_args(sys.argv[1:])
+    name = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    if args.name:
+        args.name = name + '_' + args.name
+    else:
+        args.name = name
 
     # create backtest dir
     path = c.resultsPath + args.name + '/'
     c.algoPath = path + 'algos/'
+    c.barPath = path + 'bars/'
     c.logPath = path + 'logs/'
     try: os.mkdir(c.resultsPath)
     except: pass
@@ -165,7 +171,6 @@ if __name__ == '__main__':
     # init assets
     g.assets = init_assets(alpaca, calendar, algos['all'], indicators,
         args.getAssets, args.numAssets, args.dates)
-    shutil.copytree('backtesting/bars', path + 'bars')
 
     # init "streaming"
     barGens = histBars.init_bar_gens(['min', 'day'], g.assets['day'])
@@ -210,7 +215,7 @@ if __name__ == '__main__':
 
             # clear min bars
             for bars in g.assets['min'].values():
-                bars = bars[0:0]
+                bars = bars[0]
     
     # results
-    results.save_results_summary(args.dates, args.name)
+    results.save_backtest_summary(args.dates, args.name)
