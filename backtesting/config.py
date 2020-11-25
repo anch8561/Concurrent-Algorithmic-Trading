@@ -3,6 +3,9 @@ from datetime import timedelta
 # file paths
 resultsPath = 'backtesting/backtests/' # path for backtest results
 savedBarPath = 'backtesting/bars/' # path for previously downloaded barsets
+algoPath = 'backtesting/backtests/backtestName/algos' # overwritten in backtest.py
+barPath = 'backtesting/backtests/backtestName/bars/' # overwritten in backtest.py
+logPath = 'backtesting/backtests/backtestName/logs/' # overwritten in backtest.py
 
 # init logs
 defaultLogLevel = 'info' # default min log level sent to stderr
