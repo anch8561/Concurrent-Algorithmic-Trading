@@ -139,8 +139,8 @@ if __name__ == '__main__':
     except: pass
     try: os.mkdir(path)
     except: pass
-    shutil.copyfile('backtesting/algoClass.py', path + 'algoClass.py')
-    shutil.copyfile('backtesting/algos.py', path + 'algos.py')
+    shutil.copyfile('algoClass.py', path + 'algoClass.py')
+    shutil.copyfile('algos.py', path + 'algos.py')
     shutil.copyfile('backtesting/config.py', path + 'config.py')
 
     # init logs, indicators, and algos
@@ -216,8 +216,8 @@ if __name__ == '__main__':
             dateStr = calendar[dateIdx]._raw['date']
 
             # clear min bars
-            for bars in g.assets['min'].values():
-                bars = bars[0]
+            for symbol, bars in g.assets['min'].items():
+                g.assets['min'][symbol] = bars.drop(bars.index[1:])
     
     # results
     results.save_backtest_summary(args.dates, args.name)
