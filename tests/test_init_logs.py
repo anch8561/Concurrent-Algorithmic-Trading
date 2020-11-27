@@ -35,22 +35,25 @@ def test_init_primary_logs(formatter):
     # root log
     log = logging.getLogger()
     assert log.level == logging.DEBUG
-    assert len(log.handlers) == 3
+    assert len(log.handlers) == 2
     assert log.handlers[0].level == logging.INFO
-    assert log.handlers[1].level == logging.DEBUG
-    assert log.handlers[2].level == logging.WARNING
+    assert log.handlers[1].level == logging.WARNING
     for hdlr in log.handlers:
         assert hdlr.formatter == formatter
 
     # stream log
     log = logging.getLogger('stream')
     assert log.level == logging.DEBUG
-    assert log.handlers == []
+    assert len(log.handlers) == 1
+    for hdlr in log.handlers:
+        assert hdlr.formatter == formatter
 
     # indicators log
     log = logging.getLogger('indicators')
     assert log.level == logging.DEBUG
-    assert log.handlers == []
+    assert len(log.handlers) == 1
+    for hdlr in log.handlers:
+        assert hdlr.formatter == formatter
 
 def test_init_algo_logs(formatter, allAlgos):
     init_logs.init_algo_logs(allAlgos, formatter)

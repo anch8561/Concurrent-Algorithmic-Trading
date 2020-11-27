@@ -11,7 +11,7 @@ from unittest.mock import patch, call
 def test_process_bar(bars, indicators):
     # setup
     g.assets['min']['AAPL'] = bars.iloc[:-1]
-    data = bars.iloc[-1].copy().drop('2_min_mom')
+    data = bars.iloc[-1].copy().drop('2_mom')
     data['start'] = bars.index[-1]
     data['symbol'] = 'AAPL'
 
@@ -29,7 +29,7 @@ def test_compile_day_bars(bars, indicators):
 
     # old day bars
     dayBars = dict.fromkeys(['open', 'high', 'low', 'close',
-        'volume', 'ticked', '2_day_mom'])
+        'volume', 'ticked', '2_mom'])
     dayBars['vwap'] = 837.59
     yesterday = g.nyc.localize(datetime(2020, 2, 12))
     g.assets['day']['AAPL'] = DataFrame(dayBars, [yesterday])
@@ -43,7 +43,7 @@ def test_compile_day_bars(bars, indicators):
         'volume': bars.volume[1:].sum(),
         'ticked': False}
     newBar['vwap'] = (bars.volume[1:] * bars.vwap[1:]).sum() / newBar['volume']
-    newBar['2_day_mom'] = newBar['vwap'] / dayBars['vwap'] - 1
+    newBar['2_mom'] = newBar['vwap'] / dayBars['vwap'] - 1
     date = g.nyc.localize(datetime(2020, 2, 13))
     expected = g.assets['day']['AAPL'].append(DataFrame(newBar, [date]))
     

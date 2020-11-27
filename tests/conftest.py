@@ -64,9 +64,9 @@ def allAlgos(algos):
 
 @fixture
 def indicators():
-    secInd = Indicator('sec', mom, numBars=2)
-    minInd = Indicator('min', mom, numBars=2)
-    dayInd = Indicator('day', mom, numBars=2)
+    secInd = Indicator(mom, numBars=2)
+    minInd = Indicator(mom, numBars=2)
+    dayInd = Indicator(mom, numBars=2)
     return {
         'sec': [secInd],
         'min': [minInd],
@@ -90,7 +90,7 @@ def bars(indicators):
         g.nyc.localize(datetime(2020, 2, 13, 16, 22, 13, 456789))]
     bars = DataFrame(data, index)
 
-    indicator = Indicator('min', mom, numBars=2)
+    indicator = Indicator(mom, numBars=2)
     bars[indicator.name] = None
     jj = bars.columns.get_loc(indicator.name)
     for ii in range(len(bars.index)):
