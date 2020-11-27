@@ -60,7 +60,7 @@ def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
     # loggers
     logging.basicConfig(
         level = logging.DEBUG,
-        handlers = [consoleHdlr, debugHdlr, warningHdlr],
+        handlers = [consoleHdlr, warningHdlr],
         force = True)
 
     streamLog = logging.getLogger('main')
