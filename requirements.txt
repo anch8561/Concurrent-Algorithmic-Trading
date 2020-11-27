@@ -1,4 +1,4 @@
-alpaca_trade_api==0.48
+alpaca_trade_api==0.51
 numpy==1.19.0
 pytz==2020.1
 requests==2.22.0
