@@ -14,14 +14,14 @@ def init_assets(
     calendar: list,
     allAlgos: list,
     indicators: dict,
-    getAssets: bool,
     numAssets: int,
+    useSavedAssets: bool,
     dates: (str, str)) -> dict:
     # alpaca:
     # calendar:
     # allALgos:
-    # getAssets:
     # numAssets:
+    # useSavedAssets:
     # dates:
     # returns: assets dict; {barFreq: symbols: bars}
 
@@ -29,7 +29,15 @@ def init_assets(
     os.mkdir(c.barPath)
 
     # get symbols
-    if getAssets: # download barsets
+    if useSavedAssets: # get downloaded symbols
+        symbols = []
+        fileNames = os.listdir(c.savedBarPath)
+        for name in fileNames:
+            if name[:3] == 'day':
+                symbols.append(name[4:-4])
+                shutil.copyfile(c.savedBarPath + name, c.barPath + name)
+                if len(symbols) == numAssets: break
+    else: # download barsets
         # download day bars and choose assets
         log.warning('Getting historic day bars')
         dayBars = {}
@@ -58,15 +66,6 @@ def init_assets(
 
         # download min bars
         histBars.get_historic_min_bars(alpaca, calendar, dayBars)
-        
-    else: # get downloaded symbols
-        symbols = []
-        fileNames = os.listdir(c.savedBarPath)
-        for name in fileNames:
-            if name[:3] == 'day':
-                symbols.append(name[4:-4])
-                shutil.copyfile(c.savedBarPath + name, c.barPath + name)
-                if len(symbols) == numAssets: break
 
     # add symbols to assets and positions
     assets = {'sec': {}, 'min': {}, 'day': {}}
