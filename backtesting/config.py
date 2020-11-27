@@ -14,7 +14,7 @@ defaultLogLevel = 'info' # default min log level sent to stderr
 buyPow = 1e5
 
 # init assets
-numAssets = 10 # default number of symbols to "stream" (-1 means all)
+numAssets = 40 # default number of symbols to "stream" (-1 means all)
 leverageStrings = ('leveraged', '1.5x', '2x', '3x')
 minSharePrice = 20
 minDayCashFlow = 1e8
