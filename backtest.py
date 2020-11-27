@@ -112,11 +112,11 @@ def process_trades(allAlgos: list):
 if __name__ == '__main__':
     # parse arguments
     args = parse_args(sys.argv[1:])
-    name = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     if args.name:
-        args.name = name + '_' + args.name
+        args.name = timestamp + '_' + args.name
     else:
-        args.name = name
+        args.name = timestamp
 
     # create backtest dir
     path = c.resultsPath + args.name + '/'

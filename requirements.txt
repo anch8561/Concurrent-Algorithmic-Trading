@@ -1,3 +1,9 @@
-alpaca_trade_api
-scipy
-ta
+alpaca_trade_api==0.48
+numpy==1.19.0
+pytz==2020.1
+requests==2.22.0
+ta==0.5.25
+scipy==1.5.1
+pandas==1.0.5
+matplotlib==3.3.3
+pytest==6.1.2
