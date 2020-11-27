@@ -46,6 +46,19 @@ def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
     warningHdlr.setLevel(logging.WARNING)
     warningHdlr.setFormatter(fmtr)
 
+    mainHdlr = logging.FileHandler(c.logPath + 'main.log')
+    mainHdlr.setLevel(logging.DEBUG)
+    mainHdlr.setFormatter(fmtr)
+    
+    streamHdlr = logging.FileHandler(c.logPath + 'stream.log')
+    streamHdlr.setLevel(logging.DEBUG)
+    streamHdlr.setFormatter(fmtr)
+    
+    indicatorsHdlr = logging.FileHandler(c.logPath + 'indicators.log')
+    indicatorsHdlr.setLevel(logging.DEBUG)
+    indicatorsHdlr.setFormatter(fmtr)
+
+
     # toaddrs = c.criticalEmails if env == 'prod' else email.username
     # emailHdlr = logging.handlers.SMTPHandler(
     #     mailhost = ('smtp.gmail.com', 465),
@@ -63,14 +76,17 @@ def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
         handlers = [consoleHdlr, warningHdlr],
         force = True)
 
-    streamLog = logging.getLogger('main')
-    streamLog.setLevel(logging.DEBUG)
+    mainLog = logging.getLogger('main')
+    mainLog.setLevel(logging.DEBUG)
+    log.addHandler(mainHdlr)
 
     streamLog = logging.getLogger('stream')
     streamLog.setLevel(logging.DEBUG)
+    log.addHandler(streamHdlr)
 
     indicatorsLog = logging.getLogger('indicators')
     indicatorsLog.setLevel(logging.DEBUG)
+    log.addHandler(indicatorsHdlr)
 
 def init_algo_logs(allAlgos, fmtr: logging.Formatter):
     # allAlgos: list of all algos
@@ -84,5 +100,5 @@ def init_algo_logs(allAlgos, fmtr: logging.Formatter):
         hdlr.setFormatter(fmtr)
 
         # logger
-        algo.log.addHandler(hdlr)
         algo.log.setLevel(logging.DEBUG)
+        algo.log.addHandler(hdlr)
