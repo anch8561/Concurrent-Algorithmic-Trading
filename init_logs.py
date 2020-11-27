@@ -42,10 +42,6 @@ def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
     consoleHdlr.setLevel(logLevel.upper())
     consoleHdlr.setFormatter(fmtr)
 
-    debugHdlr = logging.FileHandler(c.logPath + 'debug.log')
-    debugHdlr.setLevel(logging.DEBUG)
-    debugHdlr.setFormatter(fmtr)
-
     warningHdlr = logging.FileHandler(c.logPath + 'warning.log')
     warningHdlr.setLevel(logging.WARNING)
     warningHdlr.setFormatter(fmtr)
