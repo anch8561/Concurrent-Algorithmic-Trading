@@ -58,7 +58,6 @@ def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
     indicatorsHdlr.setLevel(logging.DEBUG)
     indicatorsHdlr.setFormatter(fmtr)
 
-
     # toaddrs = c.criticalEmails if env == 'prod' else email.username
     # emailHdlr = logging.handlers.SMTPHandler(
     #     mailhost = ('smtp.gmail.com', 465),
@@ -78,15 +77,15 @@ def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
 
     mainLog = logging.getLogger('main')
     mainLog.setLevel(logging.DEBUG)
-    log.addHandler(mainHdlr)
+    mainLog.addHandler(mainHdlr)
 
     streamLog = logging.getLogger('stream')
     streamLog.setLevel(logging.DEBUG)
-    log.addHandler(streamHdlr)
+    streamLog.addHandler(streamHdlr)
 
     indicatorsLog = logging.getLogger('indicators')
     indicatorsLog.setLevel(logging.DEBUG)
-    log.addHandler(indicatorsHdlr)
+    indicatorsLog.addHandler(indicatorsHdlr)
 
 def init_algo_logs(allAlgos, fmtr: logging.Formatter):
     # allAlgos: list of all algos
