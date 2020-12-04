@@ -162,6 +162,7 @@ def plot_backtest(backtestName: str, barFreq: str, symbol: str, dates: list, alg
         header=0, index_col=0, parse_dates=True)
     fromDate, toDate = get_dates(dates)
     data = bars.loc[fromDate:toDate]
+    data.loc[data.index[-1] + timedelta(minutes=2)] = data.iloc[-1] # fixes year out of range bug
     data.index = pd.DatetimeIndex(data.index).tz_convert(nyc) # pylint: disable=no-member
     
     figs = [] # TODO: rename
@@ -275,8 +276,7 @@ def plot_backtest(backtestName: str, barFreq: str, symbol: str, dates: list, alg
             axs[1].grid(True)
 
             # plot volume
-            # FIX: "ValueError: year 72991 is out of range" on some symbols (or year 73003)
-            # axs[1].bar(dayData.index, dayData.volume, 0.0005)
+            axs[1].bar(dayData.index, dayData.volume, 0.0005)
             labels[ii][jj][1].append('volume')
 
             # plot legend
