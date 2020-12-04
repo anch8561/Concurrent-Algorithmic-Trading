@@ -36,6 +36,8 @@ def init_assets(
             if name[:3] == 'day':
                 symbols.append(name[4:-4])
                 shutil.copyfile(c.savedBarPath + name, c.barPath + name)
+                name = 'min' + name[3:]
+                shutil.copyfile(c.savedBarPath + name, c.barPath + name)
                 if len(symbols) == numAssets: break
     else: # download barsets
         # download day bars and choose assets
