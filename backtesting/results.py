@@ -4,6 +4,7 @@ from indicators import Indicator
 from tick_algos import get_limit_price
 
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import pandas as pd
 import importlib, ta
 from datetime import datetime, timedelta
@@ -80,6 +81,8 @@ def get_combined_backtest_history(dates: list, backtestNames: list, deltaNeutral
     # backtestNames: names of folders where backtests are stored
     # returns: growth fractions of algos with date str index
 
+    # TODO: store all backtests to combine in folder; pass folder name as arg
+
     history = pd.DataFrame()
     for backtestName in backtestNames:
         backtestHistory = get_backtest_history(dates, backtestName, deltaNeutral)
@@ -142,11 +145,17 @@ def save_backtest_summary(dates: list, backtestName: str, deltaNeutral: bool = T
                 elif detail == 'week':
                     startDate += timedelta(7) - timedelta(startDate.weekday()) # start on monday
 
-def plot_backtest(backtestName: str, barFreq: str, symbol: str, dates: list, algoNames: list) -> tuple:
+def plot_backtest(backtestName: str, barFreq: str, algoNames: list, symbols: list, dates: list) -> tuple:
     # backtestName: final directory containing backtest (algos and logs folders)
     # barFreq: for plotting price data
-    # dates: start and stop date
     # algoNames: list of algo.name strings
+    # symbols: ticker strings
+    # dates: start and stop date stings ('YYYY-MM-DD')
+    # returns:
+    #   figures: dict; {algo: {symbol: {date: figure}}}
+    #   barsets: dict; {symbol: DataFrame}
+
+    # TODO: empty list to plot all
 
     # suppress SettingWithCopyWarning
     pd.set_option('mode.chained_assignment', None)
@@ -157,172 +166,179 @@ def plot_backtest(backtestName: str, barFreq: str, symbol: str, dates: list, alg
     c.barPath = path + 'bars/'
     c.logPath = path + 'logs/'
 
-    # get price data
-    bars = pd.read_csv(c.barPath + f'{barFreq}_{symbol}.csv',
-        header=0, index_col=0, parse_dates=True)
-    fromDate, toDate = get_dates(dates)
-    data = bars.loc[fromDate:toDate]
-    data.loc[data.index[-1] + timedelta(minutes=2)] = data.iloc[-1] # fixes year out of range bug
-    data.index = pd.DatetimeIndex(data.index).tz_convert(nyc) # pylint: disable=no-member
-    
-    figs = [] # TODO: rename
-    labels = [] # algos -> figs -> axs -> labels
-    for ii, algoName in enumerate(algoNames):
-        # get trades
-        data['trades'] = 0
-        data['tradePrice'] = 0
-        data['tradeQty'] = 0
-        with open(c.logPath + algoName + '.log') as f, patch('tick_algos.c', c2):
-            while True:
-                try: line = next(f)
-                except: break
+    # get barsets
+    barsets = {} # {symbol: DataFrame}
+    for symbol in symbols:
+        # read csv
+        bars = pd.read_csv(c.barPath + f'{barFreq}_{symbol}.csv',
+            header=0, index_col=0, parse_dates=True)
+        
+        # filter to dates
+        fromDate, toDate = get_dates(dates)
+        bars.index = pd.DatetimeIndex(bars.index).tz_convert(nyc) # pylint: disable=no-member
+        bars = bars.loc[fromDate:toDate]
 
-                if algoName in line:
-                    time = nyc.localize(datetime.strptime(line[21:40], '%Y-%m-%d %H:%M:%S'))
-                    if fromDate < time and time < toDate:
-                        line = next(f)
-                        if 'Filled' in line and symbol in line:
-                            fillQty = int(line[14:20])
-                            algoQty = int(line[22:28])
+        # save bars
+        barsets[symbol] = bars
 
-                            if algoQty > 0:
-                                data.loc[time, 'trades'] = 1
-                            else:
-                                data.loc[time, 'trades'] = -1
-                            
-                            if fillQty:
-                                data.loc[time, 'trades'] *= 2
+    # get trades and plot
+    figures = {} # {symbol: {date: {algo: figure}}}
+    for algoName in algoNames:
+        figures[algoName] = {}
 
-                                fillPrice = float(line.split('@ ')[1])
-                                data.loc[time, 'tradePrice'] = fillPrice
+        for symbol in symbols:
+            figures[algoName][symbol] = {}
 
-                                data.loc[time, 'tradeQty'] = fillQty
+            # get trades
+            bars = barsets[symbol].copy()
+            bars['trades'] = 0
+            bars['tradePrice'] = 0
+            bars['tradeQty'] = 0
+            with open(c.logPath + algoName + '.log') as f, patch('tick_algos.c', c2):
+                while True:
+                    try: line = next(f)
+                    except: break
 
-                            else: # limit price
-                                # NOTE: update if tick_algos.get_limit_price changes
-                                if time in data.index:
-                                    if algoQty > 0:
-                                        prevTime = time - timedelta(minutes=1)
-                                        data.loc[time, 'tradePrice'] = data.close[prevTime] * (1 + c.limitPriceFrac)
-                                    else:
-                                        prevTime = time - timedelta(minutes=1)
-                                        data.loc[time, 'tradePrice'] = data.close[prevTime] * (1 - c.limitPriceFrac)
+                    if algoName in line:
+                        time = nyc.localize(datetime.strptime(line[21:40], '%Y-%m-%d %H:%M:%S'))
+                        if fromDate < time and time < toDate:
+                            line = next(f)
+                            if 'Filled' in line and symbol in line:
+                                fillQty = int(line[14:20])
+                                algoQty = int(line[22:28])
+
+                                if algoQty > 0:
+                                    bars.loc[time, 'trades'] = 1
                                 else:
-                                    print(time + ' Trade w/out bar')   
-                    elif time > toDate: break
-        data = data.sort_index() # sort new timestamps
+                                    bars.loc[time, 'trades'] = -1
+                                
+                                if fillQty:
+                                    bars.loc[time, 'trades'] *= 2
 
-        # plot
-        numDays = (toDate - fromDate).days
-        figs.append([])
-        labels.append([])
-        for jj in range(numDays):
+                                    fillPrice = float(line.split('@ ')[1])
+                                    bars.loc[time, 'tradePrice'] = fillPrice
 
-            # get date range
-            start = fromDate + timedelta(jj)
-            stop = fromDate + timedelta(jj+1)
-            dayData = data.loc[start:stop]
+                                    bars.loc[time, 'tradeQty'] = fillQty
 
-            # format plot
-            fig, axs = plt.subplots(2, sharex=True)
-            figs[ii].append(fig)
-            axs[1].tick_params('x', labelrotation=45)
+                                else: # limit price
+                                    # TODO: use tick_algos.get_limit_price
+                                    if time in bars.index:
+                                        if algoQty > 0:
+                                            prevTime = time - timedelta(minutes=1)
+                                            bars.loc[time, 'tradePrice'] = bars.close[prevTime] * (1 + c.limitPriceFrac)
+                                        else:
+                                            prevTime = time - timedelta(minutes=1)
+                                            bars.loc[time, 'tradePrice'] = bars.close[prevTime] * (1 - c.limitPriceFrac)
+                                    else:
+                                        print(time + ' Trade w/out bar')   
+                        elif time > toDate: break
+            bars = bars.sort_index() # sort new timestamps
 
-            # plot vwap
-            dayData.vwap.plot(ax=axs[0])
-            labels[ii].append([['vwap'], []])
+            # plot
+            numDays = (toDate - fromDate).days
+            for ii in range(numDays):
+                # get date range
+                start = fromDate + timedelta(ii)
+                stop = fromDate + timedelta(ii+1)
+                dayData = bars.loc[start:stop]
 
-            # plot ohlc
-            hl_height = dayData.high - dayData.low
-            oc_height = abs(dayData.open - dayData.close)
-            oc_bottom = dayData[['open', 'close']].min(axis=1)
-            up = dayData.open < dayData.close
-            down = dayData.open > dayData.close
-            axs[0].bar(dayData.index[up],   hl_height[up],   0.0001, dayData.low[up],   color='g')
-            axs[0].bar(dayData.index[down], hl_height[down], 0.0001, dayData.low[down], color='r')
-            axs[0].bar(dayData.index[up],   oc_height[up],   0.0005, oc_bottom[up],     color='g')
-            axs[0].bar(dayData.index[down], oc_height[down], 0.0005, oc_bottom[down],   color='r')
+                # new figure
+                fig, axs = plt.subplots(2, sharex=True)
+                figures[algoName][symbol][start.strftime('%Y-%m-%d')] = fig
 
-            # plot trades
-            try:
-                trades = dayData.tradePrice[dayData.trades == 2]
-                axs[0].plot(trades, 'r^', markersize=9, markeredgecolor='k')
-                labels[ii][jj][0].append('filled buy')
-            except: pass # plot fails if df is empty
-            try:
-                trades = dayData.tradePrice[dayData.trades == 1]
-                axs[0].plot(trades, 'k^', markersize=9)
-                labels[ii][jj][0].append('unfilled buy')
-            except: pass
-            try:
-                trades = dayData.tradePrice[dayData.trades == -1]
-                axs[0].plot(trades, 'kv', markersize=9)
-                labels[ii][jj][0].append('unfilled sell')
-            except: pass
-            try:
-                trades = dayData.tradePrice[dayData.trades == -2]
-                axs[0].plot(trades, 'gv', markersize=9, markeredgecolor='k')
-                labels[ii][jj][0].append('filled sell')
-            except: pass
+                # plot vwap
+                axs[0].plot(dayData.vwap, label='vwap')
 
-            # profit
-            try: profit = -100 / c.buyPow / c.maxPositionFrac * \
-                (dayData.tradePrice[dayData.trades.abs() == 2] * dayData.tradeQty[dayData.trades.abs() == 2]).sum()
-            except: profit = None
-            
-            # title and grid
-            axs[0].set_title(f'{algoName}\n{symbol}  |  {start.date()}  |  {profit:.3}%')
-            axs[0].grid(True)
-            axs[1].grid(True)
+                # plot ohlc
+                hl_height = dayData.high - dayData.low
+                oc_height = abs(dayData.open - dayData.close)
+                oc_bottom = dayData[['open', 'close']].min(axis=1)
+                up = dayData.open < dayData.close
+                down = dayData.open > dayData.close
+                axs[0].bar(dayData.index[up],   hl_height[up],   0.0001, dayData.low[up],   color='g')
+                axs[0].bar(dayData.index[down], hl_height[down], 0.0001, dayData.low[down], color='r')
+                axs[0].bar(dayData.index[up],   oc_height[up],   0.0005, oc_bottom[up],     color='g')
+                axs[0].bar(dayData.index[down], oc_height[down], 0.0005, oc_bottom[down],   color='r')
 
-            # plot volume
-            axs[1].bar(dayData.index, dayData.volume, 0.0005)
-            labels[ii][jj][1].append('volume')
+                # plot trades
+                try:
+                    trades = dayData.tradePrice[dayData.trades == 2]
+                    axs[0].plot(trades, 'r^', markersize=9, markeredgecolor='k', label='filled buy')
+                except: pass # plot fails if trades series is empty
+                try:
+                    trades = dayData.tradePrice[dayData.trades == 1]
+                    axs[0].plot(trades, 'k^', markersize=9, label='unfilled buy')
+                except: pass
+                try:
+                    trades = dayData.tradePrice[dayData.trades == -1]
+                    axs[0].plot(trades, 'kv', markersize=9, label='unfilled sell')
+                except: pass
+                try:
+                    trades = dayData.tradePrice[dayData.trades == -2]
+                    axs[0].plot(trades, 'gv', markersize=9, markeredgecolor='k', label='filled sell')
+                except: pass
 
-            # plot legend
-            figs[ii][jj].axes[0].legend(labels[ii][jj][0])
-            figs[ii][jj].axes[1].legend(labels[ii][jj][1])
+                # profit
+                try: profit = -100 / c.buyPow / c.maxPositionFrac * \
+                    (dayData.tradePrice[dayData.trades.abs() == 2] * dayData.tradeQty[dayData.trades.abs() == 2]).sum()
+                except: profit = None
+                
+                # plot volume
+                axs[1].bar(dayData.index, dayData.volume, 0.0005, label='volume')
+                
+                # format plot
+                axs[0].set_title(f'{algoName}\n{symbol}  |  {start.date()}  |  {profit:.3}%')
+                dateFmtr = mdates.DateFormatter('%H:%M', nyc)
+                axs[1].xaxis.set_major_formatter(dateFmtr)
+                axs[1].tick_params('x', labelrotation=45)
+                axs[0].grid(True)
+                axs[1].grid(True)
+                axs[0].legend()
+                axs[1].legend()
 
     # exit
-    bars = bars.loc[fromDate:toDate]
-    bars.index = pd.DatetimeIndex(bars.index).tz_convert(nyc) # pylint: disable=no-member
-    return figs, bars, labels
+    return figures, barsets
 
-def plot_indicators(figs: list, data: pd.DataFrame, labels: list, indicators: list, subplot: int = 0, invisibleIndicators: list = []):
-    # figs: pyplot figures
-    # data: barset
-    # labels: nested lists (figs -> axs -> labels)
+def plot_indicators(figures: dict, barsets: dict, indicators: list, subplot: int = 0, invisibleIndicators: list = []):
+    # figures: {algo: {symbol: {day: figure}}}
+    # barsets: {symbol: DataFrame}
     # indicators: indicators to plot
     # subplot: figure.axes index (0: overlay, 1: oscillator)
     # invisibleIndicators: indicator dependencies (not plotted)
 
-    # add indicator columns
-    for indList in (invisibleIndicators, indicators):
-        for indicator in indList:
-            data[indicator.name] = None
+    for symbol, bars in barsets.items():
+        # add indicator columns
+        for indList in (invisibleIndicators, indicators):
+            for indicator in indList:
+                bars[indicator.name] = None
 
-    # plot
-    fromDate = data.index[0].replace(hour=0, minute=0)
-    for ii, algoFigs in enumerate(figs):
-        for jj, fig in enumerate(algoFigs):
-            # get date range
-            start = fromDate + timedelta(jj)
-            stop = fromDate + timedelta(jj+1)
-            dayData = data.loc[start:stop]
-            
-            # get indicator values
-            for iii in range(len(dayData)):
-                for indList in (invisibleIndicators, indicators):
-                    for indicator in indList:
-                        jjj = dayData.columns.get_loc(indicator.name)
-                        dayData.iloc[iii, jjj] = indicator.get(dayData[:iii+1])
+        # plot
+        fromDate = bars.index[0].replace(hour=0, minute=0)
+        for algo in figures.keys():
+            for ii, date in enumerate(figures[algo][symbol].keys()):
+                fig = figures[algo][symbol][date]
 
-            # plot indicators
-            if subplot:
-                fig.axes[subplot].clear()
-                fig.axes[subplot].grid(True)
-                labels[ii][jj][subplot] = []
-            for indicator in indicators:
-                fig.axes[subplot].plot(dayData[indicator.name], linestyle=':')
-                labels[ii][jj][subplot].append(indicator.name)
-            fig.axes[subplot].legend(labels[ii][jj][subplot])
+                # get date range
+                start = fromDate + timedelta(ii)
+                stop = fromDate + timedelta(ii+1)
+                dayData = bars.loc[start:stop]
+                
+                # get indicator values
+                for iii in range(len(dayData)):
+                    for indList in (invisibleIndicators, indicators):
+                        for indicator in indList:
+                            jjj = dayData.columns.get_loc(indicator.name)
+                            dayData.iloc[iii, jjj] = indicator.get(dayData[:iii+1])
+
+                # format plot
+                if subplot:
+                    fig.axes[subplot].clear()
+                    dateFmtr = mdates.DateFormatter('%H:%M', nyc)
+                    fig.axes[subplot].xaxis.set_major_formatter(dateFmtr)
+                    fig.axes[subplot].tick_params('x', labelrotation=45)
+                    fig.axes[subplot].grid(True)
+
+                # plot indicators
+                for indicator in indicators:
+                    fig.axes[subplot].plot(dayData[indicator.name], linestyle=':', label=indicator.name)
+                fig.axes[subplot].legend()
