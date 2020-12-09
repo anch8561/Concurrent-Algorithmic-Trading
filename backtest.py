@@ -208,4 +208,4 @@ if __name__ == '__main__':
                 g.assets['min'][symbol] = bars.drop(bars.index[1:])
     
     # results
-    results.save_backtest_summary(args.dates, args.name)
+    results.save_backtest_summary(args.name, args.dates)
