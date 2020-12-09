@@ -23,11 +23,11 @@ def get_historic_min_bars(
         minBars = DataFrame()
 
         fromDateStr = dayBars[symbol].index[0].strftime('%Y-%m-%d')
-        fromDateIdx = timing.get_calendar_index(calendar, fromDateStr)
+        fromDateIdx, _ = timing.get_calendar_index(calendar, fromDateStr)
         fromDate = timing.get_market_open(calendar, fromDateIdx)
 
         toDateStr = dayBars[symbol].index[-1].strftime('%Y-%m-%d')
-        toDateIdx = timing.get_calendar_index(calendar, toDateStr)
+        toDateIdx, _ = timing.get_calendar_index(calendar, toDateStr)
         toDate = timing.get_market_close(calendar, toDateIdx) # include toDate
 
         while fromDate < toDate:
@@ -72,7 +72,7 @@ def get_historic_min_bars(
 
             # reset fromDate
             fromDate = minBars.index[-1] + timedelta(minutes=1)
-            fromDateIdx = timing.get_calendar_index(calendar, fromDate.strftime('%Y-%m-%d'))
+            fromDateIdx, _ = timing.get_calendar_index(calendar, fromDate.strftime('%Y-%m-%d'))
 
         # save bars
         minBars.to_csv(c.barPath + f'min_{symbol}.csv')

@@ -3,12 +3,14 @@ from datetime import datetime, timedelta
 
 nyc = pytz.timezone('America/New_York')
 
-def get_calendar_index(calendar: list, date: str) -> int:
+def get_calendar_index(calendar: list, date: str) -> (int, str):
     # calendar: alpaca.get_calendar()
     # date: e.g. '1996-02-13'
+    # returns:
+    #   index: calendar index of date (or next market day if date is not in calendar)
+    #   date: calendar date (same as date arg unless date is not in calendar)
     for ii, day in enumerate(calendar):
-        if day._raw['date'] == date:
-            return ii
+        if day._raw['date'] >= date: return ii, day._raw['date']
 
 def get_calendar_date(calendar: list, dateIdx: int) -> datetime:
     return nyc.localize(calendar[dateIdx].date)

@@ -151,11 +151,14 @@ if __name__ == '__main__':
 
     # init timing
     calendar = alpaca.get_calendar()
-    dateStr = args.dates[0]
-    dateIdx = timing.get_calendar_index(calendar, dateStr)
-    if dateIdx == None:
-        log.error(f'Start date {dateStr} is not a market day')
-        sys.exit()
+    dateIdx, dateStr = timing.get_calendar_index(calendar, args.dates[0])
+    if dateStr != args.dates[0]:
+        log.warning(f'Start date {args.dates[0]} is not a market day. Starting on {dateStr} instead')
+        args.dates[0] = dateStr
+        if dateStr > args.dates[1]:
+            log.error(f'Start date {args.dates[0]} is after stop date {args.dates[1]}')
+            sys.exit()
+            
     state = 'overnight'
 
     # init assets
