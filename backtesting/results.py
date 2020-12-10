@@ -95,14 +95,14 @@ def save_backtest_summary(backtestDir: str, dates: list = [], deltaNeutral: bool
     # deltaNeutral: whether to combine long and short versions of algos
 
     with open(c.resultsPath + backtestDir + '/results.txt', 'w', ) as f:
-        # get history and metrics
+        # get history, dates, and metrics
         if dates == []: # get dates
             history = get_backtest_history(backtestDir)
             dates = [history.index[0], history.index[-1]]
         else:
-            startDate = datetime.strptime(dates[0], '%Y-%m-%d')
-            stopDate = datetime.strptime(dates[1], '%Y-%m-%d')
             history = get_backtest_history(backtestDir, dates)
+        startDate = datetime.strptime(dates[0], '%Y-%m-%d')
+        stopDate = datetime.strptime(dates[1], '%Y-%m-%d')
         metrics = get_metrics(history)
 
         f.write(dates[0] + ' - ' + dates[1] + '\n')
