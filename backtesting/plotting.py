@@ -71,9 +71,9 @@ def plot_backtest(backtestName: str, barFreq: str, algoNames: list, symbols: lis
                         time = nyc.localize(datetime.strptime(line[21:40], '%Y-%m-%d %H:%M:%S'))
                         if fromDate < time and time < toDate:
                             line = next(f)
-                            if 'Filled' in line and symbol in line:
-                                fillQty = int(line[14:20])
-                                algoQty = int(line[22:28])
+                            if 'filled' in line and symbol in line:
+                                fillQty = int(line.split('/ ')[0][-6:])
+                                algoQty = int(line.split('/ ')[1][:6])
 
                                 if algoQty > 0:
                                     bars.loc[time, 'trades'] = 1

@@ -245,6 +245,21 @@ class Algo:
         if side not in ('buy', 'sell'):
             self.log.error(f'Unknown side {side}')
             return
+        
+        try: # check pending orders
+            if symbol in self.pendingOrders:
+                if (
+                    self.longShort == 'long' and
+                    self.pendingOrders[symbol]['qty'] > 0
+                ) or (
+                    self.longShort == 'short' and
+                    self.pendingOrders[symbol]['qty'] < 0
+                ):
+                    enterExit = 'enter'
+                else:
+                    enterExit = 'exit'
+                self.log.debug(tab(symbol, 6) + f'pending order to {enterExit}')
+        except Exception as e: self.log.exception(e)
 
         try: # exit position
             position = self.positions[symbol]['qty']
@@ -255,13 +270,10 @@ class Algo:
                 side == 'sell' and
                 position > 0 # long algo
             ):
-                if symbol in self.pendingOrders:
-                    self.log.debug(f'Pending order to exit {symbol}')
-                else:
-                    self.log.debug(f'Queuing order to exit {symbol}')
-                    self.queuedOrders[symbol] = {
-                        'qty': -position,
-                        'price': get_limit_price(symbol, side)}
+                qty = -position
+                price = get_limit_price(symbol, side)
+                self.log.debug(tab(symbol, 6) + 'queuing exit order:  ' + tab(qty, 6) + f'@ {price}')
+                self.queuedOrders[symbol] = {'qty': qty, 'price': price}
         except Exception as e: self.log.exception(e)
         
         try: # enter position
@@ -282,14 +294,10 @@ class Algo:
                 if qty == 0: return
 
                 # queue order
-                if symbol in self.pendingOrders:
-                    self.log.debug(f'Pending order to enter {symbol}')
-                else:
-                    self.log.debug(f'Queuing order to enter {symbol}')
-                    self.queuedOrders[symbol] = {
-                        'qty': qty,
-                        'price': price}
-                    self.buyPow -= abs(qty) * price
+                self.log.debug(tab(symbol, 6) + 'queuing enter order: ' + tab(qty, 6) + f'@ {price}')
+                self.queuedOrders[symbol] = {'qty': qty, 'price': price}
+                self.buyPow -= abs(qty) * price
+
         except Exception as e:
             if price == None:
                 self.log.debug(e)
@@ -315,6 +323,7 @@ class Algo:
                     self.queue_order(symbol, 'buy')
 
     def tick(self):
-        self.stop_loss()
+        try: self.stop_loss()
+        except Exception as e: self.log.exception(e)
         try: self.func(self)
         except Exception as e: self.log.exception(e)

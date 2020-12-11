@@ -133,6 +133,8 @@ def process_algo_trade(symbol, algo, fillQty, fillPrice):
             if algo.positions[symbol]['qty'] == 0:
                 algo.positions[symbol]['basis'] = 0
     except Exception as e: log.exception(e)
+    
+    algo.log.debug(tab(symbol, 6) + 'filled ' + tab(fillQty, 6) + '/ ' + tab(algoQty, 6) + f'@ {fillPrice}')
 
 def process_trade(data):
     # NOTE: ignore 'new', 'partial_fill', 'done_for_day', and 'replaced' events

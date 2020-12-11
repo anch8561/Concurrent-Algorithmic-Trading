@@ -92,22 +92,33 @@ def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
     if qty > 0: # buy
         if low <= limit:
             return qty, min(high, limit)
-    else: # sell
+    elif qty < 0: # sell
         if limit <= high:
             return qty, max(low, limit)
-    return 0, 0
+    else:
+        return 0, limit
 
 def process_trades(allAlgos: list):
     for algo in allAlgos:
+        # refund canceled orders
+        for symbol, order in algo.pendingOrders.items():
+            process_algo_trade(symbol, algo, 0, 0)
+
+        # remove canceled orders and "sumbit" queued orders
         algo.pendingOrders = algo.queuedOrders # copy reference
         algo.queuedOrders = {} # new reference
-        for symbol in algo.pendingOrders:
+
+        # fill orders
+        filledSymbols = []
+        for symbol, order in algo.pendingOrders.items():
             fillQty, fillPrice = get_trade_fill(symbol, algo)
-
-            algoQty = algo.pendingOrders[symbol]['qty']
-            algo.log.debug(f'Filled {tab(fillQty, 6)}/ {tab(algoQty, 6)}{symbol} @ {fillPrice}')
-
-            process_algo_trade(symbol, algo, fillQty, fillPrice)
+            if fillQty:
+                filledSymbols.append(symbol)
+                process_algo_trade(symbol, algo, fillQty, fillPrice)
+            algoQty = order['qty']
+            algo.log.debug(tab(symbol, 6) + 'filled ' + tab(fillQty, 6) + '/ ' + tab(algoQty, 6) + f'@ {fillPrice}')
+        for symbol in filledSymbols:
+            algo.pendingOrders.pop(symbol)
 
 if __name__ == '__main__':
     # parse arguments
@@ -193,7 +204,7 @@ if __name__ == '__main__':
                 if g.now.minute == 0: log.info(f'Progress update')
 
                 # tick algos
-                state = tick_algos.tick_algos(algos, indicators, state)
+                state = tick_algos.tick_algos(algos, indicators, state) # FIX: need new bars between queuing order and filling order
 
                 # update time
                 g.now, g.TTOpen, g.TTClose = timing.update_time(g.now, calendar, dateIdx)
