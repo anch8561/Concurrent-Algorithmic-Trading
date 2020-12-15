@@ -132,7 +132,6 @@ def KAMA_trend_stdev(self): # kwargs: numBars, numStdevs
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
-
 def KAMA_spread(self): # kwargs: effNumBars, fastNumBars, slowNumBars
     fastInd = str(self.effNumBars) + '_' + str(self.fastNumBars) + '_' + str(self.slowNumBars) + '_KAMA'
     slowInd = str(self.slowNumBars) + '_EMA'
@@ -155,12 +154,10 @@ def KAMA_spread(self): # kwargs: effNumBars, fastNumBars, slowNumBars
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
-
 def stdev_spread(self): # kwargs: numBars, numStdevsEnter, numStdevsExit
-    MAInd = f'10_2_30_KAMA'
+    MAInd = f'10_1_10_KAMA' # TODO: KAMA kwargs
     stdevInd = f'{self.numBars}_stdev'
     # TODO: close instead of vwap?
-    # TODO: do not enter after stop loss
 
     for symbol, bars in g.assets[self.barFreq].items():
         try:
@@ -187,55 +184,16 @@ def stdev_spread(self): # kwargs: numBars, numStdevsEnter, numStdevsExit
 def init_intraday_algos(loadData: bool) -> list:
     algos = []
     for longShort in ('long', 'short'):
-        # KAMA trend
-        # MAInd = Indicator(ind.KAMA, effNumBars=10, fastNumBars=1, slowNumBars=5)
-        # for numBars in [20]:
-        #     for numStdevs in [0.8]:
-        #         indicators = [
-        #             MAInd, # this must tick before moving_stdev
-        #             Indicator(ind.KAMA, effNumBars=10, fastNumBars=1, slowNumBars=numBars),
-        #             Indicator(ind.EMA, numBars=numBars),
-        #             Indicator(ind.moving_stdev, numBars=20, MAInd=MAInd)]
-        #         algos.append(Algo('min', KAMA_trend, indicators, longShort, loadData,
-        #             numBars=numBars, numStdevs=numStdevs))
-
         # stdev spread
         for numBars in [10, 20, 30]:
-            for numStdevsEnter in [1.0, 1.5, 2.0]:
-                for numStdevsExit in [1.0, 1.5, 2.0]:
+            for numStdevsEnter in [0.5, 1.0, 1.5, 2.0]:
+                for numStdevsExit in [0.5, 1.0, 1.5, 2.0]:
                     if numStdevsExit <= numStdevsEnter:
                         indicators = [
-                            Indicator(ind.KAMA, effNumBars=10, fastNumBars=2, slowNumBars=30),
+                            Indicator(ind.KAMA, effNumBars=10, fastNumBars=1, slowNumBars=10),
                             Indicator(ind.stdev, numBars=numBars)]
                         algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
                             numBars=numBars, numStdevsEnter=numStdevsEnter, numStdevsExit=numStdevsExit))
-        # for numBars in [10, 20]:
-        #     for numStdevsEnter in [1.0, 1.5]:
-        #         for numStdevsExit in [1.0, 1.5]:
-        #             if numStdevsExit <= numStdevsEnter:
-        #                 indicators = [
-        #                     Indicator(ind.KAMA, effNumBars=10, fastNumBars=2, slowNumBars=30),
-        #                     Indicator(ind.stdev, numBars=numBars)]
-        #                 algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
-        #                     numBars=numBars, numStdevsEnter=numStdevsEnter, numStdevsExit=numStdevsExit))
-        # for numBars in [30]:
-        #     for numStdevsEnter in [1.0, 1.5, 2.0]:
-        #         for numStdevsExit in [1.0, 1.5, 2.0]:
-        #             if numStdevsExit <= numStdevsEnter:
-        #                 indicators = [
-        #                     Indicator(ind.KAMA, effNumBars=10, fastNumBars=2, slowNumBars=30),
-        #                     Indicator(ind.stdev, numBars=numBars)]
-        #                 algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
-        #                     numBars=numBars, numStdevsEnter=numStdevsEnter, numStdevsExit=numStdevsExit))
-        
-        # KAMA spread
-        # for slowNumBars in (5, 10, 20):
-        #     for fastNumBars in (3, 5, 10):
-        #         if slowNumBars > fastNumBars:
-        #             for effNumBars in (10, 20, 30):
-        #                 algos.append(Algo('min', KAMA_spread, longShort, loadData,
-        #                     effNumBars=effNumBars, fastNumBars=fastNumBars, slowNumBars=slowNumBars))
-
     return algos
 
 # overnight
