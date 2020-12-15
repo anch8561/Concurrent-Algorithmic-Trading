@@ -38,7 +38,7 @@ class Algo:
         for key, val in kwargs.items():
             self.__setattr__(key, val)
             self.name += str(val) + '_'
-        self.name += barFreq + '_' + self.func.__name__ + '_' + longShort
+        self.name += f'{barFreq}_{func.__name__}_{stopLossFrac}_{stop_loss_func.__name__}_{longShort}'
         self.log = getLogger(self.name)
 
         # input validation
