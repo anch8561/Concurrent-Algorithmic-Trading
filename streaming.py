@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import config as c
 import globalVariables as g
 import timing
@@ -8,6 +10,12 @@ from datetime import timedelta
 from logging import getLogger
 from pandas import DataFrame
 from threading import Lock
+from typing import Dict, List, Literal, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import alpaca_trade_api
+    from algoClass import Algo
+    from indicators import Indicator
 
 log = getLogger('stream')
 
@@ -16,9 +24,12 @@ barsBacklog = {'sec': [], 'min': []}
 tradesBacklog = []
 backlogLock = Lock()
 
-def process_bar(barFreq, data, indicators):
-    # barFreq: 'sec', 'min', or 'day'
-    # data: raw stream data
+def process_bar(
+    barFreq: Literal['sec', 'min', 'day', 'all'],
+    data: alpaca_trade_api.entity.Agg,
+    indicators: Dict[
+        Literal['sec', 'min', 'day', 'all'],
+        List[Indicator]]):
 
     try: # add bar to g.assets (needs to be initialized first)
         newBar = DataFrame({
@@ -45,8 +56,10 @@ def process_bar(barFreq, data, indicators):
         g.lastBarReceivedTime = timing.get_time()
     except Exception as e: log.exception(f'{e}\n{data}')
 
-def compile_day_bars(indicators):
-    # indicators: dict of lists of indicators; {sec, min, day, all}
+def compile_day_bars(
+    indicators: Dict[
+        Literal['sec', 'min', 'day', 'all'],
+        List[Indicator]]):
 
     log.warning('Compiling day bars')
     openTime = timing.get_market_open()
@@ -81,11 +94,9 @@ def compile_day_bars(indicators):
             g.assets['day'][symbol] = dayBars
         except Exception as e: log.exception(e)
 
-def process_algo_trade(symbol, algo, fillQty, fillPrice):
-    # symbol: e.g. 'AAPL'
-    # algo: Algo object w/ pending order for symbol
-    # fillQty: int; signed # of shares filled
-    # fillPrice: float
+def process_algo_trade(symbol: str, algo: Algo, fillQty: int, fillPrice: float):
+    # algo: has pending order for symbol
+    # fillQty: signed # of shares filled
 
     try: # get order
         order = algo.pendingOrders[symbol]
@@ -136,7 +147,7 @@ def process_algo_trade(symbol, algo, fillQty, fillPrice):
     
     algo.log.debug(tab(symbol, 6) + 'filled ' + tab(fillQty, 6) + '/ ' + tab(algoQty, 6) + f'@ {fillPrice}')
 
-def process_trade(data):
+def process_trade(data: alpaca_trade_api.entity.Trade):
     # NOTE: ignore 'new', 'partial_fill', 'done_for_day', and 'replaced' events
 
     event = data.event
@@ -196,8 +207,11 @@ def process_trade(data):
             except Exception as e:
                 log.exception(f'{e}\n{data}')
 
-def process_bars_backlog(indicators):
-    # indicators: dict of lists of indicators; {sec, min, day, all}
+def process_bars_backlog(
+    indicators: Dict[
+        Literal['sec', 'min', 'day', 'all'],
+        List[Indicator]]):
+
     global barsBacklog
     for barFreq in ('sec', 'min'):
         for bar in barsBacklog[barFreq]:
@@ -210,17 +224,22 @@ def process_trades_backlog():
         process_trade(trade)
     tradesBacklog.clear()
 
-def process_backlogs(indicators):
+def process_backlogs(
+    indicators: Dict[
+        Literal['sec', 'min', 'day', 'all'],
+        List[Indicator]]):
+        
     backlogLock.acquire()
     process_bars_backlog(indicators)
     process_trades_backlog()
     backlogLock.release()
 
-# TODO: move process_trade/bar to executors while ensuring threadlock
-def stream(conn, allAlgos, indicators):
-    # conn: alpaca_trade_api.StreamConn instance
-    # allAlgos: list of all algos
-    # indicators: dict of lists of indicators; {sec, min, day, all}
+def stream(
+    conn: alpaca_trade_api.StreamConn,
+    allAlgos: List[Algo],
+    indicators: Dict[
+        Literal['sec', 'min', 'day', 'all'],
+        List[Indicator]]):
 
     channels = ['account_updates', 'trade_updates']
     for symbol in g.assets['min']:
@@ -240,7 +259,11 @@ def stream(conn, allAlgos, indicators):
 
     # pylint: disable=unused-variable
     @conn.on('A')
-    async def on_second(_conn, channel, data):
+    async def on_second(
+        _conn: alpaca_trade_api.StreamConn,
+        channel: str,
+        data: alpaca_trade_api.entity.Agg):
+
         if g.lock.locked():
             await acquire_backlog_lock()
             barsBacklog['sec'].append(data)
@@ -252,7 +275,11 @@ def stream(conn, allAlgos, indicators):
             await release_thread_lock()
 
     @conn.on('AM')
-    async def on_minute(_conn, channel, data):
+    async def on_minute(
+        _conn: alpaca_trade_api.StreamConn,
+        channel: str,
+        data: alpaca_trade_api.entity.Agg):
+
         if g.lock.locked():
             await acquire_backlog_lock()
             barsBacklog['min'].append(data)
@@ -264,11 +291,19 @@ def stream(conn, allAlgos, indicators):
             await release_thread_lock()
 
     @conn.on('account_updates')
-    async def on_account_update(_conn, channel, data):
+    async def on_account_update(
+        _conn: alpaca_trade_api.StreamConn,
+        channel: str,
+        data: alpaca_trade_api.entity.Account):
+
         log.warning(data)
 
     @conn.on('trade_updates')
-    async def on_trade_update(_conn, channel, data):
+    async def on_trade_update(
+        _conn: alpaca_trade_api.StreamConn,
+        channel: str,
+        data: alpaca_trade_api.entity.Trade):
+
         if g.lock.locked():
             await acquire_backlog_lock()
             tradesBacklog.append(data)
