@@ -201,12 +201,13 @@ def init_intraday_algos(loadData: bool) -> list:
             for numStdevsEnter in [0.5, 1.0, 1.5, 2.0]:
                 for numStdevsExit in [0.5, 1.0, 1.5, 2.0]:
                     if numStdevsExit <= numStdevsEnter:
-                        indicators = [
-                            Indicator(ind.KAMA, effNumBars=10, fastNumBars=1, slowNumBars=10),
-                            Indicator(ind.stdev, numBars=numBars)]
-                        algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
-                            stopLossFrac=c.stopLossFrac, stop_loss_func=stdev_spread_stop_loss, # TODO: test stop-loss strategies
-                            numBars=numBars, numStdevsEnter=numStdevsEnter, numStdevsExit=numStdevsExit))
+                        for stopLossFrac in [0.001, 0.002, 0.005]:
+                            indicators = [
+                                Indicator(ind.KAMA, effNumBars=10, fastNumBars=1, slowNumBars=10),
+                                Indicator(ind.stdev, numBars=numBars)]
+                            algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
+                                stopLossFrac, stdev_spread_stop_loss,
+                                numBars=numBars, numStdevsEnter=numStdevsEnter, numStdevsExit=numStdevsExit))
     return algos
 
 # overnight
