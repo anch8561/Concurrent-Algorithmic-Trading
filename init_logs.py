@@ -58,6 +58,10 @@ def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
     indicatorsHdlr.setLevel(logging.DEBUG)
     indicatorsHdlr.setFormatter(fmtr)
 
+    backtestHdlr = logging.FileHandler(c.logPath + 'backtest.log')
+    backtestHdlr.setLevel(logging.DEBUG)
+    backtestHdlr.setFormatter(fmtr)
+
     # toaddrs = c.criticalEmails if env == 'prod' else email.username
     # emailHdlr = logging.handlers.SMTPHandler(
     #     mailhost = ('smtp.gmail.com', 465),
@@ -87,8 +91,12 @@ def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
     indicatorsLog.setLevel(logging.DEBUG)
     indicatorsLog.addHandler(indicatorsHdlr)
 
-def init_algo_logs(allAlgos, fmtr: logging.Formatter):
-    # allAlgos: list of all algos
+    backtestLog = logging.getLogger('backtest')
+    backtestLog.setLevel(logging.DEBUG)
+    backtestLog.addHandler(backtestHdlr)
+
+def init_algo_logs(allAlgos: list, fmtr: logging.Formatter):
+    # allAlgos: Algo instances
     # fmtr: for custom log formatting
 
     for algo in allAlgos:
