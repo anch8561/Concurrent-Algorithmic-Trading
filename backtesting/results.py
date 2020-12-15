@@ -106,7 +106,7 @@ def save_backtest_summary(backtestDir: str, dates: list = [], deltaNeutral: bool
         metrics = get_metrics(history)
 
         f.write(dates[0] + ' - ' + dates[1] + '\n')
-        f.write(str(metrics) + '\n\n')
+        f.write(metrics.to_string() + '\n\n')
 
         # get periodic summaries
         detail = None
@@ -134,7 +134,7 @@ def save_backtest_summary(backtestDir: str, dates: list = [], deltaNeutral: bool
                 metrics = get_metrics(history)
 
                 f.write(dates[0] + ' - ' + dates[1] + '\n')
-                f.write(str(metrics) + '\n\n')
+                f.write(metrics.to_string() + '\n\n')
 
                 if detail == 'year':
                     startDate = startDate.replace(year=startDate.year+1, month=1, day=1) # start on Jan 1
