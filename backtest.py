@@ -79,30 +79,38 @@ def get_day_bars(indicators: dict):
     timestamp = timing.get_calendar_date(calendar, dateIdx)
     histBars.get_next_bars('day', timestamp, barGens, indicators, g.assets)
 
-def get_trade_fill(symbol: str, algo: Algo) -> (int, float):
+def get_trade_fill(symbol: str, algo: Algo, barIdx: int = -1) -> (int, float):
     # returns: qty, fillPrice
-    qty = algo.pendingOrders[symbol]['qty']
-    if algo.longShort == 'short' and qty < 0: # short enter price is NOT limit price
-        limit = tick_algos.get_limit_price(symbol, 'sell') # FIX: use prev bar
-    else:
-        limit = algo.pendingOrders[symbol]['price']
-    high = g.assets['min'][symbol].high[-1]
-    low = g.assets['min'][symbol].low[-1]
-    # NOTE: could be prev bar if current bar missing
-    if qty > 0: # buy
-        if low <= limit:
-            return qty, min(high, limit)
-    elif qty < 0: # sell
-        if limit <= high:
-            return qty, max(low, limit)
-    else:
-        return 0, limit
+    try:
+        qty = algo.pendingOrders[symbol]['qty']
+        if algo.longShort == 'short' and qty < 0: # short enter price is NOT limit price
+            limit = tick_algos.get_limit_price(symbol, 'sell', algo.barFreq, -2) # use prev bar
+        else:
+            limit = algo.pendingOrders[symbol]['price']
+        high = g.assets['min'][symbol].high[-1]
+        low = g.assets['min'][symbol].low[-1]
+        # NOTE: could be prev bar if current bar missing
+        if qty > 0: # buy
+            if low <= limit:
+                return qty, min(high, limit)
+        elif qty < 0: # sell
+            if limit <= high:
+                return qty, max(low, limit)
+        return 0, limit # no fill
+    except Exception as e:
+        log.exception(e)
+        return 0, 0
 
-def process_trades(allAlgos: list):
-    for algo in allAlgos:
+def process_trades(indicators):
+    # get next bars
+    histBars.get_next_bars('min', g.now, barGens, indicators, g.assets)
+
+    # process trades
+    for algo in algos['all']:
         # refund canceled orders
-        for symbol, order in algo.pendingOrders.items():
-            process_algo_trade(symbol, algo, 0, 0)
+        for symbol in algo.pendingOrders:
+            fillQty, fillPrice = get_trade_fill(symbol, algo, -2)
+            process_algo_trade(symbol, algo, fillQty, fillPrice)
 
         # remove canceled orders and "sumbit" queued orders
         algo.pendingOrders = algo.queuedOrders # copy reference
@@ -110,13 +118,13 @@ def process_trades(allAlgos: list):
 
         # fill orders
         filledSymbols = []
-        for symbol, order in algo.pendingOrders.items():
+        for symbol in algo.pendingOrders:
             fillQty, fillPrice = get_trade_fill(symbol, algo)
             if fillQty:
                 filledSymbols.append(symbol)
                 process_algo_trade(symbol, algo, fillQty, fillPrice)
-            algoQty = order['qty']
-            algo.log.debug(tab(symbol, 6) + 'filled ' + tab(fillQty, 6) + '/ ' + tab(algoQty, 6) + f'@ {fillPrice}')
+
+        # remove filled orders
         for symbol in filledSymbols:
             algo.pendingOrders.pop(symbol)
 
@@ -169,8 +177,6 @@ if __name__ == '__main__':
         if dateStr > args.dates[1]:
             log.error(f'Start date {args.dates[0]} is after stop date {args.dates[1]}')
             sys.exit()
-            
-    state = 'overnight'
 
     # init assets
     g.assets = init_assets(alpaca, calendar, algos['all'], indicators,
@@ -189,11 +195,13 @@ if __name__ == '__main__':
         stack.enter_context(patch('globalVariables.lock'))
         stack.enter_context(patch('tick_algos.c', c)) # limitPriceFrac, marketCloseTransitionPeriod
         stack.enter_context(patch('tick_algos.streaming.compile_day_bars', get_day_bars))
-        stack.enter_context(patch('tick_algos.process_queued_orders', process_trades))
+        stack.enter_context(patch('tick_algos.process_queued_orders'))
+        stack.enter_context(patch('tick_algos.streaming.process_backlogs', process_trades))
 
         # multiday loop
+        state = 'overnight'
         while dateStr <= args.dates[1]:
-            # start 1 min after open
+            # start at open
             g.now = timing.get_market_open(calendar, dateIdx)
             histBars.get_next_bars('min', g.now, barGens, indicators, g.assets)
             g.now, g.TTOpen, g.TTClose = timing.update_time(g.now, calendar, dateIdx)
@@ -204,14 +212,10 @@ if __name__ == '__main__':
                 if g.now.minute == 0: log.info(f'Progress update')
 
                 # tick algos
-                state = tick_algos.tick_algos(algos, indicators, state) # FIX: need new bars between queuing order and filling order
-
+                state = tick_algos.tick_algos(algos, indicators, state)
+                
                 # update time
                 g.now, g.TTOpen, g.TTClose = timing.update_time(g.now, calendar, dateIdx)
-
-                # get next bars
-                barTimestamp = g.now - timedelta(minutes=1)
-                histBars.get_next_bars('min', barTimestamp, barGens, indicators, g.assets)
 
             # update date
             dateIdx += 1
