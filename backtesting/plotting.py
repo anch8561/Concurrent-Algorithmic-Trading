@@ -72,33 +72,26 @@ def plot_backtest(backtestName: str, barFreq: str, algoNames: list, symbols: lis
                         if fromDate < time and time < toDate:
                             line = next(f)
                             if 'filled' in line and symbol in line:
+                                # get fill and side
                                 fillQty = int(line.split('/ ')[0][-6:])
-                                algoQty = int(line.split('/ ')[1][:6])
-
-                                if algoQty > 0:
-                                    bars.loc[time, 'trades'] = 1
-                                else:
-                                    bars.loc[time, 'trades'] = -1
-                                
                                 if fillQty:
-                                    bars.loc[time, 'trades'] *= 2
-
-                                    fillPrice = float(line.split('@ ')[1])
-                                    bars.loc[time, 'tradePrice'] = fillPrice
-
                                     bars.loc[time, 'tradeQty'] = fillQty
-
-                                else: # limit price
-                                    # TODO: use tick_algos.get_limit_price
-                                    if time in bars.index:
-                                        if algoQty > 0:
-                                            prevTime = time - timedelta(minutes=1)
-                                            bars.loc[time, 'tradePrice'] = bars.close[prevTime] * (1 + c.limitPriceFrac)
-                                        else:
-                                            prevTime = time - timedelta(minutes=1)
-                                            bars.loc[time, 'tradePrice'] = bars.close[prevTime] * (1 - c.limitPriceFrac)
+                                    if fillQty > 0:
+                                        bars.loc[time, 'trades'] = 2
                                     else:
-                                        print(time + ' Trade w/out bar')   
+                                        bars.loc[time, 'trades'] = -2
+                                else:
+                                    time -= timedelta(minutes=1) # plot when order was submitted, not canceled
+                                    algoQty = int(line.split('/ ')[1][:6])
+                                    if algoQty > 0:
+                                        bars.loc[time, 'trades'] = 1
+                                    else:
+                                        bars.loc[time, 'trades'] = -1
+
+                                # get price
+                                fillPrice = float(line.split('@ ')[1])
+                                bars.loc[time, 'tradePrice'] = fillPrice
+
                         elif time > toDate: break
             bars = bars.sort_index() # sort new timestamps
 
