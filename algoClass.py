@@ -223,14 +223,13 @@ class Algo:
         except Exception as e:
             self.log.exception(e); return 0
 
-        try: # check for position
+        try: # check position
             position = self.positions[symbol]['qty']
             if abs(position) < abs(qty): # position smaller than order
                 qty -= position # add to position
-                self.log.debug(tab(symbol, 6) + 'Have ' + tab(position, 6) + f'Ordering {qty}')
             else: # position large enough
-                self.log.debug(tab(symbol, 6) + f'position of {position} is large enough')
-                return 0
+                qty = 0
+            self.log.debug(tab(symbol, 6) + 'Have ' + tab(position, 6) + f'Ordering {qty}')
         except Exception as e:
             self.log.exception(e); return 0
 
@@ -246,6 +245,22 @@ class Algo:
             self.log.error(f'Unknown side {side}')
             return
         
+        try: # check queued orders
+            if symbol in self.queuedOrders:
+                if (
+                    self.longShort == 'long' and
+                    self.queuedOrders[symbol]['qty'] > 0
+                ) or (
+                    self.longShort == 'short' and
+                    self.queuedOrders[symbol]['qty'] < 0
+                ):
+                    enterExit = 'enter'
+                else:
+                    enterExit = 'exit'
+                self.log.debug(tab(symbol, 6) + f'already queued order to {enterExit}')
+                return
+        except Exception as e: self.log.exception(e)
+        
         try: # check pending orders
             if symbol in self.pendingOrders:
                 if (
@@ -259,23 +274,9 @@ class Algo:
                 else:
                     enterExit = 'exit'
                 self.log.debug(tab(symbol, 6) + f'pending order to {enterExit}')
+                return
         except Exception as e: self.log.exception(e)
 
-        try: # exit position
-            position = self.positions[symbol]['qty']
-            if (
-                side == 'buy' and
-                position < 0 # short algo
-            ) or (
-                side == 'sell' and
-                position > 0 # long algo
-            ):
-                qty = -position
-                price = get_limit_price(symbol, side)
-                self.log.debug(tab(symbol, 6) + 'queuing exit order:  ' + tab(qty, 6) + f'@ {price}')
-                self.queuedOrders[symbol] = {'qty': qty, 'price': price}
-        except Exception as e: self.log.exception(e)
-        
         try: # enter position
             if self.buyPow > c.minTradeBuyPow and (
                 side == 'buy' and
@@ -294,15 +295,31 @@ class Algo:
                 if qty == 0: return
 
                 # queue order
-                self.log.debug(tab(symbol, 6) + 'queuing enter order: ' + tab(qty, 6) + f'@ {price}')
+                self.log.debug(tab(symbol, 6) + 'queuing enter order for ' + tab(qty, 6) + f'@ {price}')
                 self.queuedOrders[symbol] = {'qty': qty, 'price': price}
                 self.buyPow -= abs(qty) * price
+                return
 
         except Exception as e:
             if price == None:
                 self.log.debug(e)
             else:
                 self.log.exception(e)
+        
+        try: # exit position
+            position = self.positions[symbol]['qty']
+            if (
+                side == 'buy' and
+                position < 0 # short algo
+            ) or (
+                side == 'sell' and
+                position > 0 # long algo
+            ):
+                qty = -position
+                price = get_limit_price(symbol, side)
+                self.log.debug(tab(symbol, 6) + 'queuing exit order for ' + tab(qty, 6) + f'@ {price}')
+                self.queuedOrders[symbol] = {'qty': qty, 'price': price}
+        except Exception as e: self.log.exception(e)
 
     def exit_position(self, symbol: str):
         # symbol: e.g. 'AAPL'
@@ -311,15 +328,16 @@ class Algo:
 
     def stop_loss(self):
         for symbol, position in self.positions.items():
+            price = g.assets['min'][symbol].vwap[-1]
             if position['qty'] > 0: # long
                 stopLoss = position['basis'] * (1 - c.stopLossFrac)
-                if g.assets['min'][symbol].vwap[-1] < stopLoss:
-                    self.log.debug(tab(symbol, 6) + 'stop loss')
+                if price < stopLoss:
+                    self.log.debug(tab(symbol, 6) + 'stop loss @ ' + tab(price, 6) + f'< {stopLoss}')
                     self.queue_order(symbol, 'sell')
-            if position['qty'] < 0: # short
+            elif position['qty'] < 0: # short
                 stopLoss = position['basis'] * (1 + c.stopLossFrac)
-                if g.assets['min'][symbol].vwap[-1] > stopLoss:
-                    self.log.debug(tab(symbol, 6) + 'stop loss')
+                if price > stopLoss:
+                    self.log.debug(tab(symbol, 6) + 'stop loss @ ' + tab(price, 6) + f'> {stopLoss}')
                     self.queue_order(symbol, 'buy')
 
     def tick(self):
