@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import config as c
 import globalVariables as g
 from tab import tab
@@ -8,14 +10,28 @@ import json
 import statistics as stats
 from alpaca_trade_api.rest import APIError
 from logging import getLogger
-from types import FunctionType
+from typing import Callable, List, Literal, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from indicators import Indicator
 
 class Algo:
-    def __init__(self, barFreq: str, func: FunctionType, indicators: list, longShort: str, loadData: bool, **kwargs):
-        self.barFreq = barFreq # 'sec', 'min', or 'day'; size of market data aggregates used
-        self.func = func # function to determine when to buy and sell
-        self.indicators = indicators # list of indicators used by func
-        self.longShort = longShort # 'long' or 'short'; algo equity type
+    def __init__(self,
+        barFreq: Literal['sec', 'min', 'day'],
+        func: Callable[[Algo], None], 
+        indicators: List[Indicator],
+        longShort: Literal['long', 'short'],
+        loadData: bool,
+        stopLossFrac: float = c.stopLossFrac,
+        stop_loss_func: Callable[[Algo, str], bool] = lambda self, symbol: True,
+        **kwargs):
+
+        self.barFreq = barFreq # size of market data aggregates used
+        self.func = func # calls queue_order under certain conditions to make gains
+        self.indicators = indicators # indicators used by func or stop_loss_func
+        self.longShort = longShort # algo equity type
+        self.stopLossFrac = stopLossFrac # fractional loss before calling stop_loss_func
+        self.stop_loss_func = stop_loss_func # whether to exit position after stop-loss threshold is met
 
         # kwargs, name, and log
         self.name = ''
@@ -328,15 +344,15 @@ class Algo:
 
     def stop_loss(self):
         for symbol, position in self.positions.items():
-            price = g.assets['min'][symbol].vwap[-1]
+            price = g.assets[self.barFreq][symbol].vwap[-1]
             if position['qty'] > 0: # long
-                stopLoss = position['basis'] * (1 - c.stopLossFrac)
-                if price < stopLoss:
+                stopLoss = position['basis'] * (1 - self.stopLossFrac)
+                if price < stopLoss and self.stop_loss_func(self, symbol):
                     self.log.debug(tab(symbol, 6) + 'stop loss @ ' + tab(price, 6) + f'< {stopLoss}')
                     self.queue_order(symbol, 'sell')
             elif position['qty'] < 0: # short
-                stopLoss = position['basis'] * (1 + c.stopLossFrac)
-                if price > stopLoss:
+                stopLoss = position['basis'] * (1 + self.stopLossFrac)
+                if price > stopLoss and self.stop_loss_func(self, symbol):
                     self.log.debug(tab(symbol, 6) + 'stop loss @ ' + tab(price, 6) + f'> {stopLoss}')
                     self.queue_order(symbol, 'buy')
 

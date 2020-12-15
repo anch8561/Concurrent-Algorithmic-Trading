@@ -181,6 +181,18 @@ def stdev_spread(self): # kwargs: numBars, numStdevsEnter, numStdevsExit
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
+def stdev_spread_stop_loss(self, symbol):
+    # only exit if no enter signal
+
+    MAInd = f'10_1_10_KAMA' # TODO: KAMA kwargs
+    stdevInd = f'{self.numBars}_stdev'
+    bars = g.assets[self.barFreq][symbol]
+
+    if self.longShort == 'long':
+        return bars.vwap[-1] > bars[MAInd][-1] - self.numStdevsEnter * bars[stdevInd][-1]
+    elif self.longShort == 'short':
+        return bars.vwap[-1] < bars[MAInd][-1] + self.numStdevsEnter * bars[stdevInd][-1]
+
 def init_intraday_algos(loadData: bool) -> list:
     algos = []
     for longShort in ('long', 'short'):
@@ -193,6 +205,7 @@ def init_intraday_algos(loadData: bool) -> list:
                             Indicator(ind.KAMA, effNumBars=10, fastNumBars=1, slowNumBars=10),
                             Indicator(ind.stdev, numBars=numBars)]
                         algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
+                            stopLossFrac=c.stopLossFrac, stop_loss_func=stdev_spread_stop_loss, # TODO: test stop-loss strategies
                             numBars=numBars, numStdevsEnter=numStdevsEnter, numStdevsExit=numStdevsExit))
     return algos
 
