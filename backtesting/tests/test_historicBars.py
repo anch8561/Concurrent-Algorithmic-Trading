@@ -14,8 +14,8 @@ def test_get_historic_min_bars():
         # pylint: disable=unsubscriptable-object
         def get_calendar_index(calendar, str):
             for ii, date in enumerate(calendar):
-                if date['open'].strftime('%Y-%m-%d') == str:
-                    return ii
+                if date['open'].strftime('%Y-%m-%d') >= str:
+                    return ii, date['open'].strftime('%Y-%m-%d')
         def get_market_open(calendar, idx):
             return calendar[idx]['open']
         def get_market_close(calendar, idx):
@@ -39,7 +39,7 @@ def test_get_historic_min_bars():
     class alpaca:
         class polygon:
             def historic_agg_v2(self, symbol, multiplier, _from, to):
-                fromDateIdx = timing.get_calendar_index(
+                fromDateIdx, _ = timing.get_calendar_index(
                     calendar, _from.strftime('%Y-%m-%d'))
                 index = []
                 for day in calendar[fromDateIdx:fromDateIdx+10]:
@@ -101,7 +101,7 @@ def test_get_historic_min_bars():
     # expected AAPL index
     index = []
     for date in dayBars['AAPL'].index:
-        dateIdx = timing.get_calendar_index(calendar, date.strftime('%Y-%m-%d'))
+        dateIdx, _ = timing.get_calendar_index(calendar, date.strftime('%Y-%m-%d'))
         for ii in range(390):
             index.append(calendar[dateIdx]['open'] + timedelta(minutes=ii))
     assert all(to_csv.dfs[0].index == index)
@@ -110,7 +110,7 @@ def test_get_historic_min_bars():
     # expected MSFT index
     index = []
     for date in dayBars['MSFT'].index:
-        dateIdx = timing.get_calendar_index(calendar, date.strftime('%Y-%m-%d'))
+        dateIdx, _ = timing.get_calendar_index(calendar, date.strftime('%Y-%m-%d'))
         for ii in range(390):
             index.append(calendar[dateIdx]['open'] + timedelta(minutes=ii))
     assert all(to_csv.dfs[1].index == index)
