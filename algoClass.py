@@ -311,9 +311,10 @@ class Algo:
                 if qty == 0: return
 
                 # queue order
-                self.log.debug(tab(symbol, 6) + 'queuing enter order for ' + tab(qty, 6) + f'@ {price}')
                 self.queuedOrders[symbol] = {'qty': qty, 'price': price}
                 self.buyPow -= abs(qty) * price
+                if side == 'sell': price = get_limit_price(symbol, side) # get limit for log
+                self.log.debug(tab(symbol, 6) + 'queuing enter order for ' + tab(qty, 6) + f'@ {price}')
                 return
 
         except Exception as e:
@@ -333,8 +334,8 @@ class Algo:
             ):
                 qty = -position
                 price = get_limit_price(symbol, side)
-                self.log.debug(tab(symbol, 6) + 'queuing exit order for ' + tab(qty, 6) + f'@ {price}')
                 self.queuedOrders[symbol] = {'qty': qty, 'price': price}
+                self.log.debug(tab(symbol, 6) + 'queuing exit order for ' + tab(qty, 6) + f'@ {price}')
         except Exception as e: self.log.exception(e)
 
     def exit_position(self, symbol: str):
