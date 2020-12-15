@@ -25,7 +25,7 @@ tradesBacklog = []
 backlogLock = Lock()
 
 def process_bar(
-    barFreq: Literal['sec', 'min', 'day', 'all'],
+    barFreq: Literal['sec', 'min', 'day'],
     data: alpaca_trade_api.entity.Agg,
     indicators: Dict[
         Literal['sec', 'min', 'day', 'all'],
