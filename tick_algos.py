@@ -60,23 +60,26 @@ def update_algo_orders(combinedOrder):
     for algo in canceledAlgos:
         algos.remove(algo)
 
-def get_price(symbol):
+def get_price(symbol: str, barFreq: str = 'min', barIdx: int = -1):
     # symbol: e.g. 'AAPL'
-
+    # barFreq: 'sec', 'min', or 'day'
+    # barIdx: Dataframe index (-1 is most recent)
     try:
-        return g.assets['min'][symbol].close[-1]
+        return g.assets[barFreq][symbol].close[barIdx]
     except Exception as e:
         if symbol in g.assets['min']:
             log.exception(e, stack_info=True)
         else:
             log.debug(e, stack_info=True)
 
-def get_limit_price(symbol, side):
+def get_limit_price(symbol: str, side: str, barFreq: str = 'min', barIdx: int = -1):
     # symbol: e.g. 'AAPL'
     # side: 'buy' or 'sell'
+    # barFreq: 'sec', 'min', or 'day'
+    # barIdx: Dataframe index (-1 is most recent)
     
     try:
-        price = get_price(symbol)
+        price = get_price(symbol, barFreq, barIdx)
         if side == 'buy':
             price *= (1 + c.limitPriceFrac)
         elif side == 'sell':
@@ -156,8 +159,8 @@ class TradeData: # for combinedOrders w/ zero qty
             'filled_qty': 0}
         self.algos = combinedOrder['algos']
 
-def process_queued_orders(allAlgos):
-    # allAlgos: list of all algos
+def process_queued_orders(allAlgos: list):
+    # allAlgos: Algo instances
 
     log.info('Processing queued orders')
 
