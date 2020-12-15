@@ -67,10 +67,9 @@ def stdev(self, bars): # kwargs: numBars
     return bars.vwap[-self.numBars:].std()
 
 def moving_stdev(self, bars): # kwargs: numBars, MAInd
-    if any(bars[self.MAInd.name][-self.numBars:].isnull()):
-        return None
+    if any(bars[self.MAInd.name][-self.numBars:].isnull()): return None
     vec = bars.vwap[-self.numBars:] - bars[self.MAInd.name][-self.numBars:]
-    return vec.abs().sum() / (self.numBars - 1)**0.5
+    return ( (vec**2).sum() / (self.numBars - 1) )**0.5
 
 def vol_stdevs(self, bars): # kwargs: numBars
     volumes = bars.volume[-self.numBars:]
@@ -89,7 +88,7 @@ def EMA(self, bars): # kwargs: numBars
     new = bars.vwap[-1]
 
     # smoothing constant
-    SC = 2/(1+self.numBars)
+    SC = 2 / (1 + self.numBars)
 
     # exit
     return prev + SC * (new - prev)
@@ -107,8 +106,8 @@ def KAMA(self, bars): # kwargs: effNumBars, fastNumBars, slowNumBars
         ER = change / volatility
 
         # smoothing constants
-        fastSC = 2/(1+self.fastNumBars)
-        slowSC = 2/(1+self.slowNumBars)
+        fastSC = 2 / (1 + self.fastNumBars)
+        slowSC = 2 / (1 + self.slowNumBars)
         SC = (ER * (fastSC - slowSC) + slowSC)**2
 
         # 1st val (1st bar is empty)
