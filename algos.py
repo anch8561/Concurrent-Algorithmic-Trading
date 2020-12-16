@@ -28,8 +28,6 @@ def mom(self): # kwargs: numUpBars, numDownBars
             else:
                 self.log.exception(f'{symbol}\t{e}\n{bars.iloc[-numBars:]}')
 
-# TODO: mom_MACD
-
 def xo(self): # kwargs: fastNumBars, slowNumBars, stdevNumBars, numStdevs
     fastInd = str(self.fastNumBars) + '_EMA'
     slowInd = str(self.slowNumBars) + '_EMA'
@@ -155,7 +153,7 @@ def KAMA_spread(self): # kwargs: effNumBars, fastNumBars, slowNumBars
                 self.log.exception(f'{symbol}\t{e}\n{bars[-1]}')
 
 def stdev_spread(self): # kwargs: numBars, numStdevsEnter, numStdevsExit
-    MAInd = f'10_1_10_KAMA' # TODO: KAMA kwargs
+    MAInd = f'{self.numBars}_1_10_KAMA'
     stdevInd = f'{self.numBars}_stdev'
     # TODO: close instead of vwap?
 
@@ -184,7 +182,7 @@ def stdev_spread(self): # kwargs: numBars, numStdevsEnter, numStdevsExit
 def stdev_spread_stop_loss(self, symbol):
     # only exit if no enter signal
 
-    MAInd = f'10_1_10_KAMA' # TODO: KAMA kwargs
+    MAInd = f'{self.numBars}_1_10_KAMA'
     stdevInd = f'{self.numBars}_stdev'
     bars = g.assets[self.barFreq][symbol]
 
@@ -203,7 +201,7 @@ def init_intraday_algos(loadData: bool) -> list:
                     if numStdevsExit <= numStdevsEnter:
                         for stopLossFrac in [0.001, 0.002, 0.005]:
                             indicators = [
-                                Indicator(ind.KAMA, effNumBars=10, fastNumBars=1, slowNumBars=10),
+                                Indicator(ind.KAMA, effNumBars=numBars, fastNumBars=1, slowNumBars=10),
                                 Indicator(ind.stdev, numBars=numBars)]
                             algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
                                 stopLossFrac, stdev_spread_stop_loss,
