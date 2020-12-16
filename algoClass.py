@@ -350,7 +350,7 @@ class Algo:
                 stopLoss = position['basis'] * (1 - self.stopLossFrac)
                 if price < stopLoss and self.stop_loss_func(self, symbol):
                     self.log.debug(tab(symbol, 6) + 'stop loss @ ' + tab(price, 6) + f'< {stopLoss}')
-                    self.queue_order(symbol, 'sell')
+                    self.queue_order(symbol, 'sell') # TODO: market order
             elif position['qty'] < 0: # short
                 stopLoss = position['basis'] * (1 + self.stopLossFrac)
                 if price > stopLoss and self.stop_loss_func(self, symbol):
