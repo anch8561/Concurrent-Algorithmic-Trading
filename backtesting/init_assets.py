@@ -1,5 +1,6 @@
 import backtesting.config as c
 import backtesting.historicBars as histBars
+import backtesting.timing as timing
 
 import alpaca_trade_api, os, shutil, sys
 from datetime import datetime
@@ -42,6 +43,7 @@ def init_assets(
     else: # download barsets
         # download day bars and choose assets
         log.warning('Getting historic day bars')
+        toDate = timing.nyc.localize(datetime.strptime(dates[1], '%Y-%m-%d'))
         dayBars = {}
         alpacaAssets = alpaca.list_assets('active', 'us_equity')
         for ii, asset in enumerate(alpacaAssets):
@@ -50,7 +52,7 @@ def init_assets(
             # check leverage (ignore marginability and shortability)
             if not any(x in asset.name.lower() for x in c.leverageStrings):
                 try: # check age, price, cash flow, and spread
-                    bars = alpaca.polygon.historic_agg_v2(asset.symbol, 1, 'day', *dates).df
+                    bars = alpaca.polygon.historic_agg_v2(asset.symbol, 1, 'day', *dates).df[:toDate]
                     if (
                         bars.index[0].strftime('%Y-%m-%d') == dates[0] and
                         bars.low[-1] > c.minSharePrice and
