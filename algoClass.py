@@ -23,7 +23,7 @@ class Algo:
         longShort: Literal['long', 'short'],
         loadData: bool,
         stopLossFrac: float = c.stopLossFrac,
-        stop_loss_func: Callable[[Algo, str], bool] = lambda self, symbol: True,
+        stop_loss_func: Callable[[Algo, str], bool] = None,
         **kwargs):
 
         self.barFreq = barFreq # size of market data aggregates used
@@ -31,14 +31,19 @@ class Algo:
         self.indicators = indicators # indicators used by func or stop_loss_func
         self.longShort = longShort # algo equity type
         self.stopLossFrac = stopLossFrac # fractional loss before calling stop_loss_func
-        self.stop_loss_func = stop_loss_func # whether to exit position after stop-loss threshold is met
+        if stop_loss_func == None:
+            self.stop_loss_func = lambda self, symbol: True
+            stopLossFuncName = 'none'
+        else:
+            self.stop_loss_func = stop_loss_func # whether to exit position after stop-loss threshold is met
+            stopLossFuncName = stop_loss_func.__name__
 
         # kwargs, name, and log
         self.name = ''
         for key, val in kwargs.items():
             self.__setattr__(key, val)
             self.name += str(val) + '_'
-        self.name += f'{barFreq}_{func.__name__}_{stopLossFrac}_{stop_loss_func.__name__}_{longShort}'
+        self.name += f'{barFreq}_{func.__name__}_{stopLossFrac}_{stopLossFuncName}_{longShort}'
         self.log = getLogger(self.name)
 
         # input validation
