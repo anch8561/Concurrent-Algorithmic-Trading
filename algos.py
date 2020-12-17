@@ -196,16 +196,21 @@ def init_intraday_algos(loadData: bool) -> list:
     for longShort in ('long', 'short'):
         # stdev spread
         for numBars in [10, 20, 30]:
-            for numStdevsEnter in [0.5, 1.0, 1.5, 2.0]:
-                for numStdevsExit in [0.5, 1.0, 1.5, 2.0]:
-                    if numStdevsExit <= numStdevsEnter:
-                        for stopLossFrac in [0.001, 0.002, 0.005]:
-                            indicators = [
-                                Indicator(ind.KAMA, effNumBars=numBars, fastNumBars=1, slowNumBars=10),
-                                Indicator(ind.stdev, numBars=numBars)]
-                            algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
-                                stopLossFrac, stdev_spread_stop_loss,
-                                numBars=numBars, numStdevsEnter=numStdevsEnter, numStdevsExit=numStdevsExit))
+            # for numStdevsEnter in [0.5, 1.0, 1.5, 2.0]:
+            #     for numStdevsExit in [0.5, 1.0, 1.5, 2.0]:
+            #         if numStdevsExit <= numStdevsEnter:
+            #             for stopLossFrac in [0.001, 0.002, 0.005]:
+            #                 indicators = [
+            #                     Indicator(ind.KAMA, effNumBars=numBars, fastNumBars=1, slowNumBars=10),
+            #                     Indicator(ind.stdev, numBars=numBars)]
+            #                 algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
+            #                     stopLossFrac, stdev_spread_stop_loss,
+            #                     numBars=numBars, numStdevsEnter=numStdevsEnter, numStdevsExit=numStdevsExit))
+            indicators = [
+                Indicator(ind.KAMA, effNumBars=numBars, fastNumBars=1, slowNumBars=10),
+                Indicator(ind.stdev, numBars=numBars)]
+            algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
+                numBars=numBars, numStdevsEnter=1.0, numStdevsExit=0.5))
     return algos
 
 # overnight
