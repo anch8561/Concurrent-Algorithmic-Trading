@@ -280,8 +280,8 @@ def init_algos(
     except: pass
 
     # create algos
-    intradayAlgos = init_intraday_algos(loadData)
-    overnightAlgos = init_overnight_algos(loadData)
+    intradayAlgos = init_intraday_algos(loadData, algoPath)
+    overnightAlgos = init_overnight_algos(loadData, algoPath)
 
     # populate dictionary
     algos = {

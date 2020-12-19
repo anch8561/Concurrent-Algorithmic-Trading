@@ -38,6 +38,7 @@ class Algo:
         else:
             self.stop_loss_func = stop_loss_func # whether to exit position after stop-loss threshold is met
             stopLossFuncName = stop_loss_func.__name__
+        self.algoPath = algoPath
 
         # kwargs, name, and log
         self.name = ''
@@ -71,7 +72,7 @@ class Algo:
             'history']
 
         # load data
-        if loadData: self.load_data(algoPath)
+        if loadData: self.load_data()
 
     def activate(self):
         self.active = True
@@ -108,7 +109,7 @@ class Algo:
             self.update_history('stop')
             self.save_data()
 
-    def save_data(self, algoPath: str = c.algoPath):
+    def save_data(self):
         try: # get data
             data = {}
             for field in self.dataFields:
@@ -117,14 +118,14 @@ class Algo:
         except Exception as e: self.log.exception(e)
         
         try: # write data
-            fileName = algoPath + self.name + '.json'
+            fileName = self.algoPath + self.name + '.json'
             with open(fileName, 'w') as f:
                 json.dump(data, f, indent=4)
         except Exception as e: self.log.exception(e)
 
-    def load_data(self, algoPath: str = c.algoPath):
+    def load_data(self):
         try: # read data
-            fileName = algoPath + self.name + '.json'
+            fileName = self.algoPath + self.name + '.json'
             with open(fileName, 'r') as f:
                 data = json.load(f)
         except Exception as e:
