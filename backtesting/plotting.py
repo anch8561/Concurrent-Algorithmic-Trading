@@ -30,14 +30,14 @@ def plot_backtest(backtestName: str, barFreq: str, algoNames: list, symbols: lis
     # import backtest config
     path = c.resultsPath + backtestName + '/'
     c2 = importlib.import_module(path.replace('/', '.') + 'config')
-    c.barPath = path + 'bars/'
-    c.logPath = path + 'logs/'
+    barPath = path + 'bars/'
+    logPath = path + 'logs/'
 
     # get barsets
     barsets = {} # {symbol: DataFrame}
     for symbol in symbols:
         # read csv
-        bars = pd.read_csv(c.barPath + f'{barFreq}_{symbol}.csv',
+        bars = pd.read_csv(barPath + f'{barFreq}_{symbol}.csv',
             header=0, index_col=0, parse_dates=True)
         
         # filter to dates
@@ -62,7 +62,7 @@ def plot_backtest(backtestName: str, barFreq: str, algoNames: list, symbols: lis
             bars['trades'] = 0
             bars['tradePrice'] = 0
             bars['tradeQty'] = 0
-            with open(c.logPath + algoName + '.log') as f, patch('tick_algos.c', c2):
+            with open(logPath + algoName + '.log') as f, patch('tick_algos.c', c2):
                 while True:
                     try: line = next(f)
                     except: break

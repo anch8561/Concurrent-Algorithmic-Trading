@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import config as c
 import globalVariables as g
 import indicators as ind
@@ -5,8 +7,11 @@ from algoClass import Algo
 from indicators import Indicator
 from init_logs import init_algo_logs
 
-from logging import Formatter
 from os import mkdir
+from typing import Dict, List, Literal, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import logging
 
 # NOTE: kwargs must be in correct order to generate correct name
 
@@ -191,7 +196,7 @@ def stdev_spread_stop_loss(self, symbol):
     elif self.longShort == 'short':
         return bars.vwap[-1] < bars[MAInd][-1] + self.numStdevsEnter * bars[stdevInd][-1]
 
-def init_intraday_algos(loadData: bool) -> list:
+def init_intraday_algos(loadData: bool, algoPath: str = c.algoPath) -> list:
     algos = []
     for longShort in ('long', 'short'):
         # stdev spread
@@ -209,7 +214,7 @@ def init_intraday_algos(loadData: bool) -> list:
             indicators = [
                 Indicator(ind.KAMA, effNumBars=numBars, fastNumBars=1, slowNumBars=10),
                 Indicator(ind.stdev, numBars=numBars)]
-            algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
+            algos.append(Algo('min', stdev_spread, indicators, longShort, loadData, algoPath=algoPath,
                 numBars=numBars, numStdevsEnter=1.0, numStdevsExit=0.5))
     return algos
 
@@ -246,21 +251,32 @@ def mom_vol(self): # kwargs: numBars
             if metrics[symbol] >= 0: break
             self.queue_order(symbol, 'sell')
 
-def init_overnight_algos(loadData: bool) -> list:
+def init_overnight_algos(loadData: bool, algoPath: str = c.algoPath) -> list:
     algos = []
     # for longShort in ('long', 'short'):
     #     for numBars in (3, 5, 10):
-    #         algos.append(Algo('day', mom_vol, longShort, loadData, numBars=numBars))
+    #         algos.append(Algo('day', mom_vol, longShort, loadData, algoPath=algoPath, numBars=numBars))
     return algos
 
 
 # all
-def init_algos(loadData: bool, logFmtr: Formatter) -> dict:
-    # loadData: whether to load algo data files
-    # logFmtr: for custom log formatting
+def init_algos(
+    loadData: bool, # whether to load algo json files
+    logFmtr: logging.Formatter, # for custom log formatting
+    algoPath: str = c.algoPath, # path to algo json files
+    logPath: str = c.logPath # path to algo log files
+    ) -> Dict[Literal['intraday', 'overnight', 'all'], List[Algo]]:
+    '''
+    loadData: bool; whether to load algo json files
+    logFmtr: logging.Formatter; for custom log formatting
+    algoPath: str; path to algo json files
+    logPath: str; path to algo log files
+
+    returns: dict of lists of algos; {'intraday', 'overnight', 'all'}
+    '''
 
     # create algoPath if needed
-    try: mkdir(c.algoPath)
+    try: mkdir(algoPath)
     except: pass
 
     # create algos
@@ -274,7 +290,7 @@ def init_algos(loadData: bool, logFmtr: Formatter) -> dict:
         'all': intradayAlgos + overnightAlgos}
     
     # init logs
-    init_algo_logs(algos['all'], logFmtr)
+    init_algo_logs(algos['all'], logFmtr, logPath)
 
     # exit
     return algos

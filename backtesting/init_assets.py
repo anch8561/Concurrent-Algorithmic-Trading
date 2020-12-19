@@ -17,6 +17,7 @@ def init_assets(
     indicators: dict,
     numAssets: int,
     useSavedAssets: bool,
+    barPath: str,
     dates: (str, str)) -> dict:
     # alpaca:
     # calendar:
@@ -27,7 +28,7 @@ def init_assets(
     # returns: assets dict; {barFreq: symbols: bars}
 
     # create barPath
-    os.mkdir(c.barPath)
+    os.mkdir(barPath)
 
     # get symbols
     if useSavedAssets: # get downloaded symbols
@@ -36,9 +37,9 @@ def init_assets(
         for name in fileNames:
             if name[:3] == 'day':
                 symbols.append(name[4:-4])
-                shutil.copyfile(c.savedBarPath + name, c.barPath + name)
+                shutil.copyfile(c.savedBarPath + name, barPath + name)
                 name = 'min' + name[3:]
-                shutil.copyfile(c.savedBarPath + name, c.barPath + name)
+                shutil.copyfile(c.savedBarPath + name, barPath + name)
                 if len(symbols) == numAssets: break
     else: # download barsets
         # download day bars and choose assets
@@ -61,7 +62,7 @@ def init_assets(
                     ):
                         # save day bars
                         dayBars[asset.symbol] = bars
-                        bars.to_csv(c.barPath + f'day_{asset.symbol}.csv')
+                        bars.to_csv(barPath + f'day_{asset.symbol}.csv')
                 except Exception as e:
                     if len(bars.index): log.exception(e)
                     else:  log.debug(e)
@@ -69,7 +70,7 @@ def init_assets(
         symbols = list(dayBars.keys())
 
         # download min bars
-        histBars.get_historic_min_bars(alpaca, calendar, dayBars)
+        histBars.get_historic_min_bars(alpaca, calendar, dayBars, barPath)
 
     # add symbols to assets and positions
     assets = {'sec': {}, 'min': {}, 'day': {}}
