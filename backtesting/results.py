@@ -4,7 +4,6 @@ from algos import init_algos
 import os
 import pandas as pd
 from datetime import datetime, timedelta
-from unittest.mock import patch
 
 def get_combined_algo_history(algos: list, dates: list = []) -> pd.Series:
     # algos: algos to be combined
@@ -42,10 +41,9 @@ def get_backtest_history(backtestDir: str, dates: list = [], deltaNeutral: bool 
     # returns: growth fractions of algos with date str index
 
     # init algos
-    c.algoPath = c.resultsPath + backtestDir + '/algos/'
-    c.logPath = c.resultsPath + backtestDir + '/logs/'
-    with patch('algos.c', c), patch('algoClass.c', c):
-        algos = init_algos(True, None)
+    algoPath = c.resultsPath + backtestDir + '/algos/'
+    logPath = c.resultsPath + backtestDir + '/logs/'
+    algos = init_algos(True, None, algoPath, logPath)
     
     # get history
     history = pd.DataFrame()

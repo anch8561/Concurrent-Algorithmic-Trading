@@ -25,13 +25,20 @@ def init_log_formatter():
     fmtr.formatTime = formatDatetime
     return fmtr
 
-def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
-    # logLevel: e.g. 'info'; logging level to print to terminal
-    # env: environment; only send alert emails if env == 'prod'
-    # fmtr: for custom log formatting
+def init_primary_logs(
+    logLevel: str,
+    env: str,
+    fmtr: logging.Formatter,
+    logPath: str = c.logPath):
+    '''
+    logLevel: e.g. 'info'; logging level to print to terminal
+    env: environment; only send alert emails if env == 'prod'
+    fmtr: for custom log formatting
+    logPath: path to algo log files
+    '''
 
     # create logPath if needed
-    try: mkdir(c.logPath)
+    try: mkdir(logPath)
     except: pass
 
     # display full dataframes
@@ -42,23 +49,23 @@ def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
     consoleHdlr.setLevel(logLevel.upper())
     consoleHdlr.setFormatter(fmtr)
 
-    warningHdlr = logging.FileHandler(c.logPath + 'warning.log')
+    warningHdlr = logging.FileHandler(logPath + 'warning.log')
     warningHdlr.setLevel(logging.WARNING)
     warningHdlr.setFormatter(fmtr)
 
-    mainHdlr = logging.FileHandler(c.logPath + 'main.log')
+    mainHdlr = logging.FileHandler(logPath + 'main.log')
     mainHdlr.setLevel(logging.DEBUG)
     mainHdlr.setFormatter(fmtr)
     
-    streamHdlr = logging.FileHandler(c.logPath + 'stream.log')
+    streamHdlr = logging.FileHandler(logPath + 'stream.log')
     streamHdlr.setLevel(logging.DEBUG)
     streamHdlr.setFormatter(fmtr)
     
-    indicatorsHdlr = logging.FileHandler(c.logPath + 'indicators.log')
+    indicatorsHdlr = logging.FileHandler(logPath + 'indicators.log')
     indicatorsHdlr.setLevel(logging.DEBUG)
     indicatorsHdlr.setFormatter(fmtr)
 
-    backtestHdlr = logging.FileHandler(c.logPath + 'backtest.log')
+    backtestHdlr = logging.FileHandler(logPath + 'backtest.log')
     backtestHdlr.setLevel(logging.DEBUG)
     backtestHdlr.setFormatter(fmtr)
 
@@ -95,13 +102,13 @@ def init_primary_logs(logLevel: str, env: str, fmtr: logging.Formatter):
     backtestLog.setLevel(logging.DEBUG)
     backtestLog.addHandler(backtestHdlr)
 
-def init_algo_logs(allAlgos: list, fmtr: logging.Formatter):
+def init_algo_logs(allAlgos: list, fmtr: logging.Formatter, logPath: str = c.logPath):
     # allAlgos: Algo instances
     # fmtr: for custom log formatting
 
     for algo in allAlgos:
         # handler
-        logFileName = c.logPath + algo.name + '.log'
+        logFileName = logPath + algo.name + '.log'
         hdlr = logging.FileHandler(logFileName)
         hdlr.setLevel(logging.DEBUG)
         hdlr.setFormatter(fmtr)

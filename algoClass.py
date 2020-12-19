@@ -24,6 +24,7 @@ class Algo:
         loadData: bool,
         stopLossFrac: float = c.stopLossFrac,
         stop_loss_func: Callable[[Algo, str], bool] = None,
+        algoPath: str = c.algoPath,
         **kwargs):
 
         self.barFreq = barFreq # size of market data aggregates used
@@ -70,7 +71,7 @@ class Algo:
             'history']
 
         # load data
-        if loadData: self.load_data()
+        if loadData: self.load_data(algoPath)
 
     def activate(self):
         self.active = True
@@ -107,7 +108,7 @@ class Algo:
             self.update_history('stop')
             self.save_data()
 
-    def save_data(self):
+    def save_data(self, algoPath: str = c.algoPath):
         try: # get data
             data = {}
             for field in self.dataFields:
@@ -116,14 +117,14 @@ class Algo:
         except Exception as e: self.log.exception(e)
         
         try: # write data
-            fileName = c.algoPath + self.name + '.json'
+            fileName = algoPath + self.name + '.json'
             with open(fileName, 'w') as f:
                 json.dump(data, f, indent=4)
         except Exception as e: self.log.exception(e)
 
-    def load_data(self):
+    def load_data(self, algoPath: str = c.algoPath):
         try: # read data
-            fileName = c.algoPath + self.name + '.json'
+            fileName = algoPath + self.name + '.json'
             with open(fileName, 'r') as f:
                 data = json.load(f)
         except Exception as e:

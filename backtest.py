@@ -139,9 +139,9 @@ if __name__ == '__main__':
 
     # create backtest dir
     path = c.resultsPath + args.name + '/'
-    c.algoPath = path + 'algos/'
-    c.barPath = path + 'bars/'
-    c.logPath = path + 'logs/'
+    algoPath = path + 'algos/'
+    barPath = path + 'bars/'
+    logPath = path + 'logs/'
     try: os.mkdir(c.resultsPath)
     except: pass
     try: os.mkdir(path)
@@ -150,20 +150,18 @@ if __name__ == '__main__':
     shutil.copyfile('algos.py', path + 'algos.py')
     shutil.copyfile('backtesting/config.py', path + 'config.py')
 
-    # init logs, indicators, and algos
-    with patch('algos.c', c), patch('init_logs.c', c): # file paths
-        # init logs
-        logFmtr = init_log_formatter()
-        init_logs.init_primary_logs(args.log, 'backtest', logFmtr)
-        logging.getLogger('main').setLevel(30) # warning
-        log = logging.getLogger('backtest')
-        log.warning(f'Backtesting from {args.dates[0]} to {args.dates[1]}')
+    # init logs
+    logFmtr = init_log_formatter()
+    init_logs.init_primary_logs(args.log, 'backtest', logFmtr, logPath)
+    logging.getLogger('main').setLevel(30) # warning
+    log = logging.getLogger('backtest')
+    log.warning(f'Backtesting from {args.dates[0]} to {args.dates[1]}')
 
-        # init algos
-        algos = init_algos(False, logFmtr)
+    # init algos
+    algos = init_algos(False, logFmtr, algoPath, logPath)
 
-        # init indicators
-        indicators = init_indicators(algos['all'])
+    # init indicators
+    indicators = init_indicators(algos['all'])
 
     # init alpaca
     alpaca = alpaca_trade_api.REST(*dev.paper)
@@ -180,10 +178,10 @@ if __name__ == '__main__':
 
     # init assets
     g.assets = init_assets(alpaca, calendar, algos['all'], indicators,
-        args.numAssets, args.useSavedAssets, args.dates)
+        args.numAssets, args.useSavedAssets, barPath, args.dates)
 
     # init "streaming"
-    barGens = histBars.init_bar_gens(['min', 'day'], g.assets['day'])
+    barGens = histBars.init_bar_gens(barPath, ['min', 'day'], g.assets['day'])
 
     # main loops
     with ExitStack() as stack:

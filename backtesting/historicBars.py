@@ -12,7 +12,8 @@ log = getLogger('backtest')
 def get_historic_min_bars(
     alpaca: alpaca_trade_api.REST,
     calendar: list,
-    dayBars: dict):
+    dayBars: dict,
+    barPath: str):
     # calendar: alpaca.get_calendar()
     # dayBars: get_historic_day_bars()
     # saves csv for each symbol w/ minute bars from day bar date range
@@ -75,15 +76,15 @@ def get_historic_min_bars(
             fromDateIdx, _ = timing.get_calendar_index(calendar, fromDate.strftime('%Y-%m-%d'))
 
         # save bars
-        minBars.to_csv(c.barPath + f'min_{symbol}.csv')
+        minBars.to_csv(barPath + f'min_{symbol}.csv')
 
-def init_bar_gens(barFreqs: list, symbols: list) -> dict:
+def init_bar_gens(barPath: str, barFreqs: list, symbols: list) -> dict:
     barGens = {'sec': {}, 'min': {}, 'day': {}}
     for barFreq in barFreqs:
         for symbol in symbols:
             barGens[barFreq][symbol] = {
                 'buffer': None,
-                'generator': read_csv(c.barPath + f'{barFreq}_{symbol}.csv',
+                'generator': read_csv(barPath + f'{barFreq}_{symbol}.csv',
                     header=0, index_col=0, chunksize=1, parse_dates=True)}
     return barGens
 
