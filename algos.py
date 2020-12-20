@@ -209,7 +209,7 @@ def init_intraday_algos(loadData: bool, algoPath: str = c.algoPath) -> list:
             #                     Indicator(ind.KAMA, effNumBars=numBars, fastNumBars=1, slowNumBars=10),
             #                     Indicator(ind.stdev, numBars=numBars)]
             #                 algos.append(Algo('min', stdev_spread, indicators, longShort, loadData,
-            #                     stopLossFrac, stdev_spread_stop_loss,
+            #                     stopLossFrac, stdev_spread_stop_loss, algoPath
             #                     numBars=numBars, numStdevsEnter=numStdevsEnter, numStdevsExit=numStdevsExit))
             indicators = [
                 Indicator(ind.KAMA, effNumBars=numBars, fastNumBars=1, slowNumBars=10),
