@@ -28,23 +28,23 @@ def parse_args(args):
         nargs = 2,
         help = '2 dates since 2004-01-01 (must be market days)')
     parser.add_argument(
+        '--log',
+        choices = ['debug', 'info', 'warn', 'warning', 'error', 'critical'],
+        default = c.defaultLogLevel,
+        help = f'logging level to display (default: {c.defaultLogLevel})')
+    parser.add_argument(
         '--name',
         default = '',
-        help = 'backtest will be saved in a folder named <timestamp + name> (e.g. 2001-02-03_12:34:56_myBacktest)')
+        help = 'backtest will be saved in a folder named <timestamp + name> (e.g. 2001-02-03_12-34-56_myBacktest)')
     parser.add_argument(
         '--numAssets',
         default = c.numAssets,
         type = int,
         help = f'number of tickers to use (default: {c.numAssets}, -1 means all)')
     parser.add_argument(
-        '--useSavedAssets',
-        action = 'store_true',
-        help = 'use previously downloaded barsets')
-    parser.add_argument(
-        '--log',
-        choices = ['debug', 'info', 'warn', 'warning', 'error', 'critical'],
-        default = c.defaultLogLevel,
-        help = f'logging level to display (default: {c.defaultLogLevel})')
+        '--savedBarPath',
+        default = '',
+        help = f'directory where barsets will be retrieved instead of downloading (default: download barsets)')
     return parser.parse_args(args)
 
 def init_log_formatter():
@@ -131,11 +131,15 @@ def process_trades(indicators):
 if __name__ == '__main__':
     # parse arguments
     args = parse_args(sys.argv[1:])
+
+    # name
+    if args.name: args.name = '_' + args.name # prepend underscore
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    if args.name:
-        args.name = timestamp + '_' + args.name
-    else:
-        args.name = timestamp
+    args.name = timestamp + args.name # prepend timestamp
+
+    # savedBarPath
+    if args.savedBarPath and args.savedBarPath[-1] != '/':
+        args.savedBarPath += '/' # append slash
 
     # create backtest dir
     path = c.resultsPath + args.name + '/'
@@ -177,8 +181,15 @@ if __name__ == '__main__':
             sys.exit()
 
     # init assets
-    g.assets = init_assets(alpaca, calendar, algos['all'], indicators,
-        args.numAssets, args.useSavedAssets, barPath, args.dates)
+    g.assets = init_assets(
+        alpaca = alpaca,
+        calendar = calendar,
+        allAlgos = algos['all'],
+        indicators = indicators,
+        dates = args.dates,
+        barPath = barPath,
+        numAssets = args.numAssets,
+        savedBarPath = args.savedBarPath)
 
     # init "streaming"
     barGens = histBars.init_bar_gens(barPath, ['min', 'day'], g.assets['day'])
