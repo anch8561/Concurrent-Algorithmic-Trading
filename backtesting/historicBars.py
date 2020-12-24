@@ -125,4 +125,4 @@ def get_next_bars(barFreq: str, timestamp: datetime, barGens: dict, indicators: 
                 barGen['buffer'] = nextBar # save to buffer
                 break
             else: # past timestamp
-                log.warning(tab(symbol, 6) + f'bar index < expected: {nextBar.index[0]} < {timestamp}')
+                # log.warning(tab(symbol, 6) + f'bar index < expected: {nextBar.index[0]} < {timestamp}')
