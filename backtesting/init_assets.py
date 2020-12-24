@@ -15,31 +15,24 @@ def init_assets(
     calendar: list,
     allAlgos: list,
     indicators: dict,
-    numAssets: int,
-    useSavedAssets: bool,
+    dates: (str, str),
     barPath: str,
-    dates: (str, str)) -> dict:
-    # alpaca:
-    # calendar:
-    # allALgos:
-    # numAssets:
-    # useSavedAssets:
-    # dates:
-    # returns: assets dict; {barFreq: symbols: bars}
+    numAssets: int,
+    savedBarPath: str) -> dict:
 
     # create barPath
     os.mkdir(barPath)
 
     # get symbols
-    if useSavedAssets: # get downloaded symbols
+    if savedBarPath: # get downloaded symbols
         symbols = []
-        fileNames = os.listdir(c.savedBarPath)
+        fileNames = os.listdir(savedBarPath)
         for name in fileNames:
             if name[:3] == 'day':
                 symbols.append(name[4:-4])
-                shutil.copyfile(c.savedBarPath + name, barPath + name)
+                shutil.copyfile(savedBarPath + name, barPath + name)
                 name = 'min' + name[3:]
-                shutil.copyfile(c.savedBarPath + name, barPath + name)
+                shutil.copyfile(savedBarPath + name, barPath + name)
                 if len(symbols) == numAssets: break
     else: # download barsets
         # download day bars and choose assets
