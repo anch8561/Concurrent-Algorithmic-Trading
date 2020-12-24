@@ -13,7 +13,7 @@ from indicators import init_indicators
 from streaming import process_algo_trade
 from tab import tab
 
-import alpaca_trade_api, logging, os, shutil, sys
+import alpaca_trade_api, logging, os, subprocess, sys
 import pandas as pd
 from argparse import ArgumentParser, RawTextHelpFormatter
 from contextlib import ExitStack
@@ -150,9 +150,6 @@ if __name__ == '__main__':
     except: pass
     try: os.mkdir(path)
     except: pass
-    shutil.copyfile('algoClass.py', path + 'algoClass.py')
-    shutil.copyfile('algos.py', path + 'algos.py')
-    shutil.copyfile('backtesting/config.py', path + 'config.py')
 
     # init logs
     logFmtr = init_log_formatter()
@@ -160,6 +157,10 @@ if __name__ == '__main__':
     logging.getLogger('main').setLevel(30) # warning
     log = logging.getLogger('backtest')
     log.warning(f'Backtesting from {args.dates[0]} to {args.dates[1]}')
+
+    # log git commit
+    gitDesc = subprocess.run(['git', 'describe', '--always'], capture_output=True, text=True)
+    log.info(f'git commit: {gitDesc.stdout.strip()}')
 
     # init algos
     algos = init_algos(False, logFmtr, algoPath, logPath)
