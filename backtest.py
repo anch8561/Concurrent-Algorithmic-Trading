@@ -45,6 +45,11 @@ def parse_args(args):
         '--savedBarPath',
         default = '',
         help = f'directory where barsets will be retrieved instead of downloading (default: download barsets)')
+    parser.add_argument(
+        '--symbols',
+        default = [],
+        nargs = '*',
+        help = 'specify list of symbols to use (overrides numAssets)')
     return parser.parse_args(args)
 
 def init_log_formatter():
@@ -131,6 +136,7 @@ def process_trades(indicators):
 if __name__ == '__main__':
     # parse arguments
     args = parse_args(sys.argv[1:])
+    if args.symbols: args.numAssets = -1
 
     # name
     if args.name: args.name = '_' + args.name # prepend underscore
@@ -190,6 +196,7 @@ if __name__ == '__main__':
         dates = args.dates,
         barPath = barPath,
         numAssets = args.numAssets,
+        symbols = args.symbols,
         savedBarPath = args.savedBarPath)
 
     # init "streaming"
